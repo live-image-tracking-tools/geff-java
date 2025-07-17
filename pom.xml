@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.scijava</groupId>
+        <artifactId>pom-scijava</artifactId>
+        <version>40.0.0</version>
+    </parent>
+
+    <groupId>org.mastodon</groupId>
+    <artifactId>geff-java</artifactId>
+    <version>0.5.0-SNAPSHOT</version>
+
+    <properties>
+        <package-name>org.mastodon</package-name>
+        <license.licenseName>bsd_2</license.licenseName>
+        <license.projectName>geff-java</license.projectName>
+        <license.organizationName>Mastodon authors</license.organizationName>
+        <license.copyrightOwners>Ko Sugawara</license.copyrightOwners>
+
+        <mastodon.version>1.0.0-beta-34</mastodon.version>
+        <mastodon-tracking.version>1.0.0-beta-20</mastodon-tracking.version>
+        <mastodon.group>org.mastodon</mastodon.group>
+        <!-- when a pom-scijava exists that references the scijava-common 2.99.1 release, this can
+        be removed again -->
+        <scijava-common.version>2.99.1</scijava-common.version>
+
+        <releaseProfiles>sign,deploy-to-scijava</releaseProfiles>
+
+        <enforcer.skip>true</enforcer.skip>
+
+        <sonar.host.url>https://sonarcloud.io</sonar.host.url>
+        <sonar.java.coveragePlugin>jacoco</sonar.java.coveragePlugin>
+        <sonar.dynamicAnalysis>reuseReports</sonar.dynamicAnalysis>
+        <sonar.coverage.jacoco.xmlReportPaths>${project.basedir}/target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
+        <sonar.language>java</sonar.language>
+        <sonar.verbose>false</sonar.verbose>
+    </properties>
+
+    <name>geff Java implementation</name>
+    <description>An implementation of the geff library (https://github.com/live-image-tracking-tools/geff) in Java.</description>
+    <url>https://github.com/mastodon-sc/geff-java</url>
+    <inceptionYear>2025</inceptionYear>
+    <organization>
+        <name>Mastodon Science</name>
+        <url>http://github.com/mastodon-sc</url>
+    </organization>
+    <licenses>
+        <license>
+            <name>BSD-2-Clause</name>
+            <url>https://opensource.org/licenses/BSD-2-Clause</url>
+        </license>
+    </licenses>
+
+    <dependencies>
+        <!-- Mastodon Core -->
+        <dependency>
+            <groupId>org.mastodon</groupId>
+            <artifactId>mastodon</artifactId>
+            <version>${mastodon.version}</version>
+        </dependency>
+
+        <!-- include logback-classic at test runtime -->
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- include logback-core at test runtime -->
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- graph ml export -->
+        <dependency>
+            <groupId>org.jgrapht</groupId>
+            <artifactId>jgrapht-io</artifactId>
+        </dependency>
+
+        <!-- Test dependencies -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Mockito used in some unit tests -->
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>4.11.0</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- include mastodon at test runtime -->
+        <dependency>
+            <groupId>org.mastodon</groupId>
+            <artifactId>mastodon</artifactId>
+            <version>${mastodon.version}</version>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <mailingLists>
+        <mailingList>
+            <name>ImageJ Forum</name>
+            <archive>https://forum.image.sc/</archive>
+        </mailingList>
+    </mailingLists>
+
+    <scm>
+        <connection>scm:git:https:github.com/mastodon-sc/geff-java</connection>
+        <developerConnection>scm:git:git@github.com:mastodon-sc/geff-java</developerConnection>
+        <tag>HEAD</tag>
+        <url>https://github.com/mastodon-sc/geff-java</url>
+    </scm>
+    <issueManagement>
+        <system>GitHub</system>
+        <url>https://github.com/mastodon-sc/geff-java/issues</url>
+    </issueManagement>
+    <ciManagement>
+        <system>GitHub Actions</system>
+        <url>https://github.com/mastodon-sc/geff-java/actions</url>
+    </ciManagement>
+
+    <developers>
+        <developer>
+            <id>ksugar</id>
+            <name>Ko Sugawara</name>
+            <email>ko.sugawara@riken.jp</email>
+            <organization>RIKEN BDR</organization>
+            <organizationUrl>https://www.bdr.riken.jp/en/</organizationUrl>
+            <roles>
+                <role>lead</role>
+                <role>developer</role>
+            </roles>
+        </developer>
+    </developers>
+
+    <contributors>
+        <contributor>
+            <name>none</name>
+        </contributor>
+    </contributors>
+
+    <repositories>
+        <repository>
+            <id>scijava.public</id>
+            <url>https://maven.scijava.org/content/repositories/public/</url>
+        </repository>
+    </repositories>
+
+    <profiles>
+        <profile>
+            <id>build</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <build>
+                <plugins>
+                    <!-- Configure the maven-surefire-plugin to use a heap size of 4gb while running
+                    tests. -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <version>3.1.0</version>
+                        <configuration>
+                            <argLine>-Xmx4g</argLine>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>coverage</id>
+            <build>
+                <plugins>
+                    <!-- Configure the maven-surefire-plugin to use a heap size of 4gb while running
+                    tests for jacoco coverage analysis. -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <version>3.1.0</version>
+                        <configuration>
+                            <argLine>@{argLine} -Xmx4g</argLine>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.jacoco</groupId>
+                        <artifactId>jacoco-maven-plugin</artifactId>
+                        <version>0.8.7</version>
+                        <executions>
+                            <execution>
+                                <id>prepare-agent</id>
+                                <goals>
+                                    <goal>prepare-agent</goal>
+                                </goals>
+                            </execution>
+                            <execution>
+                                <id>report</id>
+                                <goals>
+                                    <goal>report</goal>
+                                </goals>
+                                <configuration>
+                                    <formats>
+                                        <format>XML</format>
+                                    </formats>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+</project>

@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+title: geff Java
+message: If you use this software, please cite it as below.
+type: software
+authors:
+    - family-names: Ko
+      given-names: Sugawara
+      orcid: https://orcid.org/0000-0002-1392-9340
+    - family-names: Tinevez
+      given-names: Jean-Yves
+      orcid: https://orcid.org/0000-0002-0998-4718
+date-released: 2025-07-17
+version: 0.1.0
+identifiers:
+  - description: All versions of this software
+    type: doi
+    value: undefined
+license: BSD-2-Clause
+repository-code: https://github.com/mastodon-sc/geff-java
