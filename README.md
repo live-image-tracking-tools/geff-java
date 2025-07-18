@@ -63,20 +63,36 @@ import java.util.List;
 import java.util.ArrayList;
 
 // Read Geff data from Zarr
-List<GeffNode> nodes = GeffNode.readFromZarrWithChunks("/path/to/data.zarr/tracks/nodes");
-List<GeffEdge> edges = GeffEdge.readFromZarrWithChunks("/path/to/data.zarr/tracks/edges");
+List<GeffNode> nodes = GeffNode.readFromZarr("/path/to/data.zarr/tracks/nodes");
+List<GeffEdge> edges = GeffEdge.readFromZarr("/path/to/data.zarr/tracks/edges");
 GeffMetadata metadata = GeffMetadata.readFromZarr("/path/to/data.zarr");
 
 // Create new Geff data
 List<GeffNode> newNodes = new ArrayList<>();
-GeffNode node = new GeffNode();
-node.setTimepoint(0);
-node.setPosition(new double[]{10.5, 20.3, 5.0});
-node.setSegmentId(1);
-newNodes.add(node);
+GeffNode node0 = new GeffNode();
+node0.setSegmentId(0);
+node0.setTimepoint(0);
+node0.setPosition(new double[]{10.5, 20.3, 5.0});
+newNodes.add(node0);
+GeffNode node1 = new GeffNode();
+node1.setSegmentId(1);
+node1.setTimepoint(1);
+node1.setPosition(new double[]{11.5, 21.3, 6.0});
+newNodes.add(node1);
 
 // Write to Zarr format
 GeffNode.writeToZarr(newNodes, "/path/to/output.zarr/tracks/nodes");
+
+// Create new edges
+List<GeffEdge> newEdges = new ArrayList<>();
+GeffEdge edge = new GeffEdge();
+edge.setSourceNodeId(0);
+edge.setTargetNodeId(1);
+// or
+// GeffEdge edge = new GeffEdge(0, 1);
+
+// Write to Zarr format
+GeffEdge.writeToZarr(newEdges, "/path/to/output.zarr/tracks/edges");
 
 // Create and write metadata
 GeffMetadata metadata = new GeffMetadata("0.1.1", true);
