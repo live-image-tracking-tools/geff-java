@@ -63,6 +63,12 @@
             <version>${mastodon.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>com.bc.zarr</groupId>
+            <artifactId>jzarr</artifactId>
+            <version>0.3.5</version>
+        </dependency>
+
         <!-- include logback-classic at test runtime -->
         <dependency>
             <groupId>ch.qos.logback</groupId>
@@ -153,6 +159,11 @@
         <repository>
             <id>scijava.public</id>
             <url>https://maven.scijava.org/content/repositories/public/</url>
+        </repository>
+        <repository>
+            <id>bc-nexus-repo</id>
+            <name>Brockmann-Consult Public Maven Repository</name>
+            <url>https://nexus.senbox.net/nexus/content/groups/public/</url>
         </repository>
     </repositories>
 

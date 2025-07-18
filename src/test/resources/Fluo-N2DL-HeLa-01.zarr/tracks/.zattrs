@@ -1,0 +1,18 @@
+{
+    "axis_names": [
+        "y",
+        "x"
+    ],
+    "axis_units": null,
+    "directed": true,
+    "geff_version": "0.1.1",
+    "position_attr": "position",
+    "roi_max": [
+        680.0,
+        1079.0
+    ],
+    "roi_min": [
+        4.088235294117647,
+        14.0
+    ]
+}
