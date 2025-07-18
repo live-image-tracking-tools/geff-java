@@ -1,4 +1,4 @@
-package org.mastodon;
+package org.mastodon.geff;
 
 import java.io.IOException;
 import java.util.Arrays;

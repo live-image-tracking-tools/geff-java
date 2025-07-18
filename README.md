@@ -58,7 +58,9 @@ Main utility class demonstrating library usage and providing examples.
 ## Usage Example
 
 ```java
-import org.mastodon.*;
+import org.mastodon.geff.GeffEdge;
+import org.mastodon.geff.GeffMetadata;
+import org.mastodon.geff.GeffNode;
 import java.util.List;
 import java.util.ArrayList;
 

@@ -1,11 +1,14 @@
-import org.mastodon.GeffNode;
-import org.mastodon.GeffEdge;
-import org.mastodon.GeffMetadata;
+package org.mastodon.geff;
+
 import ucar.ma2.InvalidRangeException;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+
+import org.mastodon.geff.GeffEdge;
+import org.mastodon.geff.GeffMetadata;
+import org.mastodon.geff.GeffNode;
 
 /**
  * Test class to verify the chunked writing functionality works correctly
