@@ -552,6 +552,9 @@ public class GeffNode implements ZarrEntity {
             // Write Z coordinates in chunks
             ZarrUtils.writeChunkedDoubleAttribute(nodes, propsGroup, "z", chunkSize, GeffNode::getZ);
 
+            // Write color in chunks
+            ZarrUtils.writeChunkedDoubleMatrix(nodes, propsGroup, "color", chunkSize, GeffNode::getColor, 4);
+
             // Write segment IDs in chunks
             ZarrUtils.writeChunkedIntAttribute(nodes, propsGroup, "track_id", chunkSize, GeffNode::getSegmentId);
 
