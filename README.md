@@ -11,36 +11,47 @@ The **Graph Exchange Format for Features (Geff)** is a standardized format for s
 
 ## Features
 
-- **Full Geff specification compliance** - Supports Geff versions 0.0, 0.1, and 0.2 (including patch versions like 0.1.1)
+- **Full Geff specification compliance** - Supports Geff versions 0.0, 0.1, 0.2, and 0.3 (including patch versions, development versions, and metadata like 0.2.2.dev20+g611e7a2.d20250719)
 - **Zarr-based storage** - Efficient chunked array storage for large-scale tracking data
 - **Complete data model** - Support for nodes (spatial-temporal features), edges (connections), and metadata
-- **Flexible metadata handling** - Optional ROI parameters, customizable axis names and units
+- **Flexible metadata handling** - Axis-based metadata with GeffAxis objects for spatial and temporal dimensions
 - **Type safety** - Strong typing with comprehensive validation
 - **Memory efficient** - Chunked reading and writing for handling large datasets
+- **Builder patterns** - Convenient object construction with builder classes for GeffNode and GeffEdge
 
 ## Core Classes
 
 ### GeffNode
 Represents nodes in tracking graphs with spatial and temporal attributes:
-- Time point information
+- Time point information (`t` property)
 - Spatial coordinates (x, y, z)
 - Segment identifiers
-- Multidimensional position arrays
-- Chunked Zarr I/O support
+- Additional properties: color, radius, covariance2d, covariance3d
+- Builder pattern for convenient object construction
+- Chunked Zarr I/O support for versions 0.1, 0.2, and 0.3
 
 ### GeffEdge  
 Represents connections between nodes in tracking graphs:
 - Source and target node references
-- Time point associations
+- Edge properties: score, distance
+- Builder pattern for convenient object construction
 - Chunked storage for efficient large-scale edge data
+- Support for different Geff version formats
+
+### GeffAxis
+Represents axis metadata for spatial and temporal dimensions:
+- Predefined constants for common axis names (t, x, y, z)
+- Type classifications (time, space)
+- Unit specifications with common constants
+- Optional min/max bounds for ROI definition
 
 ### GeffMetadata
 Handles Geff metadata with schema validation:
-- Version compatibility checking
-- Spatial metadata (ROI bounds, axis names/units)
+- Version compatibility checking with pattern matching for development versions
+- GeffAxis array for spatial/temporal metadata
 - Graph properties (directed/undirected)
-- Alphabetically ordered attribute output
-- Support for ArrayList data type conversion
+- Comprehensive validation with detailed error messages
+- Support for multiple Geff version formats (0.1, 0.2, 0.3)
 
 ### Geff
 Main utility class demonstrating library usage and providing examples.
@@ -61,6 +72,7 @@ Main utility class demonstrating library usage and providing examples.
 import org.mastodon.geff.GeffEdge;
 import org.mastodon.geff.GeffMetadata;
 import org.mastodon.geff.GeffNode;
+import org.mastodon.geff.GeffAxis;
 import java.util.List;
 import java.util.ArrayList;
 
@@ -69,37 +81,55 @@ List<GeffNode> nodes = GeffNode.readFromZarr("/path/to/data.zarr/tracks/nodes");
 List<GeffEdge> edges = GeffEdge.readFromZarr("/path/to/data.zarr/tracks/edges");
 GeffMetadata metadata = GeffMetadata.readFromZarr("/path/to/data.zarr");
 
-// Create new Geff data
+// Create new Geff data using builder pattern
 List<GeffNode> newNodes = new ArrayList<>();
-GeffNode node0 = new GeffNode();
-node0.setSegmentId(0);
-node0.setTimepoint(0);
-node0.setPosition(new double[]{10.5, 20.3, 5.0});
+GeffNode node0 = new GeffNode.Builder()
+    .id(0)
+    .timepoint(0)
+    .x(10.5)
+    .y(20.3)
+    .z(5.0)
+    .segmentId(0)
+    .color(new double[]{1.0, 0.0, 0.0, 1.0}) // Red color
+    .radius(2.5)
+    .build();
 newNodes.add(node0);
-GeffNode node1 = new GeffNode();
-node1.setSegmentId(1);
-node1.setTimepoint(1);
-node1.setPosition(new double[]{11.5, 21.3, 6.0});
+
+GeffNode node1 = new GeffNode.Builder()
+    .id(1)
+    .timepoint(1)
+    .x(11.5)
+    .y(21.3)
+    .z(6.0)
+    .segmentId(1)
+    .build();
 newNodes.add(node1);
 
-// Write to Zarr format
-GeffNode.writeToZarr(newNodes, "/path/to/output.zarr/tracks/nodes");
+// Write to Zarr format with version specification
+GeffNode.writeToZarr(newNodes, "/path/to/output.zarr/tracks/nodes", "0.3.0");
 
-// Create new edges
+// Create new edges using builder pattern
 List<GeffEdge> newEdges = new ArrayList<>();
-GeffEdge edge = new GeffEdge();
-edge.setSourceNodeId(0);
-edge.setTargetNodeId(1);
-// or
-// GeffEdge edge = new GeffEdge(0, 1);
+GeffEdge edge = new GeffEdge.Builder()
+    .setId(0)
+    .setSourceNodeId(0)
+    .setTargetNodeId(1)
+    .setScore(0.95)
+    .setDistance(1.4)
+    .build();
+newEdges.add(edge);
 
 // Write to Zarr format
-GeffEdge.writeToZarr(newEdges, "/path/to/output.zarr/tracks/edges");
+GeffEdge.writeToZarr(newEdges, "/path/to/output.zarr/tracks/edges", "0.3.0");
 
-// Create and write metadata
-GeffMetadata metadata = new GeffMetadata("0.1.1", true);
-metadata.setAxisNames(new String[]{"x", "y", "z"});
-metadata.setAxisUnits(new String[]{"μm", "μm", "μm"});
+// Create metadata with axis information
+GeffAxis[] axes = {
+    new GeffAxis(GeffAxis.NAME_TIME, GeffAxis.TYPE_TIME, GeffAxis.UNIT_SECONDS, 0.0, 100.0),
+    new GeffAxis(GeffAxis.NAME_SPACE_X, GeffAxis.TYPE_SPACE, GeffAxis.UNIT_MICROMETERS, 0.0, 1024.0),
+    new GeffAxis(GeffAxis.NAME_SPACE_Y, GeffAxis.TYPE_SPACE, GeffAxis.UNIT_MICROMETERS, 0.0, 1024.0),
+    new GeffAxis(GeffAxis.NAME_SPACE_Z, GeffAxis.TYPE_SPACE, GeffAxis.UNIT_MICROMETERS, 0.0, 100.0)
+};
+GeffMetadata metadata = new GeffMetadata("0.3.0", true, axes);
 GeffMetadata.writeToZarr(metadata, "/path/to/output.zarr");
 ```
 
@@ -123,16 +153,29 @@ dataset.zarr/
     ├── .zgroup
     ├── nodes/
     │   ├── .zgroup
-    │   ├── attrs/
+    │   ├── attrs/              # For Geff 0.1 format
     │   │   ├── t/              # Time points
     │   │   ├── x/              # X coordinates  
     │   │   ├── y/              # Y coordinates
     │   │   ├── seg_id/         # Segment IDs
     │   │   └── position/       # Multidimensional positions
+    │   ├── props/              # For Geff 0.2/0.3 format
+    │   │   ├── t/              # Time points
+    │   │   ├── x/              # X coordinates
+    │   │   ├── y/              # Y coordinates
+    │   │   ├── z/              # Z coordinates (optional)
+    │   │   ├── color/          # Node colors (optional)
+    │   │   ├── radius/         # Node radii (optional)
+    │   │   ├── track_id/       # Track identifiers (optional)
+    │   │   ├── covariance2d/   # 2D covariance matrices (optional)
+    │   │   └── covariance3d/   # 3D covariance matrices (optional)
     │   └── ids/
     │       └── 0               # Node ID chunks
     └── edges/
         ├── .zgroup
+        ├── props/              # For Geff 0.2/0.3 format
+        │   ├── distance/       # Edge distances (optional)
+        │   └── score/          # Edge scores (optional)
         └── ids/
             ├── 0.0             # Edge chunks (source nodes)
             └── 1.0             # Edge chunks (target nodes)
