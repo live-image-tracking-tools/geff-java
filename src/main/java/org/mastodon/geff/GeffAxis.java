@@ -112,6 +112,9 @@ public class GeffAxis {
 
     /**
      * Set both min and max bounds
+     * 
+     * @param min the minimum bound value
+     * @param max the maximum bound value
      */
     public void setBounds(Double min, Double max) {
         this.min = min;

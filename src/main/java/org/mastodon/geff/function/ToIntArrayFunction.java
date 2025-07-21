@@ -1,5 +1,7 @@
 package org.mastodon.geff.function;
 
+import java.util.function.Function;
+
 /**
  * Represents a function that produces a int-array result. This is the
  * {@code int} array-producing primitive specialization for {@link Function}.
