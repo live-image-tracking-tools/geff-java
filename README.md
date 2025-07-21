@@ -92,6 +92,7 @@ GeffNode node0 = new GeffNode.Builder()
     .segmentId(0)
     .color(new double[]{1.0, 0.0, 0.0, 1.0}) // Red color
     .radius(2.5)
+    .covariance2d(new double[]{1.0, 0.2, 0.2, 1.5}) // 2x2 covariance matrix flattened
     .build();
 newNodes.add(node0);
 
@@ -102,6 +103,7 @@ GeffNode node1 = new GeffNode.Builder()
     .y(21.3)
     .z(6.0)
     .segmentId(1)
+    .covariance2d(new double[]{0.8, 0.1, 0.1, 1.2}) // Different covariance
     .build();
 newNodes.add(node1);
 
