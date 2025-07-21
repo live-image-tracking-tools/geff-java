@@ -17,12 +17,18 @@ import ucar.ma2.InvalidRangeException;
  * An edge connects two nodes in a tracking graph, typically representing
  * temporal connections between objects across time points.
  */
-public class GeffEdge {
+public class GeffEdge implements ZarrEntity {
+
+    public static final int DEFAULT_EDGE_ID = -1; // Default ID for edges if not specified
+    public static final double DEFAULT_SCORE = -1; // Default score for edges if not specified
+    public static final double DEFAULT_DISTANCE = -1; // Default distance for edges if not specified
 
     // Edge attributes
     private int sourceNodeId;
     private int targetNodeId;
     private int id; // Edge ID if available
+    private double score; // Optional score for the edge
+    private double distance; // Optional distance metric for the edge
 
     /**
      * Default constructor
@@ -31,21 +37,14 @@ public class GeffEdge {
     }
 
     /**
-     * Constructor with source and target node IDs
-     */
-    public GeffEdge(int sourceNodeId, int targetNodeId) {
-        this.sourceNodeId = sourceNodeId;
-        this.targetNodeId = targetNodeId;
-        this.id = -1; // Default to -1 if no specific ID is assigned
-    }
-
-    /**
      * Constructor with edge ID, source and target node IDs
      */
-    public GeffEdge(int id, int sourceNodeId, int targetNodeId) {
+    public GeffEdge(int id, int sourceNodeId, int targetNodeId, double score, double distance) {
         this.id = id;
         this.sourceNodeId = sourceNodeId;
         this.targetNodeId = targetNodeId;
+        this.score = score;
+        this.distance = distance;
     }
 
     // Getters and Setters
@@ -73,148 +72,192 @@ public class GeffEdge {
         this.targetNodeId = targetNodeId;
     }
 
+    public double getScore() {
+        return score;
+    }
+
+    public void setScore(double score) {
+        this.score = score;
+    }
+
+    public double getDistance() {
+        return distance;
+    }
+
+    public void setDistance(double distance) {
+        this.distance = distance;
+    }
+
+    /**
+     * Builder pattern for creating GeffEdge instances
+     */
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static class Builder {
+        private int id = DEFAULT_EDGE_ID;
+        private int sourceNodeId;
+        private int targetNodeId;
+        private double score = DEFAULT_SCORE;
+        private double distance = DEFAULT_DISTANCE;
+
+        public Builder setId(int id) {
+            this.id = id;
+            return this;
+        }
+
+        public Builder setSourceNodeId(int sourceNodeId) {
+            this.sourceNodeId = sourceNodeId;
+            return this;
+        }
+
+        public Builder setTargetNodeId(int targetNodeId) {
+            this.targetNodeId = targetNodeId;
+            return this;
+        }
+
+        public Builder setScore(double score) {
+            this.score = score;
+            return this;
+        }
+
+        public Builder setDistance(double distance) {
+            this.distance = distance;
+            return this;
+        }
+
+        public GeffEdge build() {
+            return new GeffEdge(id, sourceNodeId, targetNodeId, score, distance);
+        }
+    }
+
     /**
      * Read edges from a Zarr group
      */
     public static List<GeffEdge> readFromZarr(String zarrPath) throws IOException, InvalidRangeException {
-        List<GeffEdge> edges = new ArrayList<>();
+        return readFromZarr(zarrPath, Geff.VERSION);
+    }
 
-        ZarrGroup edgesGroup = ZarrGroup.open(zarrPath + "/edges");
-
-        // Read edge IDs - this appears to be a 2D array where each row represents an
-        // edge
-        // with [source_node_id, target_node_id] format
-        ZarrArray idsArray = edgesGroup.openArray("ids");
-
-        // The edges/ids array contains pairs of node IDs representing connections
-        Object idsData = idsArray.read();
-
-        if (idsData instanceof int[][]) {
-            // 2D array case: each row is [source, target]
-            int[][] edgeIds = (int[][]) idsData;
-            for (int i = 0; i < edgeIds.length; i++) {
-                if (edgeIds[i].length >= 2) {
-                    GeffEdge edge = new GeffEdge(i, edgeIds[i][0], edgeIds[i][1]);
-                    edges.add(edge);
-                }
-            }
-        } else if (idsData instanceof int[]) {
-            // 1D array case: assume pairs of values [source1, target1, source2, target2,
-            // ...]
-            int[] edgeIds = (int[]) idsData;
-            for (int i = 0; i < edgeIds.length - 1; i += 2) {
-                GeffEdge edge = new GeffEdge(i / 2, edgeIds[i], edgeIds[i + 1]);
-                edges.add(edge);
-            }
-        } else {
-            System.err.println("Warning: Unexpected edge IDs data type: " + idsData.getClass().getName());
-        }
-
-        return edges;
+    public static List<GeffEdge> readFromZarr(String zarrPath, String geffVersion)
+            throws IOException, InvalidRangeException {
+        return readFromZarrWithChunks(zarrPath, geffVersion);
     }
 
     /**
      * Alternative method to read edges with different chunk handling
      */
-    public static List<GeffEdge> readFromZarrWithChunks(String zarrPath) throws IOException, InvalidRangeException {
+    public static List<GeffEdge> readFromZarrWithChunks(String zarrPath, String geffVersion)
+            throws IOException, InvalidRangeException {
         List<GeffEdge> edges = new ArrayList<>();
 
         ZarrGroup edgesGroup = ZarrGroup.open(zarrPath + "/edges");
-        ZarrArray idsArray = edgesGroup.openArray("ids");
 
-        // Check the array keys to see what chunks are available
-        String[] arrayKeys = edgesGroup.getArrayKeys().toArray(new String[0]);
-        System.out.println("Available arrays in edges group: " + String.join(", ", arrayKeys));
+        System.out.println(
+                "Reading edges from Zarr path: " + zarrPath + " with Geff version: " + geffVersion);
 
-        // Try to read each chunk separately if the data is chunked
-        try {
-            // First, try reading the entire array
-            Object idsData = idsArray.read();
-            return parseEdgeData(idsData);
-        } catch (Exception e) {
-            System.err.println("Could not read entire edges array, trying chunk-based approach: " + e.getMessage());
+        if (geffVersion.startsWith("0.1")) {
 
-            // If that fails, try reading individual chunks
-            // This is a fallback approach for cases where the array is stored in chunks
-            List<String> chunkKeys = new ArrayList<>();
+            int[][] edgeIds = ZarrUtils.readChunkedIntMatrix(edgesGroup, "ids", "edge IDs");
 
-            // Look for numeric chunk keys (0.0, 1.0, etc.)
-            for (String key : arrayKeys) {
+            double[] distances = new double[0];
+            double[] scores = new double[0];
+
+            if (edgesGroup.getGroupKeys().contains("attrs")) {
+
+                // Read attributes
+                ZarrGroup attrsGroup = edgesGroup.openSubGroup("attrs");
+
+                // Read distances from chunks
                 try {
-                    Double.parseDouble(key);
-                    chunkKeys.add(key);
-                } catch (NumberFormatException nfe) {
-                    // Not a numeric chunk key, skip
+                    distances = ZarrUtils.readChunkedDoubleArray(attrsGroup, "distance/values", "distances");
+                } catch (Exception e) {
+                    System.out.println("Warning: Could not read distances: " + e.getMessage() + " skipping...");
+                }
+
+                // Read scores from chunks
+                try {
+                    scores = ZarrUtils.readChunkedDoubleArray(attrsGroup, "score/values", "scores");
+                } catch (Exception e) {
+                    System.out.println("Warning: Could not read scores: " + e.getMessage() + " skipping...");
                 }
             }
 
-            int edgeId = 0;
-            for (String chunkKey : chunkKeys) {
-                try {
-                    ZarrArray chunkArray = edgesGroup.openArray("ids/" + chunkKey);
-                    Object chunkData = chunkArray.read();
-                    List<GeffEdge> chunkEdges = parseEdgeData(chunkData);
-
-                    // Assign sequential IDs
-                    for (GeffEdge edge : chunkEdges) {
-                        edge.setId(edgeId++);
-                        edges.add(edge);
-                    }
-                } catch (Exception chunkException) {
-                    System.err.println("Could not read chunk " + chunkKey + ": " + chunkException.getMessage());
-                }
-            }
-        }
-
-        return edges;
-    }
-
-    /**
-     * Helper method to parse edge data from various formats
-     */
-    private static List<GeffEdge> parseEdgeData(Object idsData) {
-        List<GeffEdge> edges = new ArrayList<>();
-
-        if (idsData instanceof int[][]) {
             // 2D array case: each row is [source, target]
-            int[][] edgeIds = (int[][]) idsData;
             for (int i = 0; i < edgeIds.length; i++) {
-                if (edgeIds[i].length >= 2) {
-                    GeffEdge edge = new GeffEdge(i, edgeIds[i][0], edgeIds[i][1]);
+                if (edgeIds[i].length == 2) {
+                    GeffEdge edge = GeffEdge.builder()
+                            .setId(i)
+                            .setSourceNodeId(edgeIds[i][0])
+                            .setTargetNodeId(edgeIds[i][1])
+                            .setDistance(i < distances.length ? distances[i] : DEFAULT_DISTANCE)
+                            .setScore(i < scores.length ? scores[i] : DEFAULT_SCORE)
+                            .build();
                     edges.add(edge);
+                } else {
+                    System.err.println("Unexpected edge format at index " + i + ": " + edgeIds[i].length
+                            + " elements. Expected 2 (source, target).");
                 }
             }
-        } else if (idsData instanceof int[]) {
-            // 1D array case: assume pairs of values [source1, target1, source2, target2,
-            // ...]
-            int[] edgeIds = (int[]) idsData;
-            for (int i = 0; i < edgeIds.length - 1; i += 2) {
-                GeffEdge edge = new GeffEdge(i / 2, edgeIds[i], edgeIds[i + 1]);
-                edges.add(edge);
+        } else if (geffVersion.startsWith("0.2") || geffVersion.startsWith("0.3")) {
+
+            int[][] edgeIds = ZarrUtils.readChunkedIntMatrix(edgesGroup, "ids", "edge IDs");
+
+            double[] distances = new double[0];
+            double[] scores = new double[0];
+
+            // Read attributes
+            if (edgesGroup.getGroupKeys().contains("props")) {
+                ZarrGroup propsGroup = edgesGroup.openSubGroup("props");
+
+                // Read distances from chunks
+                try {
+                    distances = ZarrUtils.readChunkedDoubleArray(propsGroup, "distance/values", "distances");
+                } catch (Exception e) {
+                    System.out.println("Warning: Could not read distances: " + e.getMessage() + " skipping...");
+                }
+
+                // Read scores from chunks
+                try {
+                    scores = ZarrUtils.readChunkedDoubleArray(propsGroup, "score/values", "scores");
+                } catch (Exception e) {
+                    System.out.println("Warning: Could not read scores: " + e.getMessage() + " skipping...");
+                }
+            }
+
+            // 2D array case: each row is [source, target]
+            for (int i = 0; i < edgeIds.length; i++) {
+                if (edgeIds[i].length == 2) {
+                    GeffEdge edge = GeffEdge.builder()
+                            .setId(i)
+                            .setSourceNodeId(edgeIds[i][0])
+                            .setTargetNodeId(edgeIds[i][1])
+                            .setDistance(i < distances.length ? distances[i] : DEFAULT_DISTANCE)
+                            .setScore(i < scores.length ? scores[i] : DEFAULT_SCORE)
+                            .build();
+                    edges.add(edge);
+                } else {
+                    System.err.println("Unexpected edge format at index " + i + ": " + edgeIds[i].length
+                            + " elements. Expected 2 (source, target).");
+                }
             }
         } else {
-            System.err.println("Warning: Unexpected edge IDs data type: " + idsData.getClass().getName());
+            throw new UnsupportedOperationException("Unsupported Geff version: " + geffVersion);
         }
 
         return edges;
-    }
-
-    public static int getChunkSize(String zarrPath) throws IOException, InvalidRangeException {
-        try {
-            ZarrGroup group = ZarrGroup.open(zarrPath + "/edges");
-            return group.openArray("ids").getChunks()[0];
-        } catch (IOException e) {
-            // If the path doesn't exist, return a default chunk size
-            System.out.println("Path doesn't exist, using default chunk size: " + e.getMessage());
-            return 1000; // Default chunk size
-        }
     }
 
     /**
      * Write edges to Zarr format with chunked structure
      */
     public static void writeToZarr(List<GeffEdge> edges, String zarrPath) throws IOException, InvalidRangeException {
-        writeToZarr(edges, zarrPath, 1000); // Default chunk size
+        writeToZarr(edges, zarrPath, ZarrUtils.DEFAULT_CHUNK_SIZE); // Default chunk size
+    }
+
+    public static void writeToZarr(List<GeffEdge> edges, String zarrPath, String geffVersion)
+            throws IOException, InvalidRangeException {
+        writeToZarr(edges, zarrPath, ZarrUtils.DEFAULT_CHUNK_SIZE, geffVersion); // Default chunk size
     }
 
     /**
@@ -222,27 +265,59 @@ public class GeffEdge {
      */
     public static void writeToZarr(List<GeffEdge> edges, String zarrPath, int chunks)
             throws IOException, InvalidRangeException {
-        if (edges == null || edges.isEmpty()) {
+        writeToZarr(edges, zarrPath, chunks, Geff.VERSION); // Default Geff version
+    }
+
+    public static void writeToZarr(List<GeffEdge> edges, String zarrPath, int chunks, String geffVersion)
+            throws IOException, InvalidRangeException {
+        if (edges == null) {
             throw new IllegalArgumentException("Edges list cannot be null or empty");
+        }
+
+        if (geffVersion == null || geffVersion.isEmpty()) {
+            geffVersion = Geff.VERSION; // Use default version if not specified
         }
 
         System.out.println(
                 "Writing " + edges.size() + " edges to Zarr path: " + zarrPath + " with chunk size: " + chunks);
 
-        // Create the main edges group
-        ZarrGroup edgesGroup = ZarrGroup.create(zarrPath);
+        if (geffVersion.startsWith("0.1")) {
+            // Create attrs subgroup for 0.1 versions
 
-        // Analyze edge data format
-        long validEdges = edges.stream().filter(GeffEdge::isValid).count();
-        long selfLoops = edges.stream().filter(GeffEdge::isSelfLoop).count();
+            // Create the main edges group
+            ZarrGroup edgesGroup = ZarrGroup.create(zarrPath);
 
-        System.out.println("Edge analysis:");
-        System.out.println("- Valid edges: " + validEdges + "/" + edges.size());
-        if (selfLoops > 0) {
-            System.out.println("- Self-loops detected: " + selfLoops);
+            writeChunkedEdgeIds(edgesGroup, edges, chunks);
+
+            ZarrGroup attrsGroup = edgesGroup.createSubGroup("attrs");
+
+            // Write distances
+            ZarrUtils.writeChunkedDoubleAttribute(edges, attrsGroup, "distance", chunks, GeffEdge::getDistance);
+
+            // Write scores
+            ZarrUtils.writeChunkedDoubleAttribute(edges, attrsGroup, "score", chunks, GeffEdge::getScore);
+        } else if (geffVersion.startsWith("0.2") || geffVersion.startsWith("0.3")) {
+            // Create props subgroup for 0.3 version
+
+            // Create the main edges group
+            ZarrGroup edgesGroup = ZarrGroup.create(zarrPath);
+
+            writeChunkedEdgeIds(edgesGroup, edges, chunks);
+
+            ZarrGroup propsGroup = edgesGroup.createSubGroup("props");
+
+            // Write distances
+            ZarrUtils.writeChunkedDoubleAttribute(edges, propsGroup, "distance", chunks, GeffEdge::getDistance);
+
+            // Write scores
+            ZarrUtils.writeChunkedDoubleAttribute(edges, propsGroup, "score", chunks, GeffEdge::getScore);
+        } else {
+            throw new UnsupportedOperationException("Unsupported Geff version: " + geffVersion);
         }
-        System.out.println("- Format: Chunked 2D arrays [[source1, target1], [source2, target2], ...]");
+    }
 
+    private static void writeChunkedEdgeIds(ZarrGroup edgesGroup, List<GeffEdge> edges, int chunks)
+            throws InvalidRangeException, IOException {
         // Write edges in chunks
         int totalEdges = edges.size();
 
@@ -278,6 +353,17 @@ public class GeffEdge {
                     + "-" + (endIdx - 1) + ")");
             chunkIndex++;
         }
+
+        // Analyze edge data format
+        long validEdges = edges.stream().filter(GeffEdge::isValid).count();
+        long selfLoops = edges.stream().filter(GeffEdge::isSelfLoop).count();
+
+        System.out.println("Edge analysis:");
+        System.out.println("- Valid edges: " + validEdges + "/" + edges.size());
+        if (selfLoops > 0) {
+            System.out.println("- Self-loops detected: " + selfLoops);
+        }
+        System.out.println("- Format: Chunked 2D arrays [[source1, target1], [source2, target2], ...]");
 
         // Log summary
         int uniqueSourceNodes = (int) edges.stream().mapToInt(GeffEdge::getSourceNodeId).distinct().count();
@@ -328,7 +414,8 @@ public class GeffEdge {
         GeffEdge geffEdge = (GeffEdge) obj;
         return sourceNodeId == geffEdge.sourceNodeId &&
                 targetNodeId == geffEdge.targetNodeId &&
-                id == geffEdge.id;
+                id == geffEdge.id &&
+                Double.compare(geffEdge.score, score) == 0;
     }
 
     @Override
@@ -336,6 +423,7 @@ public class GeffEdge {
         int result = sourceNodeId;
         result = 31 * result + targetNodeId;
         result = 31 * result + id;
+        result = 31 * result + Double.hashCode(score);
         return result;
     }
 }

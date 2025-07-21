@@ -6,10 +6,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.mastodon.geff.GeffEdge;
-import org.mastodon.geff.GeffMetadata;
-import org.mastodon.geff.GeffNode;
-
 /**
  * Test class to verify the chunked writing functionality works correctly
  * with the new ZarrGroup-based approach.
@@ -38,12 +34,12 @@ public class ChunkedWriteTest {
         List<GeffNode> testNodes = new ArrayList<>();
         for (int i = 0; i < 15; i++) {
             GeffNode node = new GeffNode();
-            node.setTimepoint(i);
+            node.setT(i);
             node.setX(i * 1.5);
             node.setY(i * 2.0);
             node.setSegmentId(i + 100);
-            // Add 3D position
-            node.setPosition(new double[] { i * 1.5, i * 2.0, i * 0.5 });
+            // Set Z coordinate individually instead of using deprecated setPosition
+            node.setZ(i * 0.5);
             testNodes.add(node);
         }
 
@@ -65,7 +61,11 @@ public class ChunkedWriteTest {
         // Create sample edges
         List<GeffEdge> testEdges = new ArrayList<>();
         for (int i = 0; i < 10; i++) {
-            GeffEdge edge = new GeffEdge(i, i, i + 1); // Connect consecutive nodes
+            GeffEdge edge = GeffEdge.builder()
+                    .setId(i)
+                    .setSourceNodeId(i)
+                    .setTargetNodeId(i + 1)
+                    .build();
             testEdges.add(edge);
         }
 
@@ -84,15 +84,18 @@ public class ChunkedWriteTest {
     private static void testMetadataWriting() throws IOException, InvalidRangeException {
         System.out.println("\n=== Testing Metadata Writing ===");
 
-        // Create sample metadata with all attributes
+        // Create sample metadata with all attributes using GeffAxis
         GeffMetadata metadata = new GeffMetadata();
         metadata.setGeffVersion("0.1.1");
         metadata.setDirected(true);
-        metadata.setRoiMin(new double[] { 0.0, 0.0, 0.0 });
-        metadata.setRoiMax(new double[] { 100.0, 100.0, 50.0 });
-        metadata.setPositionAttr("position");
-        metadata.setAxisNames(new String[] { "x", "y", "z" });
-        metadata.setAxisUnits(new String[] { "μm", "μm", "μm" });
+
+        // Create axes using GeffAxis
+        GeffAxis[] axes = {
+                GeffAxis.createSpaceAxis("x", GeffAxis.UNIT_MICROMETERS, 0.0, 100.0),
+                GeffAxis.createSpaceAxis("y", GeffAxis.UNIT_MICROMETERS, 0.0, 100.0),
+                GeffAxis.createSpaceAxis("z", GeffAxis.UNIT_MICROMETERS, 0.0, 50.0)
+        };
+        metadata.setGeffAxes(axes);
 
         // Test writing to a Zarr path
         String outputPath = "/tmp/test-metadata";

@@ -15,15 +15,24 @@ import ucar.ma2.InvalidRangeException;
  * Represents a node in the Geff (Graph Exchange Format for Features) format.
  * This class handles reading and writing node data from/to Zarr format.
  */
-public class GeffNode {
+public class GeffNode implements ZarrEntity {
 
     // Node attributes
     private int id;
-    private int timepoint;
+    private int t;
     private double x;
     private double y;
+    private double z;
+    private double[] color;
     private int segmentId;
-    private double[] position; // 3D position array if available
+    private double radius;
+    private double[] covariance2d;
+    private double[] covariance3d;
+
+    public static final double[] DEFAULT_COLOR = { 1.0, 1.0, 1.0, 1.0 }; // Default white color
+    public static final double DEFAULT_RADIUS = 1.0;
+    public static final double[] DEFAULT_COVARIANCE_2D = { 1.0, 0.0, 0.0, 1.0 };
+    public static final double[] DEFAULT_COVARIANCE_3D = { 1.0, 0.0, 0.0, 1.0, 0.0, 1.0 };
 
     /**
      * Default constructor
@@ -34,25 +43,18 @@ public class GeffNode {
     /**
      * Constructor with basic node parameters
      */
-    public GeffNode(int id, int timepoint, double x, double y, int segmentId) {
+    public GeffNode(int id, int timepoint, double x, double y, double z, double[] color, int segmentId, double radius,
+            double[] covariance2d, double[] covariance3d) {
         this.id = id;
-        this.timepoint = timepoint;
+        this.t = timepoint;
         this.x = x;
         this.y = y;
+        this.z = z;
+        this.color = color != null ? color : DEFAULT_COLOR;
         this.segmentId = segmentId;
-        this.position = new double[] { x, y, 0.0 }; // Default Z to 0
-    }
-
-    /**
-     * Constructor with 3D position
-     */
-    public GeffNode(int id, int timepoint, double x, double y, double z, int segmentId) {
-        this.id = id;
-        this.timepoint = timepoint;
-        this.x = x;
-        this.y = y;
-        this.segmentId = segmentId;
-        this.position = new double[] { x, y, z };
+        this.radius = radius;
+        this.covariance2d = covariance2d != null ? covariance2d : DEFAULT_COVARIANCE_2D;
+        this.covariance3d = covariance3d != null ? covariance3d : DEFAULT_COVARIANCE_3D;
     }
 
     // Getters and Setters
@@ -64,12 +66,12 @@ public class GeffNode {
         this.id = id;
     }
 
-    public int getTimepoint() {
-        return timepoint;
+    public int getT() {
+        return t;
     }
 
-    public void setTimepoint(int timepoint) {
-        this.timepoint = timepoint;
+    public void setT(int timepoint) {
+        this.t = timepoint;
     }
 
     public double getX() {
@@ -78,7 +80,6 @@ public class GeffNode {
 
     public void setX(double x) {
         this.x = x;
-        updatePosition();
     }
 
     public double getY() {
@@ -87,24 +88,25 @@ public class GeffNode {
 
     public void setY(double y) {
         this.y = y;
-        updatePosition();
     }
 
     public double getZ() {
-        return position != null && position.length > 2 ? position[2] : 0.0;
+        return z;
     }
 
     public void setZ(double z) {
-        if (position == null) {
-            position = new double[] { x, y, z };
-        } else if (position.length >= 3) {
-            position[2] = z;
+        this.z = z;
+    }
+
+    public double[] getColor() {
+        return color;
+    }
+
+    public void setColor(double[] color) {
+        if (color != null && color.length == 4) {
+            this.color = color;
         } else {
-            // Extend array to include Z
-            double[] newPosition = new double[3];
-            System.arraycopy(position, 0, newPosition, 0, position.length);
-            newPosition[2] = z;
-            position = newPosition;
+            throw new IllegalArgumentException("Color must be a 4-element array");
         }
     }
 
@@ -116,279 +118,454 @@ public class GeffNode {
         this.segmentId = segmentId;
     }
 
-    public double[] getPosition() {
-        return position != null ? position.clone() : new double[] { x, y, 0.0 };
+    public double getRadius() {
+        return radius;
     }
 
+    public void setRadius(double radius) {
+        this.radius = radius;
+    }
+
+    public double[] getCovariance2d() {
+        return covariance2d;
+    }
+
+    public void setCovariance2d(double[] covariance2d) {
+        if (covariance2d != null && covariance2d.length == 4) {
+            this.covariance2d = covariance2d;
+        } else {
+            throw new IllegalArgumentException("Covariance2D must be a 4-element array");
+        }
+    }
+
+    public double[] getCovariance3d() {
+        return covariance3d;
+    }
+
+    public void setCovariance3d(double[] covariance3d) {
+        if (covariance3d != null && covariance3d.length == 6) {
+            this.covariance3d = covariance3d;
+        } else {
+            throw new IllegalArgumentException("Covariance3D must be a 6-element array");
+        }
+    }
+
+    /**
+     * Returns the position of the node as a 3D array.
+     * 
+     * @deprecated Use {@link #getX()}, {@link #getY()}, {@link #getZ()} instead.
+     * @return
+     *         The position of the node as a 3D array.
+     */
+    @Deprecated
+    public double[] getPosition() {
+        return new double[] { x, y, z };
+    }
+
+    /**
+     * Set the position of the node.
+     * 
+     * @deprecated Use {@link #setX(double)}, {@link #setY(double)},
+     *             {@link #setZ(double)} instead.
+     * @param position
+     *                 The position of the node as a 3D array.
+     */
+    @Deprecated
     public void setPosition(double[] position) {
-        this.position = position != null ? position.clone() : null;
-        if (position != null && position.length >= 2) {
+        if (position != null && position.length == 2) {
             this.x = position[0];
             this.y = position[1];
-        }
-    }
-
-    private void updatePosition() {
-        if (position != null && position.length >= 2) {
-            position[0] = x;
-            position[1] = y;
+            this.z = 0.0; // Default Z to 0
+        } else if (position != null && position.length == 3) {
+            this.x = position[0];
+            this.y = position[1];
+            this.z = position[2];
+        } else {
+            throw new IllegalArgumentException("Position must be a 2D or 3D array");
         }
     }
 
     /**
-     * Read nodes from Zarr format with chunked structure
+     * Builder for creating GeffNode instance.
+     * 
+     * @return
+     *         A new Builder instance for GeffNode.
+     */
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static class Builder {
+        private int id;
+        private int timepoint;
+        private double x;
+        private double y;
+        private double z;
+        private double[] color = DEFAULT_COLOR;
+        private int segmentId;
+        private double radius = DEFAULT_RADIUS;
+        private double[] covariance2d = DEFAULT_COVARIANCE_2D;
+        private double[] covariance3d = DEFAULT_COVARIANCE_3D;
+
+        public Builder id(int id) {
+            this.id = id;
+            return this;
+        }
+
+        public Builder timepoint(int timepoint) {
+            this.timepoint = timepoint;
+            return this;
+        }
+
+        public Builder x(double x) {
+            this.x = x;
+            return this;
+        }
+
+        public Builder y(double y) {
+            this.y = y;
+            return this;
+        }
+
+        public Builder z(double z) {
+            this.z = z;
+            return this;
+        }
+
+        public Builder color(double[] color) {
+            if (color != null && color.length == 4) {
+                this.color = color;
+            } else {
+                throw new IllegalArgumentException("Color must be a 4-element array");
+            }
+            return this;
+        }
+
+        public Builder segmentId(int segmentId) {
+            this.segmentId = segmentId;
+            return this;
+        }
+
+        public Builder radius(double radius) {
+            this.radius = radius;
+            return this;
+        }
+
+        public Builder covariance2d(double[] covariance2d) {
+            if (covariance2d != null && covariance2d.length == 4) {
+                this.covariance2d = covariance2d;
+            } else {
+                throw new IllegalArgumentException("Covariance2D must be a 4-element array");
+            }
+            return this;
+        }
+
+        public Builder covariance3d(double[] covariance3d) {
+            if (covariance3d != null && covariance3d.length == 6) {
+                this.covariance3d = covariance3d;
+            } else {
+                throw new IllegalArgumentException("Covariance3D must be a 6-element array");
+            }
+            return this;
+        }
+
+        public GeffNode build() {
+            return new GeffNode(id, timepoint, x, y, z, color, segmentId, radius, covariance2d, covariance3d);
+        }
+    }
+
+    /**
+     * Read nodes from Zarr format with default version and chunked structure
+     * 
+     * @param zarrPath
+     *                 The path to the Zarr directory containing nodes.
+     * @return
+     *         List of GeffNode objects read from the Zarr path.
      */
     public static List<GeffNode> readFromZarr(String zarrPath) throws IOException, InvalidRangeException {
-        return readFromZarrWithChunks(zarrPath);
+        return readFromZarrWithChunks(zarrPath, Geff.VERSION);
     }
 
     /**
-     * Read nodes from Zarr format with chunk handling
+     * Read nodes from Zarr format with specified version and chunked structure
+     * 
+     * @param zarrPath
+     *                    The path to the Zarr directory containing nodes.
+     * @param geffVersion
+     *                    The version of the GEFF format to read.
+     * @return
+     *         List of GeffNode objects read from the Zarr path.
      */
-    public static List<GeffNode> readFromZarrWithChunks(String zarrPath) throws IOException, InvalidRangeException {
+    public static List<GeffNode> readFromZarr(String zarrPath, String geffVersion)
+            throws IOException, InvalidRangeException {
+        return readFromZarrWithChunks(zarrPath, geffVersion);
+    }
+
+    /**
+     * Read nodes from Zarr format with chunked structure.
+     * This method handles different Geff versions and reads node attributes
+     * accordingly.
+     * 
+     * @param zarrPath
+     *                    The path to the Zarr directory containing nodes.
+     * @param geffVersion
+     *                    The version of the GEFF format to read.
+     * @return
+     *         List of GeffNode objects read from the Zarr path.
+     */
+    public static List<GeffNode> readFromZarrWithChunks(String zarrPath, String geffVersion)
+            throws IOException, InvalidRangeException {
         List<GeffNode> nodes = new ArrayList<>();
 
         ZarrGroup nodesGroup = ZarrGroup.open(zarrPath + "/nodes");
 
-        // Read node IDs from chunks
-        int[] nodeIds = readChunkedIntArray(nodesGroup, "ids", "node IDs");
+        System.out.println(
+                "Reading nodes from Zarr path: " + zarrPath + " with Geff version: " + geffVersion);
 
-        // Read attributes
-        ZarrGroup attrsGroup = nodesGroup.openSubGroup("attrs");
+        if (geffVersion.startsWith("0.1")) {
 
-        // Read time points from chunks
-        int[] timepoints = readChunkedIntArray(attrsGroup, "t/values", "timepoints");
+            // Read node IDs from chunks
+            int[] nodeIds = ZarrUtils.readChunkedIntArray(nodesGroup, "ids", "node IDs");
 
-        // Read X coordinates from chunks
-        double[] xCoords = readChunkedDoubleArray(attrsGroup, "x/values", "X coordinates");
+            // Read attributes
+            ZarrGroup attrsGroup = nodesGroup.openSubGroup("attrs");
 
-        // Read Y coordinates from chunks
-        double[] yCoords = readChunkedDoubleArray(attrsGroup, "y/values", "Y coordinates");
+            // Read time points from chunks
+            int[] timepoints = ZarrUtils.readChunkedIntArray(attrsGroup, "t/values", "timepoints");
 
-        // Read segment IDs from chunks
-        int[] segmentIds = readChunkedIntArray(attrsGroup, "seg_id/values", "segment IDs");
+            // Read X coordinates from chunks
+            double[] xCoords = ZarrUtils.readChunkedDoubleArray(attrsGroup, "x/values", "X coordinates");
 
-        // Read positions if available from chunks
-        double[][] positions = null;
-        try {
-            positions = readChunkedDoubleMatrix(attrsGroup, "position/values");
-        } catch (Exception e) {
-            // Position array might not exist or be in different format
-            System.out.println("Warning: Could not read position array: " + e.getMessage());
-        }
+            // Read Y coordinates from chunks
+            double[] yCoords = ZarrUtils.readChunkedDoubleArray(attrsGroup, "y/values", "Y coordinates");
 
-        // Create node objects
-        for (int i = 0; i < nodeIds.length; i++) {
-            GeffNode node = new GeffNode();
-            node.setId(nodeIds[i]);
-
-            if (i < timepoints.length)
-                node.setTimepoint(timepoints[i]);
-            if (i < xCoords.length)
-                node.setX(xCoords[i]);
-            if (i < yCoords.length)
-                node.setY(yCoords[i]);
-            if (i < segmentIds.length)
-                node.setSegmentId(segmentIds[i]);
-
-            if (positions != null && i < positions.length) {
-                node.setPosition(positions[i]);
+            // Read segment IDs from chunks
+            int[] segmentIds = new int[0];
+            try {
+                segmentIds = ZarrUtils.readChunkedIntArray(attrsGroup, "seg_id/values", "segment IDs");
+            } catch (Exception e) {
+                System.out.println("Warning: Could not read segment IDs: " + e.getMessage() + " skipping...");
             }
 
-            nodes.add(node);
+            // Read positions if available from chunks
+            double[][] positions = new double[0][];
+            try {
+                positions = ZarrUtils.readChunkedDoubleMatrix(attrsGroup, "position/values", "positions");
+            } catch (Exception e) {
+                // Position array might not exist or be in different format
+                System.out.println("Warning: Could not read position array: " + e.getMessage());
+            }
+
+            // Create node objects
+            for (int i = 0; i < nodeIds.length; i++) {
+                GeffNode node = new Builder()
+                        .id(nodeIds[i])
+                        .timepoint(i < timepoints.length ? timepoints[i] : -1)
+                        .x(i < xCoords.length ? xCoords[i] : Double.NaN)
+                        .y(i < yCoords.length ? yCoords[i] : Double.NaN)
+                        .z(i < positions.length ? positions[i][0] : Double.NaN)
+                        .segmentId(i < segmentIds.length ? segmentIds[i] : -1)
+                        .build();
+
+                nodes.add(node);
+            }
+        } else if (geffVersion.startsWith("0.2") || geffVersion.startsWith("0.3")) {
+            // Read node IDs from chunks
+            int[] nodeIds = ZarrUtils.readChunkedIntArray(nodesGroup, "ids", "node IDs");
+
+            // Read properties
+            ZarrGroup propsGroup = nodesGroup.openSubGroup("props");
+
+            // Read time points from chunks
+            int[] timepoints = ZarrUtils.readChunkedIntArray(propsGroup, "t/values", "timepoints");
+
+            // Read X coordinates from chunks
+            double[] xCoords = ZarrUtils.readChunkedDoubleArray(propsGroup, "x/values", "X coordinates");
+
+            // Read Y coordinates from chunks
+            double[] yCoords = ZarrUtils.readChunkedDoubleArray(propsGroup, "y/values", "Y coordinates");
+
+            // Read Z coordinates from chunks
+            double[] zCoords = new double[0];
+            try {
+                zCoords = ZarrUtils.readChunkedDoubleArray(propsGroup, "z/values", "Z coordinates");
+            } catch (Exception e) {
+                System.out.println("Warning: Could not read Z coordinates: " + e.getMessage() + " skipping...");
+            }
+
+            // Read color from chunks
+            double[][] colors = new double[0][];
+            try {
+                colors = ZarrUtils.readChunkedDoubleMatrix(propsGroup, "color/values", "color");
+            } catch (Exception e) {
+                System.out.println("Warning: Could not read color array: " + e.getMessage() + " skipping...");
+            }
+
+            // Read track IDs from chunks
+            int[] trackIds = new int[0];
+            try {
+                trackIds = ZarrUtils.readChunkedIntArray(propsGroup, "track_id/values", "track IDs");
+            } catch (Exception e) {
+                System.out.println("Warning: Could not read track IDs: " + e.getMessage() + " skipping...");
+            }
+
+            // Read radius from chunks
+            double[] radii = new double[0];
+            try {
+                radii = ZarrUtils.readChunkedDoubleArray(propsGroup, "radius/values", "radius");
+            } catch (Exception e) {
+                System.out.println("Warning: Could not read radius: " + e.getMessage() + " skipping...");
+            }
+
+            // Read covariance2d from chunks
+            double[][] covariance2ds = new double[0][];
+            try {
+                covariance2ds = ZarrUtils.readChunkedDoubleMatrix(propsGroup, "covariance2d/values",
+                        "covariance2d");
+            } catch (Exception e) {
+                System.out.println("Warning: Could not read covariance2d: " + e.getMessage() + " skipping...");
+            }
+
+            // Read covariance3d from chunks
+            double[][] covariance3ds = new double[0][];
+            try {
+                covariance3ds = ZarrUtils.readChunkedDoubleMatrix(propsGroup, "covariance3d/values",
+                        "covariance3d");
+            } catch (Exception e) {
+                System.out.println("Warning: Could not read covariance3d: " + e.getMessage() + " skipping...");
+            }
+
+            // Create node objects
+            for (int i = 0; i < nodeIds.length; i++) {
+                GeffNode node = new Builder()
+                        .id(nodeIds[i])
+                        .timepoint(i < timepoints.length ? timepoints[i] : -1)
+                        .x(i < xCoords.length ? xCoords[i] : Double.NaN)
+                        .y(i < yCoords.length ? yCoords[i] : Double.NaN)
+                        .z(i < zCoords.length ? zCoords[i] : Double.NaN)
+                        .color(i < colors.length ? colors[i] : DEFAULT_COLOR)
+                        .segmentId(i < trackIds.length ? trackIds[i] : -1)
+                        .radius(i < radii.length ? radii[i] : Double.NaN)
+                        .covariance2d(i < covariance2ds.length ? covariance2ds[i] : DEFAULT_COVARIANCE_2D)
+                        .covariance3d(i < covariance3ds.length ? covariance3ds[i] : DEFAULT_COVARIANCE_3D)
+                        .build();
+
+                nodes.add(node);
+            }
+        } else {
+            throw new IOException("Unsupported Geff version: " + geffVersion);
         }
 
         return nodes;
     }
 
     /**
-     * Helper method to read chunked int arrays
-     */
-    private static int[] readChunkedIntArray(ZarrGroup group, String arrayPath, String description)
-            throws IOException, InvalidRangeException {
-        try {
-            // First try reading as a whole array
-            ZarrArray array = group.openArray(arrayPath);
-            Object data = array.read();
-            return convertToIntArray(data, description);
-        } catch (Exception e) {
-            System.out.println("Attempting chunked reading for " + description + ": " + e.getMessage());
-
-            // Try reading individual chunks if whole array reading fails
-            List<Integer> allData = new ArrayList<>();
-
-            // Look for numeric chunk keys (0, 1, 2, etc.)
-            ZarrGroup arrayGroup = group.openSubGroup(arrayPath);
-            String[] chunkKeys = arrayGroup.getArrayKeys().toArray(new String[0]);
-
-            for (String chunkKey : chunkKeys) {
-                try {
-                    if (chunkKey.matches("\\d+(\\.\\d+)?")) { // numeric chunk key
-                        ZarrArray chunkArray = arrayGroup.openArray(chunkKey);
-                        Object chunkData = chunkArray.read();
-                        int[] chunkValues = convertToIntArray(chunkData, description + " chunk " + chunkKey);
-                        for (int value : chunkValues) {
-                            allData.add(value);
-                        }
-                        System.out
-                                .println("Read chunk " + chunkKey + " with " + chunkValues.length + " " + description);
-                    }
-                } catch (Exception chunkException) {
-                    System.err.println("Could not read chunk " + chunkKey + " for " + description + ": "
-                            + chunkException.getMessage());
-                }
-            }
-
-            return allData.stream().mapToInt(Integer::intValue).toArray();
-        }
-    }
-
-    /**
-     * Helper method to read chunked double arrays
-     */
-    private static double[] readChunkedDoubleArray(ZarrGroup group, String arrayPath, String description)
-            throws IOException, InvalidRangeException {
-        try {
-            // First try reading as a whole array
-            ZarrArray array = group.openArray(arrayPath);
-            Object data = array.read();
-            return convertToDoubleArray(data, description);
-        } catch (Exception e) {
-            System.out.println("Attempting chunked reading for " + description + ": " + e.getMessage());
-
-            // Try reading individual chunks if whole array reading fails
-            List<Double> allData = new ArrayList<>();
-
-            // Look for numeric chunk keys (0, 1, 2, etc.)
-            ZarrGroup arrayGroup = group.openSubGroup(arrayPath);
-            String[] chunkKeys = arrayGroup.getArrayKeys().toArray(new String[0]);
-
-            for (String chunkKey : chunkKeys) {
-                try {
-                    if (chunkKey.matches("\\d+(\\.\\d+)?")) { // numeric chunk key
-                        ZarrArray chunkArray = arrayGroup.openArray(chunkKey);
-                        Object chunkData = chunkArray.read();
-                        double[] chunkValues = convertToDoubleArray(chunkData, description + " chunk " + chunkKey);
-                        for (double value : chunkValues) {
-                            allData.add(value);
-                        }
-                        System.out
-                                .println("Read chunk " + chunkKey + " with " + chunkValues.length + " " + description);
-                    }
-                } catch (Exception chunkException) {
-                    System.err.println("Could not read chunk " + chunkKey + " for " + description + ": "
-                            + chunkException.getMessage());
-                }
-            }
-
-            return allData.stream().mapToDouble(Double::doubleValue).toArray();
-        }
-    }
-
-    /**
-     * Helper method to read chunked double matrix
-     */
-    private static double[][] readChunkedDoubleMatrix(ZarrGroup group, String arrayPath)
-            throws IOException, InvalidRangeException {
-        try {
-            // First try reading as a whole array
-            ZarrArray array = group.openArray(arrayPath);
-            Object data = array.read();
-            return convertToDoubleMatrix(data);
-        } catch (Exception e) {
-            System.out.println("Attempting chunked reading for position matrix: " + e.getMessage());
-
-            // Try reading individual chunks if whole array reading fails
-            List<double[]> allData = new ArrayList<>();
-
-            // Look for numeric chunk keys (0, 1, 2, etc.)
-            ZarrGroup arrayGroup = group.openSubGroup(arrayPath);
-            String[] chunkKeys = arrayGroup.getArrayKeys().toArray(new String[0]);
-
-            for (String chunkKey : chunkKeys) {
-                try {
-                    if (chunkKey.matches("\\d+(\\.\\d+)?")) { // numeric chunk key
-                        ZarrArray chunkArray = arrayGroup.openArray(chunkKey);
-                        Object chunkData = chunkArray.read();
-                        double[][] chunkMatrix = convertToDoubleMatrix(chunkData);
-                        for (double[] row : chunkMatrix) {
-                            allData.add(row);
-                        }
-                        System.out.println(
-                                "Read position chunk " + chunkKey + " with " + chunkMatrix.length + " positions");
-                    }
-                } catch (Exception chunkException) {
-                    System.err
-                            .println("Could not read position chunk " + chunkKey + ": " + chunkException.getMessage());
-                }
-            }
-
-            return allData.toArray(new double[0][]);
-        }
-    }
-
-    public static int[] getChunkSize(String zarrPath) throws IOException, InvalidRangeException {
-        try {
-            ZarrGroup group = ZarrGroup.open(zarrPath + "/nodes");
-            return group.openArray("ids").getChunks();
-        } catch (IOException e) {
-            // If the path doesn't exist, return a default chunk size
-            System.out.println("Path doesn't exist, using default chunk size: " + e.getMessage());
-            return new int[] { 1000 }; // Default chunk size
-        }
-    }
-
-    /**
      * Write nodes to Zarr format with chunked structure
      */
     public static void writeToZarr(List<GeffNode> nodes, String zarrPath) throws IOException, InvalidRangeException {
-        writeToZarr(nodes, zarrPath, 1000);
+        writeToZarr(nodes, zarrPath, ZarrUtils.DEFAULT_CHUNK_SIZE);
+    }
+
+    public static void writeToZarr(List<GeffNode> nodes, String zarrPath, String geffVersion)
+            throws IOException, InvalidRangeException {
+        if (geffVersion == null || geffVersion.isEmpty()) {
+            geffVersion = Geff.VERSION; // Use default version if not specified
+        }
+        writeToZarr(nodes, zarrPath, ZarrUtils.DEFAULT_CHUNK_SIZE, geffVersion);
     }
 
     /**
      * Write nodes to Zarr format with specified chunk size
      */
-    public static void writeToZarr(List<GeffNode> nodes, String zarrPath, int... chunkSize)
+    public static void writeToZarr(List<GeffNode> nodes, String zarrPath, int chunkSize)
             throws IOException, InvalidRangeException {
-        if (nodes == null || nodes.isEmpty()) {
+        writeToZarr(nodes, zarrPath, chunkSize, Geff.VERSION);
+    }
+
+    public static void writeToZarr(List<GeffNode> nodes, String zarrPath, int chunkSize, String geffVersion)
+            throws IOException, InvalidRangeException {
+        if (nodes == null) {
             throw new IllegalArgumentException("Nodes list cannot be null or empty");
         }
 
+        if (geffVersion == null || geffVersion.isEmpty()) {
+            geffVersion = Geff.VERSION; // Use default version if not specified
+        }
+
         System.out.println(
-                "Writing " + nodes.size() + " nodes to Zarr path: " + zarrPath + " with chunk size: " + chunkSize);
+                "Writing " + nodes.size() + " nodes to Zarr path: " + zarrPath + " with chunk size: " + chunkSize
+                        + " to Geff version: " + geffVersion);
 
-        // Create the main nodes group
-        ZarrGroup nodesGroup = ZarrGroup.create(zarrPath);
+        if (geffVersion.startsWith("0.1")) {
+            // Create the main nodes group
+            ZarrGroup nodesGroup = ZarrGroup.create(zarrPath);
 
-        // Create attrs subgroup for chunked storage
-        ZarrGroup attrsGroup = nodesGroup.createSubGroup("attrs");
+            // Create attrs subgroup for chunked storage
+            ZarrGroup attrsGroup = nodesGroup.createSubGroup("attrs");
 
-        // Check if any nodes have 3D positions
-        boolean hasPositions = nodes.stream()
-                .anyMatch(node -> node.getPosition() != null && node.getPosition().length >= 3);
+            // Check if any nodes have 3D positions
+            boolean hasPositions = nodes.stream()
+                    .anyMatch(node -> node.getPosition() != null && node.getPosition().length >= 3);
 
-        System.out.println("Node analysis:");
-        System.out.println("- Has 3D positions: " + hasPositions);
-        System.out.println("- Format: Chunked arrays with separate values subgroups");
+            System.out.println("Node analysis:");
+            System.out.println("- Has 3D positions: " + hasPositions);
+            System.out.println("- Format: Chunked arrays with separate values subgroups");
 
-        // Write node IDs in chunks
-        writeChunkedNodeIds(nodes, nodesGroup, chunkSize[0]);
+            // Write node IDs in chunks
+            writeChunkedNodeIds(nodes, nodesGroup, chunkSize);
 
-        // Write timepoints in chunks
-        writeChunkedIntAttribute(nodes, attrsGroup, "t", chunkSize[0], GeffNode::getTimepoint);
+            // Write timepoints in chunks
+            ZarrUtils.writeChunkedIntAttribute(nodes, attrsGroup, "t", chunkSize, GeffNode::getT);
 
-        // Write X coordinates in chunks
-        writeChunkedDoubleAttribute(nodes, attrsGroup, "x", chunkSize[0], GeffNode::getX);
+            // Write X coordinates in chunks
+            ZarrUtils.writeChunkedDoubleAttribute(nodes, attrsGroup, "x", chunkSize, GeffNode::getX);
 
-        // Write Y coordinates in chunks
-        writeChunkedDoubleAttribute(nodes, attrsGroup, "y", chunkSize[0], GeffNode::getY);
+            // Write Y coordinates in chunks
+            ZarrUtils.writeChunkedDoubleAttribute(nodes, attrsGroup, "y", chunkSize, GeffNode::getY);
 
-        // Write segment IDs in chunks
-        writeChunkedIntAttribute(nodes, attrsGroup, "seg_id", chunkSize[0], GeffNode::getSegmentId);
+            // Write segment IDs in chunks
+            ZarrUtils.writeChunkedIntAttribute(nodes, attrsGroup, "seg_id", chunkSize, GeffNode::getSegmentId);
 
-        // Write positions if available in chunks
-        if (hasPositions) {
-            writeChunkedPositions(nodes, attrsGroup, "position", chunkSize);
+            // Write positions if available in chunks
+            if (hasPositions) {
+                ZarrUtils.writeChunkedDoubleMatrix(nodes, attrsGroup, "position", chunkSize, GeffNode::getPosition, 3);
+            }
+        } else if (geffVersion.startsWith("0.2") || geffVersion.startsWith("0.3")) {
+            // Create the main nodes group
+            ZarrGroup nodesGroup = ZarrGroup.create(zarrPath);
+
+            // Create props subgroup for chunked storage
+            ZarrGroup propsGroup = nodesGroup.createSubGroup("props");
+
+            // Write node IDs in chunks
+            writeChunkedNodeIds(nodes, nodesGroup, chunkSize);
+
+            // Write timepoints in chunks
+            ZarrUtils.writeChunkedIntAttribute(nodes, propsGroup, "t", chunkSize, GeffNode::getT);
+
+            // Write X coordinates in chunks
+            ZarrUtils.writeChunkedDoubleAttribute(nodes, propsGroup, "x", chunkSize, GeffNode::getX);
+
+            // Write Y coordinates in chunks
+            ZarrUtils.writeChunkedDoubleAttribute(nodes, propsGroup, "y", chunkSize, GeffNode::getY);
+
+            // Write Z coordinates in chunks
+            ZarrUtils.writeChunkedDoubleAttribute(nodes, propsGroup, "z", chunkSize, GeffNode::getZ);
+
+            // Write segment IDs in chunks
+            ZarrUtils.writeChunkedIntAttribute(nodes, propsGroup, "track_id", chunkSize, GeffNode::getSegmentId);
+
+            // Write radius and covariance attributes if available
+            ZarrUtils.writeChunkedDoubleAttribute(nodes, propsGroup, "radius", chunkSize, GeffNode::getRadius);
+
+            // Write covariance2d in chunks
+            ZarrUtils.writeChunkedDoubleMatrix(nodes, propsGroup, "covariance2d", chunkSize, GeffNode::getCovariance2d,
+                    4);
+
+            // Write covariance3d in chunks
+            ZarrUtils.writeChunkedDoubleMatrix(nodes, propsGroup, "covariance3d", chunkSize, GeffNode::getCovariance3d,
+                    6);
+
         }
 
         System.out.println("Successfully wrote nodes to Zarr format with chunked structure");
@@ -434,239 +611,21 @@ public class GeffNode {
         }
     }
 
-    /**
-     * Helper method to write chunked int attributes
-     */
-    private static void writeChunkedIntAttribute(List<GeffNode> nodes, ZarrGroup attrsGroup, String attrName,
-            int chunkSize, java.util.function.ToIntFunction<GeffNode> extractor)
-            throws IOException, InvalidRangeException {
-
-        int totalNodes = nodes.size();
-
-        // Create the attribute subgroup
-        ZarrGroup attrGroup = attrsGroup.createSubGroup(attrName);
-        ZarrGroup valuesGroup = attrGroup.createSubGroup("values");
-
-        // Create a single ZarrArray for all values with proper chunking
-        ZarrArray valuesArray = valuesGroup.createArray("", new ArrayParams()
-                .shape(totalNodes)
-                .chunks(chunkSize)
-                .dataType(DataType.i4));
-
-        // Write data in chunks
-        int chunkIndex = 0;
-        for (int startIdx = 0; startIdx < totalNodes; startIdx += chunkSize) {
-            int endIdx = Math.min(startIdx + chunkSize, totalNodes);
-            int currentChunkSize = endIdx - startIdx;
-
-            // Prepare chunk data array
-            int[] chunkData = new int[currentChunkSize];
-
-            // Fill chunk data array
-            for (int i = 0; i < currentChunkSize; i++) {
-                chunkData[i] = extractor.applyAsInt(nodes.get(startIdx + i));
-            }
-
-            // Write chunk at specific offset
-            valuesArray.write(chunkData, new int[] { currentChunkSize }, new int[] { startIdx });
-
-            System.out.println("- Wrote " + attrName + " chunk " + chunkIndex + ": " + currentChunkSize + " values");
-            chunkIndex++;
-        }
-    }
-
-    /**
-     * Helper method to write chunked double attributes
-     */
-    private static void writeChunkedDoubleAttribute(List<GeffNode> nodes, ZarrGroup attrsGroup, String attrName,
-            int chunkSize, java.util.function.ToDoubleFunction<GeffNode> extractor)
-            throws IOException, InvalidRangeException {
-
-        int totalNodes = nodes.size();
-
-        // Create the attribute subgroup
-        ZarrGroup attrGroup = attrsGroup.createSubGroup(attrName);
-        ZarrGroup valuesGroup = attrGroup.createSubGroup("values");
-
-        // Create a single ZarrArray for all values with proper chunking
-        ZarrArray valuesArray = valuesGroup.createArray("", new ArrayParams()
-                .shape(totalNodes)
-                .chunks(chunkSize)
-                .dataType(DataType.f8));
-
-        // Write data in chunks
-        int chunkIndex = 0;
-        for (int startIdx = 0; startIdx < totalNodes; startIdx += chunkSize) {
-            int endIdx = Math.min(startIdx + chunkSize, totalNodes);
-            int currentChunkSize = endIdx - startIdx;
-
-            // Prepare chunk data array
-            double[] chunkData = new double[currentChunkSize];
-
-            // Fill chunk data array
-            for (int i = 0; i < currentChunkSize; i++) {
-                chunkData[i] = extractor.applyAsDouble(nodes.get(startIdx + i));
-            }
-
-            // Write chunk at specific offset
-            valuesArray.write(chunkData, new int[] { currentChunkSize }, new int[] { startIdx });
-
-            System.out.println("- Wrote " + attrName + " chunk " + chunkIndex + ": " + currentChunkSize + " values");
-            chunkIndex++;
-        }
-    }
-
-    /**
-     * Helper method to write chunked position matrices
-     */
-    private static void writeChunkedPositions(List<GeffNode> nodes, ZarrGroup attrsGroup, String attrName,
-            int[] chunkSize) throws IOException, InvalidRangeException {
-
-        int totalNodes = nodes.size();
-        int nodeChunkSize = chunkSize[0]; // Use first dimension for node chunking
-
-        // Create the attribute subgroup
-        ZarrGroup attrGroup = attrsGroup.createSubGroup(attrName);
-        ZarrGroup valuesGroup = attrGroup.createSubGroup("values");
-
-        // Create a single ZarrArray for all positions with proper chunking
-        ZarrArray positionsArray = valuesGroup.createArray("", new ArrayParams()
-                .shape(totalNodes, 3)
-                .chunks(chunkSize.length >= 2 ? chunkSize : new int[] { nodeChunkSize, 3 })
-                .dataType(DataType.f8));
-
-        // Write data in chunks
-        int chunkIndex = 0;
-        for (int startIdx = 0; startIdx < totalNodes; startIdx += nodeChunkSize) {
-            int endIdx = Math.min(startIdx + nodeChunkSize, totalNodes);
-            int currentChunkSize = endIdx - startIdx;
-
-            // Prepare chunk data array - flattened 3D positions
-            double[] chunkData = new double[currentChunkSize * 3];
-
-            // Fill chunk data array
-            for (int i = 0; i < currentChunkSize; i++) {
-                GeffNode node = nodes.get(startIdx + i);
-                double[] nodePos = node.getPosition();
-                if (nodePos != null && nodePos.length >= 3) {
-                    chunkData[i * 3] = nodePos[0]; // X
-                    chunkData[i * 3 + 1] = nodePos[1]; // Y
-                    chunkData[i * 3 + 2] = nodePos[2]; // Z
-                } else {
-                    // Create 3D position from x, y coordinates with z=0
-                    chunkData[i * 3] = node.getX();
-                    chunkData[i * 3 + 1] = node.getY();
-                    chunkData[i * 3 + 2] = node.getZ();
-                }
-            }
-
-            // Write chunk at specific offset
-            positionsArray.write(chunkData, new int[] { currentChunkSize, 3 }, new int[] { startIdx, 0 });
-
-            System.out.println("- Wrote " + attrName + " chunk " + chunkIndex + ": " + currentChunkSize + " positions");
-            chunkIndex++;
-        }
-    }
-
-    // Helper methods for type conversion
-    private static int[] convertToIntArray(Object data, String fieldName) {
-        if (data instanceof int[]) {
-            return (int[]) data;
-        } else if (data instanceof long[]) {
-            long[] longArray = (long[]) data;
-            int[] intArray = new int[longArray.length];
-            for (int i = 0; i < longArray.length; i++) {
-                intArray[i] = (int) longArray[i];
-            }
-            return intArray;
-        } else if (data instanceof double[]) {
-            double[] doubleArray = (double[]) data;
-            int[] intArray = new int[doubleArray.length];
-            for (int i = 0; i < doubleArray.length; i++) {
-                intArray[i] = (int) doubleArray[i];
-            }
-            return intArray;
-        } else if (data instanceof float[]) {
-            float[] floatArray = (float[]) data;
-            int[] intArray = new int[floatArray.length];
-            for (int i = 0; i < floatArray.length; i++) {
-                intArray[i] = (int) floatArray[i];
-            }
-            return intArray;
-        } else {
-            throw new IllegalArgumentException(
-                    "Unsupported data type for " + fieldName + ": " +
-                            (data != null ? data.getClass().getName() : "null"));
-        }
-    }
-
-    private static double[] convertToDoubleArray(Object data, String fieldName) {
-        if (data instanceof double[]) {
-            return (double[]) data;
-        } else if (data instanceof float[]) {
-            float[] floatArray = (float[]) data;
-            double[] doubleArray = new double[floatArray.length];
-            for (int i = 0; i < floatArray.length; i++) {
-                doubleArray[i] = floatArray[i];
-            }
-            return doubleArray;
-        } else if (data instanceof int[]) {
-            int[] intArray = (int[]) data;
-            double[] doubleArray = new double[intArray.length];
-            for (int i = 0; i < intArray.length; i++) {
-                doubleArray[i] = intArray[i];
-            }
-            return doubleArray;
-        } else if (data instanceof long[]) {
-            long[] longArray = (long[]) data;
-            double[] doubleArray = new double[longArray.length];
-            for (int i = 0; i < longArray.length; i++) {
-                doubleArray[i] = longArray[i];
-            }
-            return doubleArray;
-        } else {
-            throw new IllegalArgumentException(
-                    "Unsupported data type for " + fieldName + ": " +
-                            (data != null ? data.getClass().getName() : "null"));
-        }
-    }
-
-    private static double[][] convertToDoubleMatrix(Object data) {
-        if (data instanceof double[][]) {
-            return (double[][]) data;
-        } else if (data instanceof float[][]) {
-            float[][] floatMatrix = (float[][]) data;
-            double[][] doubleMatrix = new double[floatMatrix.length][];
-            for (int i = 0; i < floatMatrix.length; i++) {
-                doubleMatrix[i] = new double[floatMatrix[i].length];
-                for (int j = 0; j < floatMatrix[i].length; j++) {
-                    doubleMatrix[i][j] = floatMatrix[i][j];
-                }
-            }
-            return doubleMatrix;
-        } else if (data instanceof double[]) {
-            // Single row matrix
-            double[] singleRow = (double[]) data;
-            return new double[][] { singleRow };
-        } else if (data instanceof float[]) {
-            // Single row matrix from float array
-            float[] floatArray = (float[]) data;
-            double[] doubleRow = new double[floatArray.length];
-            for (int i = 0; i < floatArray.length; i++) {
-                doubleRow[i] = floatArray[i];
-            }
-            return new double[][] { doubleRow };
-        } else {
-            throw new IllegalArgumentException(
-                    "Unsupported data type for position matrix: " +
-                            (data != null ? data.getClass().getName() : "null"));
-        }
-    }
-
     @Override
     public String toString() {
-        return String.format("GeffNode{id=%d, t=%d, x=%.2f, y=%.2f, z=%.2f, segId=%d}",
-                id, timepoint, x, y, getZ(), segmentId);
+        StringBuilder sb = new StringBuilder("GeffNode{")
+                .append("id=").append(id)
+                .append(", t=").append(t)
+                .append(", x=").append(String.format("%.2f", x))
+                .append(", y=").append(String.format("%.2f", y))
+                .append(", z=").append(String.format("%.2f", z))
+                .append(color != null ? ", color=" + java.util.Arrays.toString(color) : "")
+                .append(", segId=").append(segmentId)
+                .append("radius=").append(String.format("%.2f", radius))
+                .append(covariance2d != null ? ", covariance2d=" + java.util.Arrays.toString(covariance2d) : "")
+                .append(covariance3d != null ? ", covariance3d=" + java.util.Arrays.toString(covariance3d) : "")
+                .append("}");
+        return sb.toString();
     }
 
     @Override
@@ -678,19 +637,29 @@ public class GeffNode {
 
         GeffNode geffNode = (GeffNode) obj;
         return id == geffNode.id &&
-                timepoint == geffNode.timepoint &&
+                t == geffNode.t &&
                 Double.compare(geffNode.x, x) == 0 &&
                 Double.compare(geffNode.y, y) == 0 &&
-                segmentId == geffNode.segmentId;
+                Double.compare(geffNode.z, z) == 0 &&
+                java.util.Arrays.equals(color, geffNode.color) &&
+                segmentId == geffNode.segmentId &&
+                Double.compare(geffNode.radius, radius) == 0 &&
+                java.util.Arrays.equals(covariance2d, geffNode.covariance2d) &&
+                java.util.Arrays.equals(covariance3d, geffNode.covariance3d);
     }
 
     @Override
     public int hashCode() {
         int result = id;
-        result = 31 * result + timepoint;
+        result = 31 * result + t;
         result = 31 * result + Double.hashCode(x);
         result = 31 * result + Double.hashCode(y);
+        result = 31 * result + Double.hashCode(z);
+        result = 31 * result + (color != null ? java.util.Arrays.hashCode(color) : 0);
         result = 31 * result + segmentId;
+        result = 31 * result + Double.hashCode(radius);
+        result = 31 * result + (covariance2d != null ? java.util.Arrays.hashCode(covariance2d) : 0);
+        result = 31 * result + (covariance3d != null ? java.util.Arrays.hashCode(covariance3d) : 0);
         return result;
     }
 }

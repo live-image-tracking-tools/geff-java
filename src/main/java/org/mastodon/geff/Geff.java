@@ -18,7 +18,7 @@ public class Geff {
     private List<GeffEdge> edges = new ArrayList<>();
     private GeffMetadata metadata;
 
-    public static final String VERSION = "0.1.0"; // Example version constant
+    public static final String VERSION = "0.3.0"; // Example version constant
 
     private Geff(List<GeffNode> nodes, List<GeffEdge> edges, GeffMetadata metadata) {
         this.nodes = nodes;
@@ -27,16 +27,20 @@ public class Geff {
     }
 
     public static void main(String[] args) {
-        System.out.println("Geff package version: " + VERSION);
-        System.out.println("This is a placeholder for the Geff package.");
+        System.out.println("Geff library version: " + VERSION);
 
-        String zarrPath = "src/test/resources/Fluo-N2DL-HeLa-01.zarr/tracks";
-        String outputZarrPath = "src/test/resources/Fluo-N2DL-HeLa-01_output.zarr/tracks";
+        String zarrPath = "src/test/resources/mouse-20250719.zarr/tracks";
+        String outputZarrPath = "src/test/resources/mouse-20250719_output.zarr/tracks";
 
         try {
+            // Demonstrate reading metadata
+            System.out.println("\n=== Reading Metadata ===");
+            GeffMetadata metadata = GeffMetadata.readFromZarr(zarrPath);
+            System.out.println("Metadata loaded:" + metadata);
+
             // Demonstrate reading nodes
             System.out.println("\n=== Reading Nodes ===");
-            List<GeffNode> nodes = GeffNode.readFromZarr(zarrPath);
+            List<GeffNode> nodes = GeffNode.readFromZarr(zarrPath, metadata.getGeffVersion());
             System.out.println("Read " + nodes.size() + " nodes:");
             for (int i = 0; i < Math.min(5, nodes.size()); i++) {
                 System.out.println("  " + nodes.get(i));
@@ -45,18 +49,9 @@ public class Geff {
                 System.out.println("  ... and " + (nodes.size() - 5) + " more nodes");
             }
 
-            // Try to write nodes (will show what would be written)
-            try {
-                GeffNode.writeToZarr(nodes, outputZarrPath + "/nodes", GeffNode.getChunkSize(zarrPath));
-            } catch (UnsupportedOperationException e) {
-                System.out.println("Note: " + e.getMessage());
-            } catch (InvalidRangeException e) {
-                System.err.println("InvalidRangeException during node writing: " + e.getMessage());
-            }
-
             // Demonstrate reading edges
             System.out.println("\n=== Reading Edges ===");
-            List<GeffEdge> edges = GeffEdge.readFromZarr(zarrPath);
+            List<GeffEdge> edges = GeffEdge.readFromZarr(zarrPath, metadata.getGeffVersion());
             System.out.println("Read " + edges.size() + " edges:");
             for (int i = 0; i < Math.min(5, edges.size()); i++) {
                 System.out.println("  " + edges.get(i));
@@ -65,31 +60,20 @@ public class Geff {
                 System.out.println("  ... and " + (edges.size() - 5) + " more edges");
             }
 
-            // Try to write edges (will show what would be written)
+            // Try to write nodes (will show what would be written)
             try {
-                GeffEdge.writeToZarr(edges, outputZarrPath + "/edges", GeffEdge.getChunkSize(zarrPath));
+                GeffNode.writeToZarr(nodes, outputZarrPath + "/nodes", ZarrUtils.getChunkSize(zarrPath));
             } catch (UnsupportedOperationException e) {
                 System.out.println("Note: " + e.getMessage());
+            } catch (InvalidRangeException e) {
+                System.err.println("InvalidRangeException during node writing: " + e.getMessage());
             }
 
-            // Demonstrate reading metadata
-            System.out.println("\n=== Reading Metadata ===");
-            GeffMetadata metadata = GeffMetadata.readFromZarr(zarrPath);
-            System.out.println("Metadata loaded:");
-            System.out.println("  GEFF Version: " + metadata.getGeffVersion());
-            System.out.println("  Directed: " + metadata.isDirected());
-            System.out.println("  Position Attribute: " + metadata.getPositionAttr());
-            if (metadata.getRoiMin() != null) {
-                System.out.println("  ROI Min: " + java.util.Arrays.toString(metadata.getRoiMin()));
-            }
-            if (metadata.getRoiMax() != null) {
-                System.out.println("  ROI Max: " + java.util.Arrays.toString(metadata.getRoiMax()));
-            }
-            if (metadata.getAxisNames() != null) {
-                System.out.println("  Axis Names: " + java.util.Arrays.toString(metadata.getAxisNames()));
-            }
-            if (metadata.getAxisUnits() != null) {
-                System.out.println("  Axis Units: " + java.util.Arrays.toString(metadata.getAxisUnits()));
+            // Try to write edges (will show what would be written)
+            try {
+                GeffEdge.writeToZarr(edges, outputZarrPath + "/edges", ZarrUtils.getChunkSize(zarrPath));
+            } catch (UnsupportedOperationException e) {
+                System.out.println("Note: " + e.getMessage());
             }
 
             // Try to write edges (will show what would be written)
@@ -138,10 +122,10 @@ public class Geff {
                 System.out.println("  Value: " + attrValue);
             }
             // Example of opening an array
-            System.out.println("Opening 'edges/ids' array...");
-            ZarrArray edgesIds = zarrTracks.openArray("edges/ids");
-            int[] edgesIdsData = (int[]) edgesIds.read();
-            System.out.println("Read edges/ids data: " + edgesIdsData.length + " elements.");
+            System.out.println("Opening 'nodes/ids' array...");
+            ZarrArray nodesIds = zarrTracks.openArray("nodes/ids");
+            double[] nodesIdsData = (double[]) nodesIds.read();
+            System.out.println("Read nodes/ids data: " + nodesIdsData.length + " elements.");
         } catch (IOException e) {
             e.printStackTrace();
         } catch (InvalidRangeException e) {
