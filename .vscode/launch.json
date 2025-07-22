@@ -24,6 +24,13 @@
             "request": "launch",
             "mainClass": "org.mastodon.geff.Geff",
             "vmArgs": "-Xmx4g -Djna.library.path=/opt/homebrew/opt/c-blosc/lib"
+        },
+        {
+            "type": "java",
+            "name": "GeffCreateTest",
+            "request": "launch",
+            "mainClass": "org.mastodon.geff.GeffCreateTest",
+            "vmArgs": "-Xmx4g -Djna.library.path=/opt/homebrew/opt/c-blosc/lib"
         }
     ]
 }

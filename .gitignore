@@ -1,5 +1,6 @@
 src/test/resources/Fluo-N2DL-HeLa-01_output.zarr/
 src/test/resources/mouse-20250719_output.zarr
+src/test/resources/create_test_output.zarr
 
 .DS_Store
 target/
