@@ -304,6 +304,15 @@ public class GeffMetadata
     }
 
     /**
+     * Write metadata to Zarr format at specified path
+     */
+    public static void writeToZarr( GeffMetadata metadata, String zarrPath ) throws IOException
+    {
+        ZarrGroup group = ZarrGroup.create( zarrPath );
+        metadata.writeToZarr( group );
+    }
+
+    /**
      * Write metadata to Zarr format
      */
     public void writeToZarr( ZarrGroup group ) throws IOException
@@ -412,15 +421,6 @@ public class GeffMetadata
             System.out.println( "Written metadata attributes: " + rootAttrs.keySet() );
         }
 
-    }
-
-    /**
-     * Write metadata to Zarr format at specified path
-     */
-    public static void writeToZarr( GeffMetadata metadata, String zarrPath ) throws IOException
-    {
-        ZarrGroup group = ZarrGroup.create( zarrPath );
-        metadata.writeToZarr( group );
     }
 
     // Helper methods for type conversion

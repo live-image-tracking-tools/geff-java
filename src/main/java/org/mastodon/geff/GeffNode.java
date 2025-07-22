@@ -616,7 +616,10 @@ public class GeffNode implements ZarrEntity
         if ( geffVersion.startsWith( "0.1" ) )
         {
             // Create the main nodes group
-            ZarrGroup nodesGroup = ZarrGroup.create( zarrPath );
+            ZarrGroup rootGroup = ZarrGroup.create( zarrPath );
+
+            // Create the main nodes group
+            ZarrGroup nodesGroup = rootGroup.createSubGroup( "nodes" );
 
             // Create attrs subgroup for chunked storage
             ZarrGroup attrsGroup = nodesGroup.createSubGroup( "attrs" );
@@ -653,7 +656,10 @@ public class GeffNode implements ZarrEntity
         else if ( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) )
         {
             // Create the main nodes group
-            ZarrGroup nodesGroup = ZarrGroup.create( zarrPath );
+            ZarrGroup rootGroup = ZarrGroup.create( zarrPath );
+
+            // Create the main nodes group
+            ZarrGroup nodesGroup = rootGroup.createSubGroup( "nodes" );
 
             // Create props subgroup for chunked storage
             ZarrGroup propsGroup = nodesGroup.createSubGroup( "props" );

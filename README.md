@@ -77,9 +77,9 @@ import java.util.List;
 import java.util.ArrayList;
 
 // Read Geff data from Zarr
-List<GeffNode> nodes = GeffNode.readFromZarr("/path/to/data.zarr/tracks/nodes");
-List<GeffEdge> edges = GeffEdge.readFromZarr("/path/to/data.zarr/tracks/edges");
-GeffMetadata metadata = GeffMetadata.readFromZarr("/path/to/data.zarr");
+List<GeffNode> nodes = GeffNode.readFromZarr("/path/to/data.zarr/tracks");
+List<GeffEdge> edges = GeffEdge.readFromZarr("/path/to/data.zarr/tracks");
+GeffMetadata metadata = GeffMetadata.readFromZarr("/path/to/data.zarr/tracks");
 
 // Create new Geff data using builder pattern
 List<GeffNode> newNodes = new ArrayList<>();
@@ -108,7 +108,7 @@ GeffNode node1 = new GeffNode.Builder()
 newNodes.add(node1);
 
 // Write to Zarr format with version specification
-GeffNode.writeToZarr(newNodes, "/path/to/output.zarr/tracks/nodes", "0.3.0");
+GeffNode.writeToZarr(newNodes, "/path/to/output.zarr/tracks", "0.3.0");
 
 // Create new edges using builder pattern
 List<GeffEdge> newEdges = new ArrayList<>();
@@ -122,7 +122,7 @@ GeffEdge edge = new GeffEdge.Builder()
 newEdges.add(edge);
 
 // Write to Zarr format
-GeffEdge.writeToZarr(newEdges, "/path/to/output.zarr/tracks/edges", "0.3.0");
+GeffEdge.writeToZarr(newEdges, "/path/to/output.zarr/tracks", "0.3.0");
 
 // Create metadata with axis information
 GeffAxis[] axes = {
@@ -132,7 +132,7 @@ GeffAxis[] axes = {
     new GeffAxis(GeffAxis.NAME_SPACE_Z, GeffAxis.TYPE_SPACE, GeffAxis.UNIT_MICROMETERS, 0.0, 100.0)
 };
 GeffMetadata metadata = new GeffMetadata("0.3.0", true, axes);
-GeffMetadata.writeToZarr(metadata, "/path/to/output.zarr");
+GeffMetadata.writeToZarr(metadata, "/path/to/output.zarr/tracks");
 ```
 
 ## Building

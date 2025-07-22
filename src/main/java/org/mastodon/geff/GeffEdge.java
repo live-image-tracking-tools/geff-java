@@ -358,7 +358,9 @@ public class GeffEdge implements ZarrEntity
             // Create attrs subgroup for 0.1 versions
 
             // Create the main edges group
-            ZarrGroup edgesGroup = ZarrGroup.create( zarrPath );
+            ZarrGroup rootGroup = ZarrGroup.create( zarrPath );
+
+            ZarrGroup edgesGroup = rootGroup.createSubGroup( "edges" );
 
             writeChunkedEdgeIds( edgesGroup, edges, chunks );
 

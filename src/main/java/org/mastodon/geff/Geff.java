@@ -74,7 +74,7 @@ public class Geff
             // Try to write nodes (will show what would be written)
             try
             {
-                GeffNode.writeToZarr( nodes, outputZarrPath + "/nodes", ZarrUtils.getChunkSize( zarrPath ) );
+                GeffNode.writeToZarr( nodes, outputZarrPath, ZarrUtils.getChunkSize( zarrPath ) );
             }
             catch ( UnsupportedOperationException e )
             {
@@ -88,7 +88,7 @@ public class Geff
             // Try to write edges (will show what would be written)
             try
             {
-                GeffEdge.writeToZarr( edges, outputZarrPath + "/edges", ZarrUtils.getChunkSize( zarrPath ) );
+                GeffEdge.writeToZarr( edges, outputZarrPath, ZarrUtils.getChunkSize( zarrPath ) );
             }
             catch ( UnsupportedOperationException e )
             {

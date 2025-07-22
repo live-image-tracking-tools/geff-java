@@ -209,14 +209,14 @@ public class GeffTest
     @DisplayName( "Test write operations work correctly" )
     void testWriteOperations( @TempDir Path tempDir )
     {
-        String tempPath = tempDir.toString() + "/test.zarr";
+        String tempPath = tempDir.toString() + "/test.zarr/tracks";
 
         // Test that write operations complete without throwing exceptions
         assertDoesNotThrow( () -> {
             try
             {
-                GeffNode.writeToZarr( testNodes, tempPath + "/nodes", 1000 );
-                GeffEdge.writeToZarr( testEdges, tempPath + "/edges", 1000 );
+                GeffNode.writeToZarr( testNodes, tempPath, 1000 );
+                GeffEdge.writeToZarr( testEdges, tempPath, 1000 );
                 GeffMetadata.writeToZarr( testMetadata, tempPath );
             }
             catch ( Exception e )
