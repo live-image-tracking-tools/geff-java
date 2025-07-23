@@ -1,4 +1,4 @@
-[![Build Status](https://github.com/mastodon-sc/geff-java/actions/workflows/build.yml/badge.svg)](https://github.com/mastodon-sc/geff-java/actions/workflows/build.yml)
+[![Build Status](https://github.com/live-image-tracking-tools/geff-java/actions/workflows/build.yml/badge.svg)](https://github.com/live-image-tracking-tools/geff-java/actions/workflows/build.yml)
 [![License](https://img.shields.io/badge/License-BSD%202--Clause-orange.svg)](https://opensource.org/licenses/BSD-2-Clause)
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=mastodon-sc_geff-java&metric=coverage)](https://sonarcloud.io/summary/overall?id=mastodon-sc_geff-java)
 [![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=mastodon-sc_geff-java&metric=ncloc)](https://sonarcloud.io/summary/overall?id=mastodon-sc_geff-java)
