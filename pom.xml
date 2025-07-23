@@ -22,6 +22,8 @@
         <releaseProfiles>sign,deploy-to-scijava</releaseProfiles>
 
         <enforcer.skip>true</enforcer.skip>
+		<n5.version>4.0.0-alpha-3-SNAPSHOT</n5.version>
+		<n5-zarr.version>2.0.0-alpha-2-SNAPSHOT</n5-zarr.version>
 
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
         <sonar.java.coveragePlugin>jacoco</sonar.java.coveragePlugin>
@@ -47,8 +49,17 @@
     </licenses>
 
     <dependencies>
+		<dependency>
+			<groupId>org.janelia.saalfeldlab</groupId>
+			<artifactId>n5</artifactId>
+		</dependency>
 
-        <dependency>
+		<dependency>
+			<groupId>org.janelia.saalfeldlab</groupId>
+			<artifactId>n5-zarr</artifactId>
+		</dependency>
+		
+		<dependency>
             <groupId>com.bc.zarr</groupId>
             <artifactId>jzarr</artifactId>
             <version>0.3.5</version>
