@@ -8,23 +8,16 @@
         <version>40.0.0</version>
     </parent>
 
-    <groupId>org.mastodon</groupId>
-    <artifactId>geff-java</artifactId>
+    <groupId>org.litt</groupId>
+    <artifactId>geff</artifactId>
     <version>0.3.1-SNAPSHOT</version>
 
     <properties>
-        <package-name>org.mastodon</package-name>
+        <package-name>org.litt.geff</package-name>
         <license.licenseName>bsd_2</license.licenseName>
         <license.projectName>geff-java</license.projectName>
-        <license.organizationName>Mastodon authors</license.organizationName>
+        <license.organizationName>geff authors</license.organizationName>
         <license.copyrightOwners>Ko Sugawara</license.copyrightOwners>
-
-        <mastodon.version>1.0.0-beta-34</mastodon.version>
-        <mastodon-tracking.version>1.0.0-beta-20</mastodon-tracking.version>
-        <mastodon.group>org.mastodon</mastodon.group>
-        <!-- when a pom-scijava exists that references the scijava-common 2.99.1 release, this can
-        be removed again -->
-        <scijava-common.version>2.99.1</scijava-common.version>
 
         <releaseProfiles>sign,deploy-to-scijava</releaseProfiles>
 
@@ -40,11 +33,11 @@
 
     <name>geff Java implementation</name>
     <description>An implementation of the geff library (https://github.com/live-image-tracking-tools/geff) in Java.</description>
-    <url>https://github.com/mastodon-sc/geff-java</url>
+    <url>https://github.com/live-image-tracking-tools/geff-java</url>
     <inceptionYear>2025</inceptionYear>
     <organization>
-        <name>Mastodon Science</name>
-        <url>http://github.com/mastodon-sc</url>
+        <name>Live Image Tracking Tools (LITT)</name>
+        <url>https://github.com/live-image-tracking-tools</url>
     </organization>
     <licenses>
         <license>
@@ -58,7 +51,7 @@
         <dependency>
             <groupId>org.mastodon</groupId>
             <artifactId>mastodon</artifactId>
-            <version>${mastodon.version}</version>
+            <version>1.0.0-beta-34</version>
         </dependency>
 
         <dependency>
@@ -105,7 +98,7 @@
         <dependency>
             <groupId>org.mastodon</groupId>
             <artifactId>mastodon</artifactId>
-            <version>${mastodon.version}</version>
+            <version>1.0.0-beta-34</version>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
@@ -119,38 +112,52 @@
     </mailingLists>
 
     <scm>
-        <connection>scm:git:https:github.com/mastodon-sc/geff-java</connection>
-        <developerConnection>scm:git:git@github.com:mastodon-sc/geff-java</developerConnection>
+        <connection>scm:git:https:github.com/live-image-tracking-tools/geff-java</connection>
+        <developerConnection>scm:git:git@github.com:live-image-tracking-tools/geff-java</developerConnection>
         <tag>HEAD</tag>
-        <url>https://github.com/mastodon-sc/geff-java</url>
+        <url>https://github.com/live-image-tracking-tools/geff-java</url>
     </scm>
     <issueManagement>
         <system>GitHub</system>
-        <url>https://github.com/mastodon-sc/geff-java/issues</url>
+        <url>https://github.com/live-image-tracking-tools/geff-java/issues</url>
     </issueManagement>
     <ciManagement>
         <system>GitHub Actions</system>
-        <url>https://github.com/mastodon-sc/geff-java/actions</url>
+        <url>https://github.com/live-image-tracking-tools/geff-java/actions</url>
     </ciManagement>
 
     <developers>
-        <developer>
-            <id>ksugar</id>
-            <name>Ko Sugawara</name>
-            <email>ko.sugawara@riken.jp</email>
-            <organization>RIKEN BDR</organization>
-            <organizationUrl>https://www.bdr.riken.jp/en/</organizationUrl>
-            <roles>
-                <role>lead</role>
-                <role>developer</role>
-            </roles>
-        </developer>
+		<developer>
+			<id>ksugar</id>
+			<name>Ko Sugawara</name>
+			<email>ko.sugawara@riken.jp</email>
+			<organization>RIKEN BDR</organization>
+			<organizationUrl>https://www.bdr.riken.jp/en/</organizationUrl>
+			<roles>
+				<role>lead</role>
+				<role>developer</role>
+				<role>debugger</role>
+				<role>reviewer</role>
+				<role>maintainer</role>
+			</roles>
+		</developer>
+		<developer>
+			<id>tpietzsch</id>
+			<name>Tobias Pietzsch</name>
+			<url>https://imagej.net/people/tpietzsch</url>
+			<roles>
+				<role>developer</role>
+				<role>debugger</role>
+				<role>reviewer</role>
+			</roles>
+		</developer>
     </developers>
-
     <contributors>
-        <contributor>
-            <name>none</name>
-        </contributor>
+		<contributor>
+			<name>Jean-Yves Tinevez</name>
+			<url>https://imagej.net/people/tinevez</url>
+			<properties><id>tinevez</id></properties>
+		</contributor>
     </contributors>
 
     <repositories>
