@@ -47,12 +47,6 @@
     </licenses>
 
     <dependencies>
-        <!-- Mastodon Core -->
-        <dependency>
-            <groupId>org.mastodon</groupId>
-            <artifactId>mastodon</artifactId>
-            <version>1.0.0-beta-34</version>
-        </dependency>
 
         <dependency>
             <groupId>com.bc.zarr</groupId>
@@ -73,12 +67,6 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- graph ml export -->
-        <dependency>
-            <groupId>org.jgrapht</groupId>
-            <artifactId>jgrapht-io</artifactId>
-        </dependency>
-
         <!-- Test dependencies -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -86,22 +74,6 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- Mockito used in some unit tests -->
-        <dependency>
-            <groupId>org.mockito</groupId>
-            <artifactId>mockito-core</artifactId>
-            <version>4.11.0</version>
-            <scope>test</scope>
-        </dependency>
-
-        <!-- include mastodon at test runtime -->
-        <dependency>
-            <groupId>org.mastodon</groupId>
-            <artifactId>mastodon</artifactId>
-            <version>1.0.0-beta-34</version>
-            <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
 
     <mailingLists>
