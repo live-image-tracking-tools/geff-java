@@ -6,13 +6,13 @@
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -225,7 +225,7 @@ public class GeffNode implements ZarrEntity
 
     /**
      * Returns the position of the node as a 3D array.
-     * 
+     *
      * @deprecated Use {@link #getX()}, {@link #getY()}, {@link #getZ()}
      *             instead.
      * @return The position of the node as a 3D array.
@@ -238,7 +238,7 @@ public class GeffNode implements ZarrEntity
 
     /**
      * Set the position of the node.
-     * 
+     *
      * @deprecated Use {@link #setX(double)}, {@link #setY(double)},
      *             {@link #setZ(double)} instead.
      * @param position
@@ -267,7 +267,7 @@ public class GeffNode implements ZarrEntity
 
     /**
      * Builder for creating GeffNode instance.
-     * 
+     *
      * @return A new Builder instance for GeffNode.
      */
     public static Builder builder()
@@ -386,7 +386,7 @@ public class GeffNode implements ZarrEntity
 
     /**
      * Read nodes from Zarr format with default version and chunked structure
-     * 
+     *
      * @param zarrPath
      *            The path to the Zarr directory containing nodes.
      * @return List of GeffNode objects read from the Zarr path.
@@ -398,7 +398,7 @@ public class GeffNode implements ZarrEntity
 
     /**
      * Read nodes from Zarr format with specified version and chunked structure
-     * 
+     *
      * @param zarrPath
      *            The path to the Zarr directory containing nodes.
      * @param geffVersion
@@ -414,7 +414,7 @@ public class GeffNode implements ZarrEntity
     /**
      * Read nodes from Zarr format with chunked structure. This method handles
      * different Geff versions and reads node attributes accordingly.
-     * 
+     *
      * @param zarrPath
      *            The path to the Zarr directory containing nodes.
      * @param geffVersion
@@ -431,63 +431,7 @@ public class GeffNode implements ZarrEntity
         System.out.println(
                 "Reading nodes from Zarr path: " + zarrPath + " with Geff version: " + geffVersion );
 
-        if ( geffVersion.startsWith( "0.1" ) )
-        {
-
-            // Read node IDs from chunks
-            int[] nodeIds = ZarrUtils.readChunkedIntArray( nodesGroup, "ids", "node IDs" );
-
-            // Read attributes
-            ZarrGroup attrsGroup = nodesGroup.openSubGroup( "attrs" );
-
-            // Read time points from chunks
-            int[] timepoints = ZarrUtils.readChunkedIntArray( attrsGroup, "t/values", "timepoints" );
-
-            // Read X coordinates from chunks
-            double[] xCoords = ZarrUtils.readChunkedDoubleArray( attrsGroup, "x/values", "X coordinates" );
-
-            // Read Y coordinates from chunks
-            double[] yCoords = ZarrUtils.readChunkedDoubleArray( attrsGroup, "y/values", "Y coordinates" );
-
-            // Read segment IDs from chunks
-            int[] segmentIds = new int[ 0 ];
-            try
-            {
-                segmentIds = ZarrUtils.readChunkedIntArray( attrsGroup, "seg_id/values", "segment IDs" );
-            }
-            catch ( Exception e )
-            {
-                System.out.println( "Warning: Could not read segment IDs: " + e.getMessage() + " skipping..." );
-            }
-
-            // Read positions if available from chunks
-            double[][] positions = new double[ 0 ][];
-            try
-            {
-                positions = ZarrUtils.readChunkedDoubleMatrix( attrsGroup, "position/values", "positions" );
-            }
-            catch ( Exception e )
-            {
-                // Position array might not exist or be in different format
-                System.out.println( "Warning: Could not read position array: " + e.getMessage() );
-            }
-
-            // Create node objects
-            for ( int i = 0; i < nodeIds.length; i++ )
-            {
-                GeffNode node = new Builder()
-                        .id( nodeIds[ i ] )
-                        .timepoint( i < timepoints.length ? timepoints[ i ] : -1 )
-                        .x( i < xCoords.length ? xCoords[ i ] : Double.NaN )
-                        .y( i < yCoords.length ? yCoords[ i ] : Double.NaN )
-                        .z( i < positions.length ? positions[ i ][ 0 ] : Double.NaN )
-                        .segmentId( i < segmentIds.length ? segmentIds[ i ] : -1 )
-                        .build();
-
-                nodes.add( node );
-            }
-        }
-        else if ( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) )
+		if ( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) )
         {
             // Read node IDs from chunks
             int[] nodeIds = ZarrUtils.readChunkedIntArray( nodesGroup, "ids", "node IDs" );
@@ -641,47 +585,7 @@ public class GeffNode implements ZarrEntity
                 "Writing " + nodes.size() + " nodes to Zarr path: " + zarrPath + " with chunk size: " + chunkSize
                         + " to Geff version: " + geffVersion );
 
-        if ( geffVersion.startsWith( "0.1" ) )
-        {
-            // Create the main nodes group
-            ZarrGroup rootGroup = ZarrGroup.create( zarrPath );
-
-            // Create the main nodes group
-            ZarrGroup nodesGroup = rootGroup.createSubGroup( "nodes" );
-
-            // Create attrs subgroup for chunked storage
-            ZarrGroup attrsGroup = nodesGroup.createSubGroup( "attrs" );
-
-            // Check if any nodes have 3D positions
-            boolean hasPositions = nodes.stream()
-                    .anyMatch( node -> node.getPosition() != null && node.getPosition().length >= 3 );
-
-            System.out.println( "Node analysis:" );
-            System.out.println( "- Has 3D positions: " + hasPositions );
-            System.out.println( "- Format: Chunked arrays with separate values subgroups" );
-
-            // Write node IDs in chunks
-            writeChunkedNodeIds( nodes, nodesGroup, chunkSize );
-
-            // Write timepoints in chunks
-            ZarrUtils.writeChunkedIntAttribute( nodes, attrsGroup, "t", chunkSize, GeffNode::getT );
-
-            // Write X coordinates in chunks
-            ZarrUtils.writeChunkedDoubleAttribute( nodes, attrsGroup, "x", chunkSize, GeffNode::getX );
-
-            // Write Y coordinates in chunks
-            ZarrUtils.writeChunkedDoubleAttribute( nodes, attrsGroup, "y", chunkSize, GeffNode::getY );
-
-            // Write segment IDs in chunks
-            ZarrUtils.writeChunkedIntAttribute( nodes, attrsGroup, "seg_id", chunkSize, GeffNode::getSegmentId );
-
-            // Write positions if available in chunks
-            if ( hasPositions )
-            {
-                ZarrUtils.writeChunkedDoubleMatrix( nodes, attrsGroup, "position", chunkSize, GeffNode::getPosition, 3 );
-            }
-        }
-        else if ( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) )
+		if ( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) )
         {
             // Create the main nodes group
             ZarrGroup rootGroup = ZarrGroup.create( zarrPath );

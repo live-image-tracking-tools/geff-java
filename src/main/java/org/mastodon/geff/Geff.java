@@ -42,8 +42,7 @@ public class Geff
 {
     // This class serves as a placeholder for the Geff package.
     // It can be used to define package-level constants or utility methods in
-    // the
-    // future.
+    // the future.
     private List< GeffNode > nodes = new ArrayList<>();
 
     private List< GeffEdge > edges = new ArrayList<>();

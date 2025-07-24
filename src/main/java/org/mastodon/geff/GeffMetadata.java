@@ -6,13 +6,13 @@
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -42,7 +42,7 @@ import ucar.ma2.InvalidRangeException;
 /**
  * Represents metadata for a Geff (Graph Exchange Format for Features) dataset.
  * This class handles reading and writing metadata from/to Zarr format.
- * 
+ *
  * This is the Java equivalent of the Python GeffMetadata schema from:
  * https://github.com/live-image-tracking-tools/geff/blob/main/src/geff/metadata_schema.py
  */
@@ -50,7 +50,7 @@ public class GeffMetadata
 {
 
     // Supported GEFF versions
-    public static final List< String > SUPPORTED_VERSIONS = Arrays.asList( "0.0", "0.1", "0.2", "0.3" );
+    public static final List< String > SUPPORTED_VERSIONS = Arrays.asList( "0.2", "0.3" );
 
     // Pattern to match major.minor versions, allowing for patch versions and
     // development versions
@@ -173,13 +173,7 @@ public class GeffMetadata
         // Check if geff_version exists in zattrs
         String geffVersion = null;
         Map< ?, ? > attrs = null;
-        if ( group.getAttributes().containsKey( "geff_version" ) )
-        {
-            geffVersion = ( String ) group.getAttributes().get( "geff_version" );
-            System.out.println( "Found geff_version in " + group + ": " + geffVersion );
-            attrs = group.getAttributes();
-        }
-        else if ( group.getAttributes().containsKey( "geff" ) )
+        if ( group.getAttributes().containsKey( "geff" ) )
         {
             System.out.println( "Found geff entry in " + group );
             Object geffRootObj = group.getAttributes().get( "geff" );
@@ -206,11 +200,13 @@ public class GeffMetadata
                 }
             }
         }
-        if ( geffVersion == null )
-        { throw new IllegalArgumentException(
-                "No geff_version found in " + group + ". This may indicate the path is incorrect or " +
-                        "zarr group name is not specified (e.g. /dataset.zarr/tracks/ instead of " +
-                        "/dataset.zarr/)." ); }
+		if ( geffVersion == null )
+		{
+			throw new IllegalArgumentException(
+					"No geff_version found in " + group + ". This may indicate the path is incorrect or " +
+							"zarr group name is not specified (e.g. /dataset.zarr/tracks/ instead of " +
+							"/dataset.zarr/)." );
+		}
 
         GeffMetadata metadata = new GeffMetadata();
 
@@ -218,80 +214,7 @@ public class GeffMetadata
 
         metadata.setGeffVersion( geffVersion );
 
-        if ( geffVersion.startsWith( "0.1" ) )
-        {
-            Object directedObj = attrs.get( "directed" );
-            if ( directedObj instanceof Boolean )
-            {
-                metadata.setDirected( ( Boolean ) directedObj );
-            }
-            else if ( directedObj instanceof String )
-            {
-                metadata.setDirected( Boolean.parseBoolean( ( String ) directedObj ) );
-            }
-
-            // Read optional fields
-            double[] roiMins = null;
-            double[] roiMaxs = null;
-            String[] axisNames = null;
-            String[] axisUnits = null;
-
-            int ndim = 0;
-            Object roiMinObj = attrs.get( "roi_min" );
-            if ( roiMinObj != null )
-            {
-                roiMins = convertToDoubleArray( roiMinObj );
-                ndim = roiMins.length;
-            }
-
-            Object roiMaxObj = attrs.get( "roi_max" );
-            if ( roiMaxObj != null )
-            {
-                roiMaxs = convertToDoubleArray( roiMaxObj );
-                if ( roiMaxs.length != ndim )
-                { throw new IllegalArgumentException(
-                        "Roi max dimensions " + roiMaxs.length + " do not match roi min dimensions " +
-                                roiMins.length ); }
-            }
-
-            Object axisNamesObj = attrs.get( "axis_names" );
-            if ( axisNamesObj != null )
-            {
-                axisNames = convertToStringArray( axisNamesObj );
-                if ( axisNames.length != ndim )
-                { throw new IllegalArgumentException(
-                        "Axis names dimensions " + axisNames.length + " do not match roi min dimensions " +
-                                roiMins.length ); }
-            }
-
-            Object axisUnitsObj = attrs.get( "axis_units" );
-            if ( axisUnitsObj != null )
-            {
-                axisUnits = convertToStringArray( axisUnitsObj );
-                if ( axisUnits.length != ndim )
-                { throw new IllegalArgumentException(
-                        "Axis units dimensions " + axisUnits.length + " do not match roi min dimensions " +
-                                roiMins.length ); }
-            }
-
-            String positionAttr = ( String ) attrs.get( "position_attr" );
-            if ( ndim != 0 && !positionAttr.equals( "position" ) )
-            { throw new IllegalArgumentException( "Invalid position attribute: " + positionAttr ); }
-
-            GeffAxis[] axes = new GeffAxis[ ndim ];
-            for ( int i = 0; i < ndim; i++ )
-            {
-                GeffAxis axis = new GeffAxis();
-                axis.setName( axisNames != null ? axisNames[ i ] : null );
-                axis.setType( axisNames[ i ] == GeffAxis.NAME_TIME ? GeffAxis.TYPE_TIME : GeffAxis.TYPE_SPACE );
-                axis.setUnit( axisUnits != null ? axisUnits[ i ] : null );
-                axis.setMin( roiMins != null ? roiMins[ i ] : null );
-                axis.setMax( roiMaxs != null ? roiMaxs[ i ] : null );
-                axes[ i ] = axis;
-            }
-            metadata.setGeffAxes( axes );
-        }
-        else if ( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) )
+        if ( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) )
         {
             // For 0.2 and 0.3, we expect a different structure
             metadata.setDirected( ( Boolean ) attrs.get( "directed" ) );
@@ -348,74 +271,12 @@ public class GeffMetadata
         // Validate before writing
         validate();
 
-        if ( geffVersion == null )
-        { throw new IllegalArgumentException( "Geff version must be set before writing metadata." ); }
+		if ( geffVersion == null )
+		{
+			throw new IllegalArgumentException( "Geff version must be set before writing metadata." );
+		}
 
-        if ( geffVersion.startsWith( "0.1" ) )
-        {
-            // Create a TreeMap to ensure attributes are ordered alphabetically
-            // by key
-            java.util.Map< String, Object > attrs = new java.util.TreeMap<>();
-            // Write required fields
-            attrs.put( "geff_version", geffVersion );
-            attrs.put( "directed", directed );
-
-            if ( geffAxes != null )
-            {
-                attrs.put( "position_attr", "position" );
-                double[] roiMins = new double[ geffAxes.length ];
-                double[] roiMaxs = new double[ geffAxes.length ];
-                String[] axisNames = new String[ geffAxes.length ];
-                String[] axisTypes = new String[ geffAxes.length ];
-                String[] axisUnits = new String[ geffAxes.length ];
-                for ( int i = 0; i < geffAxes.length; i++ )
-                {
-                    GeffAxis axis = geffAxes[ i ];
-                    if ( axis.getName() != null )
-                    {
-                        axisNames[ i ] = axis.getName();
-                    }
-                    if ( axis.getType() != null )
-                    {
-                        axisTypes[ i ] = axis.getType();
-                    }
-                    if ( axis.getUnit() != null )
-                    {
-                        axisUnits[ i ] = axis.getUnit();
-                    }
-                    if ( axis.getMin() != null )
-                    {
-                        roiMins[ i ] = axis.getMin();
-                    }
-                    if ( axis.getMax() != null )
-                    {
-                        roiMaxs[ i ] = axis.getMax();
-                    }
-                }
-
-                // Write optional fields
-                if ( roiMins != null )
-                {
-                    attrs.put( "roi_min", roiMins );
-                }
-                if ( roiMaxs != null )
-                {
-                    attrs.put( "roi_max", roiMaxs );
-                }
-                if ( axisNames != null )
-                {
-                    attrs.put( "axis_names", axisNames );
-                }
-                // Always write axis_units, even if null
-                attrs.put( "axis_units", axisUnits );
-            }
-
-            // Write the attributes to the Zarr group
-            group.writeAttributes( attrs );
-
-            System.out.println( "Written metadata attributes: " + attrs.keySet() );
-        }
-        else if ( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) )
+        if ( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) )
         {
             java.util.Map< String, Object > rootAttrs = new java.util.TreeMap<>();
             java.util.Map< String, Object > attrs = new java.util.TreeMap<>();

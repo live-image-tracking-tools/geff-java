@@ -6,13 +6,13 @@
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -220,63 +220,7 @@ public class GeffEdge implements ZarrEntity
         System.out.println(
                 "Reading edges from Zarr path: " + zarrPath + " with Geff version: " + geffVersion );
 
-        if ( geffVersion.startsWith( "0.1" ) )
-        {
-
-            int[][] edgeIds = ZarrUtils.readChunkedIntMatrix( edgesGroup, "ids", "edge IDs" );
-
-            double[] distances = new double[ 0 ];
-            double[] scores = new double[ 0 ];
-
-            if ( edgesGroup.getGroupKeys().contains( "attrs" ) )
-            {
-
-                // Read attributes
-                ZarrGroup attrsGroup = edgesGroup.openSubGroup( "attrs" );
-
-                // Read distances from chunks
-                try
-                {
-                    distances = ZarrUtils.readChunkedDoubleArray( attrsGroup, "distance/values", "distances" );
-                }
-                catch ( Exception e )
-                {
-                    System.out.println( "Warning: Could not read distances: " + e.getMessage() + " skipping..." );
-                }
-
-                // Read scores from chunks
-                try
-                {
-                    scores = ZarrUtils.readChunkedDoubleArray( attrsGroup, "score/values", "scores" );
-                }
-                catch ( Exception e )
-                {
-                    System.out.println( "Warning: Could not read scores: " + e.getMessage() + " skipping..." );
-                }
-            }
-
-            // 2D array case: each row is [source, target]
-            for ( int i = 0; i < edgeIds.length; i++ )
-            {
-                if ( edgeIds[ i ].length == 2 )
-                {
-                    GeffEdge edge = GeffEdge.builder()
-                            .setId( i )
-                            .setSourceNodeId( edgeIds[ i ][ 0 ] )
-                            .setTargetNodeId( edgeIds[ i ][ 1 ] )
-                            .setDistance( i < distances.length ? distances[ i ] : DEFAULT_DISTANCE )
-                            .setScore( i < scores.length ? scores[ i ] : DEFAULT_SCORE )
-                            .build();
-                    edges.add( edge );
-                }
-                else
-                {
-                    System.err.println( "Unexpected edge format at index " + i + ": " + edgeIds[ i ].length
-                            + " elements. Expected 2 (source, target)." );
-                }
-            }
-        }
-        else if ( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) )
+		if ( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) )
         {
 
             int[][] edgeIds = ZarrUtils.readChunkedIntMatrix( edgesGroup, "ids", "edge IDs" );
@@ -381,26 +325,7 @@ public class GeffEdge implements ZarrEntity
         System.out.println(
                 "Writing " + edges.size() + " edges to Zarr path: " + zarrPath + " with chunk size: " + chunks );
 
-        if ( geffVersion.startsWith( "0.1" ) )
-        {
-            // Create attrs subgroup for 0.1 versions
-
-            // Create the main edges group
-            ZarrGroup rootGroup = ZarrGroup.create( zarrPath );
-
-            ZarrGroup edgesGroup = rootGroup.createSubGroup( "edges" );
-
-            writeChunkedEdgeIds( edgesGroup, edges, chunks );
-
-            ZarrGroup attrsGroup = edgesGroup.createSubGroup( "attrs" );
-
-            // Write distances
-            ZarrUtils.writeChunkedDoubleAttribute( edges, attrsGroup, "distance", chunks, GeffEdge::getDistance );
-
-            // Write scores
-            ZarrUtils.writeChunkedDoubleAttribute( edges, attrsGroup, "score", chunks, GeffEdge::getScore );
-        }
-        else if ( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) )
+		if ( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) )
         {
             // Create props subgroup for 0.3 version
 
