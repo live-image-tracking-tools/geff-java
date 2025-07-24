@@ -22,6 +22,9 @@
         <releaseProfiles>sign,deploy-to-scijava</releaseProfiles>
 
         <enforcer.skip>true</enforcer.skip>
+		<n5.version>4.0.0-alpha-3-SNAPSHOT</n5.version>
+		<n5-zarr.version>2.0.0-alpha-2-SNAPSHOT</n5-zarr.version>
+		<n5-blosc.version>2.0.0-alpha-1</n5-blosc.version>
 
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
         <sonar.java.coveragePlugin>jacoco</sonar.java.coveragePlugin>
@@ -47,14 +50,22 @@
     </licenses>
 
     <dependencies>
-        <!-- Mastodon Core -->
-        <dependency>
-            <groupId>org.mastodon</groupId>
-            <artifactId>mastodon</artifactId>
-            <version>1.0.0-beta-34</version>
-        </dependency>
+		<dependency>
+			<groupId>org.janelia.saalfeldlab</groupId>
+			<artifactId>n5</artifactId>
+		</dependency>
 
-        <dependency>
+		<dependency>
+			<groupId>org.janelia.saalfeldlab</groupId>
+			<artifactId>n5-zarr</artifactId>
+		</dependency>
+		
+		<dependency>
+			<groupId>org.janelia.saalfeldlab</groupId>
+			<artifactId>n5-blosc</artifactId>
+		</dependency>
+
+		<dependency>
             <groupId>com.bc.zarr</groupId>
             <artifactId>jzarr</artifactId>
             <version>0.3.5</version>
@@ -73,12 +84,6 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- graph ml export -->
-        <dependency>
-            <groupId>org.jgrapht</groupId>
-            <artifactId>jgrapht-io</artifactId>
-        </dependency>
-
         <!-- Test dependencies -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -86,22 +91,6 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- Mockito used in some unit tests -->
-        <dependency>
-            <groupId>org.mockito</groupId>
-            <artifactId>mockito-core</artifactId>
-            <version>4.11.0</version>
-            <scope>test</scope>
-        </dependency>
-
-        <!-- include mastodon at test runtime -->
-        <dependency>
-            <groupId>org.mastodon</groupId>
-            <artifactId>mastodon</artifactId>
-            <version>1.0.0-beta-34</version>
-            <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
 
     <mailingLists>

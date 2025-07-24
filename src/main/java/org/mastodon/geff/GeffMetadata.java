@@ -6,13 +6,13 @@
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -42,7 +42,7 @@ import ucar.ma2.InvalidRangeException;
 /**
  * Represents metadata for a Geff (Graph Exchange Format for Features) dataset.
  * This class handles reading and writing metadata from/to Zarr format.
- * 
+ *
  * This is the Java equivalent of the Python GeffMetadata schema from:
  * https://github.com/live-image-tracking-tools/geff/blob/main/src/geff/metadata_schema.py
  */
@@ -173,13 +173,7 @@ public class GeffMetadata
         // Check if geff_version exists in zattrs
         String geffVersion = null;
         Map< ?, ? > attrs = null;
-        if ( group.getAttributes().containsKey( "geff_version" ) )
-        {
-            geffVersion = ( String ) group.getAttributes().get( "geff_version" );
-            System.out.println( "Found geff_version in " + group + ": " + geffVersion );
-            attrs = group.getAttributes();
-        }
-        else if ( group.getAttributes().containsKey( "geff" ) )
+        if ( group.getAttributes().containsKey( "geff" ) )
         {
             System.out.println( "Found geff entry in " + group );
             Object geffRootObj = group.getAttributes().get( "geff" );
@@ -206,11 +200,13 @@ public class GeffMetadata
                 }
             }
         }
-        if ( geffVersion == null )
-        { throw new IllegalArgumentException(
-                "No geff_version found in " + group + ". This may indicate the path is incorrect or " +
-                        "zarr group name is not specified (e.g. /dataset.zarr/tracks/ instead of " +
-                        "/dataset.zarr/)." ); }
+		if ( geffVersion == null )
+		{
+			throw new IllegalArgumentException(
+					"No geff_version found in " + group + ". This may indicate the path is incorrect or " +
+							"zarr group name is not specified (e.g. /dataset.zarr/tracks/ instead of " +
+							"/dataset.zarr/)." );
+		}
 
         GeffMetadata metadata = new GeffMetadata();
 
@@ -218,7 +214,7 @@ public class GeffMetadata
 
         metadata.setGeffVersion( geffVersion );
 
-        if ( geffVersion.startsWith( "0.1" ) )
+        if ( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) )
         {
             Object directedObj = attrs.get( "directed" );
             if ( directedObj instanceof Boolean )
@@ -348,10 +344,12 @@ public class GeffMetadata
         // Validate before writing
         validate();
 
-        if ( geffVersion == null )
-        { throw new IllegalArgumentException( "Geff version must be set before writing metadata." ); }
+		if ( geffVersion == null )
+		{
+			throw new IllegalArgumentException( "Geff version must be set before writing metadata." );
+		}
 
-        if ( geffVersion.startsWith( "0.1" ) )
+        if ( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) )
         {
             // Create a TreeMap to ensure attributes are ordered alphabetically
             // by key

@@ -6,13 +6,13 @@
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -220,7 +220,7 @@ public class GeffEdge implements ZarrEntity
         System.out.println(
                 "Reading edges from Zarr path: " + zarrPath + " with Geff version: " + geffVersion );
 
-        if ( geffVersion.startsWith( "0.1" ) )
+		if ( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) )
         {
 
             int[][] edgeIds = ZarrUtils.readChunkedIntMatrix( edgesGroup, "ids", "edge IDs" );
@@ -381,7 +381,7 @@ public class GeffEdge implements ZarrEntity
         System.out.println(
                 "Writing " + edges.size() + " edges to Zarr path: " + zarrPath + " with chunk size: " + chunks );
 
-        if ( geffVersion.startsWith( "0.1" ) )
+		if ( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) )
         {
             // Create attrs subgroup for 0.1 versions
 

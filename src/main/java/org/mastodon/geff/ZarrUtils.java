@@ -87,7 +87,7 @@ public class ZarrUtils
 	 * Helper method to read chunked int arrays
 	 */
 	public static int[] readChunkedIntArray( final ZarrGroup group, final String arrayPath, final String description )
-			throws IOException, InvalidRangeException
+			throws IOException
 	{
 		if ( group.getArrayKeys() == null || group.getArrayKeys().isEmpty() )
 		{
@@ -144,7 +144,7 @@ public class ZarrUtils
 	 * Helper method to read chunked double arrays
 	 */
 	public static double[] readChunkedDoubleArray( final ZarrGroup group, final String arrayPath, final String description )
-			throws IOException, InvalidRangeException
+			throws IOException
 	{
 		if ( group.getArrayKeys() == null || group.getArrayKeys().isEmpty() )
 		{
@@ -201,7 +201,7 @@ public class ZarrUtils
 	 * Helper method to read chunked integer matrix
 	 */
 	public static int[][] readChunkedIntMatrix( final ZarrGroup group, final String arrayPath, final String description )
-			throws IOException, InvalidRangeException
+			throws IOException
 	{
 		if ( group.getArrayKeys() == null || group.getArrayKeys().isEmpty() )
 		{
@@ -259,7 +259,7 @@ public class ZarrUtils
 	 * Helper method to read chunked double matrix
 	 */
 	public static double[][] readChunkedDoubleMatrix( final ZarrGroup group, final String arrayPath, final String description )
-			throws IOException, InvalidRangeException
+			throws IOException
 	{
 		if ( group.getArrayKeys() == null || group.getArrayKeys().isEmpty() )
 		{

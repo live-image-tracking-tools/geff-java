@@ -6,13 +6,13 @@
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -451,7 +451,7 @@ public class GeffNode implements ZarrEntity
 
     /**
      * Returns the position of the node as a 3D array.
-     * 
+     *
      * @deprecated Use {@link #getX()}, {@link #getY()}, {@link #getZ()}
      *             instead.
      * @return The position of the node as a 3D array.
@@ -464,7 +464,7 @@ public class GeffNode implements ZarrEntity
 
     /**
      * Set the position of the node.
-     * 
+     *
      * @deprecated Use {@link #setX(double)}, {@link #setY(double)},
      *             {@link #setZ(double)} instead.
      * @param position
@@ -493,7 +493,7 @@ public class GeffNode implements ZarrEntity
 
     /**
      * Builder for creating GeffNode instance.
-     * 
+     *
      * @return A new Builder instance for GeffNode.
      */
     public static Builder builder()
@@ -628,7 +628,7 @@ public class GeffNode implements ZarrEntity
 
     /**
      * Read nodes from Zarr format with default version and chunked structure
-     * 
+     *
      * @param zarrPath
      *            The path to the Zarr directory containing nodes.
      * @return List of GeffNode objects read from the Zarr path.
@@ -640,7 +640,7 @@ public class GeffNode implements ZarrEntity
 
     /**
      * Read nodes from Zarr format with specified version and chunked structure
-     * 
+     *
      * @param zarrPath
      *            The path to the Zarr directory containing nodes.
      * @param geffVersion
@@ -656,7 +656,7 @@ public class GeffNode implements ZarrEntity
     /**
      * Read nodes from Zarr format with chunked structure. This method handles
      * different Geff versions and reads node attributes accordingly.
-     * 
+     *
      * @param zarrPath
      *            The path to the Zarr directory containing nodes.
      * @param geffVersion
@@ -673,9 +673,8 @@ public class GeffNode implements ZarrEntity
         System.out.println(
                 "Reading nodes from Zarr path: " + zarrPath + " with Geff version: " + geffVersion );
 
-        if ( geffVersion.startsWith( "0.1" ) )
+		if ( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) )
         {
-
             // Read node IDs from chunks
             int[] nodeIds = ZarrUtils.readChunkedIntArray( nodesGroup, "ids", "node IDs" );
 
@@ -926,7 +925,7 @@ public class GeffNode implements ZarrEntity
                 "Writing " + nodes.size() + " nodes to Zarr path: " + zarrPath + " with chunk size: " + chunkSize
                         + " to Geff version: " + geffVersion );
 
-        if ( geffVersion.startsWith( "0.1" ) )
+		if ( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) )
         {
             // Create the main nodes group
             ZarrGroup rootGroup = ZarrGroup.create( zarrPath );
