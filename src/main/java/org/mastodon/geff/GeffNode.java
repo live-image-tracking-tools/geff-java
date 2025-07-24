@@ -32,6 +32,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.mastodon.geff.geom.GeffSerializableVertex;
+
 import com.bc.zarr.ArrayParams;
 import com.bc.zarr.DataType;
 import com.bc.zarr.ZarrArray;
@@ -67,9 +69,13 @@ public class GeffNode implements ZarrEntity
 
     private double[] covariance3d;
 
-    public static final double[] DEFAULT_COLOR = { 1.0, 1.0, 1.0, 1.0 }; // Default
-                                                                         // white
-                                                                         // color
+    private int polygonStartIndex = -1;
+
+    private double[] polygonX;
+
+    private double[] polygonY;
+
+    private static final double[] DEFAULT_COLOR = { 1.0, 1.0, 1.0, 1.0 }; // RGBA
 
     public static final double DEFAULT_RADIUS = 1.0;
 
@@ -85,9 +91,34 @@ public class GeffNode implements ZarrEntity
 
     /**
      * Constructor with basic node parameters
+     * 
+     * @param id
+     *            The unique identifier for the node.
+     * @param timepoint
+     *            The timepoint of the node.
+     * @param x
+     *            The x-coordinate of the node.
+     * @param y
+     *            The y-coordinate of the node.
+     * @param z
+     *            The z-coordinate of the node.
+     * @param color
+     *            The color of the node (RGBA).
+     * @param segmentId
+     *            The segment ID the node belongs to.
+     * @param radius
+     *            The radius of the node.
+     * @param covariance2d
+     *            The 2D covariance matrix of the node.
+     * @param covariance3d
+     *            The 3D covariance matrix of the node.
+     * @param polygonX
+     *            The x-coordinates of the polygon vertices.
+     * @param polygonY
+     *            The y-coordinates of the polygon vertices.
      */
     public GeffNode( int id, int timepoint, double x, double y, double z, double[] color, int segmentId, double radius,
-            double[] covariance2d, double[] covariance3d )
+            double[] covariance2d, double[] covariance3d, double[] polygonX, double[] polygonY )
     {
         this.id = id;
         this.t = timepoint;
@@ -99,64 +130,131 @@ public class GeffNode implements ZarrEntity
         this.radius = radius;
         this.covariance2d = covariance2d != null ? covariance2d : DEFAULT_COVARIANCE_2D;
         this.covariance3d = covariance3d != null ? covariance3d : DEFAULT_COVARIANCE_3D;
+        this.polygonX = polygonX != null ? polygonX : new double[ 0 ];
+        this.polygonY = polygonY != null ? polygonY : new double[ 0 ];
     }
 
-    // Getters and Setters
+    /**
+     * Get the unique identifier of the node.
+     * 
+     * @return The unique identifier of the node.
+     */
     public int getId()
     {
         return id;
     }
 
+    /**
+     * Set the unique identifier of the node.
+     * 
+     * @param id
+     *            The unique identifier to set.
+     */
     public void setId( int id )
     {
         this.id = id;
     }
 
+    /**
+     * Get the timepoint of the node.
+     * 
+     * @return The timepoint of the node.
+     */
     public int getT()
     {
         return t;
     }
 
+    /**
+     * Set the timepoint of the node.
+     * 
+     * @param timepoint
+     *            The timepoint to set.
+     */
     public void setT( int timepoint )
     {
         this.t = timepoint;
     }
 
+    /**
+     * Get the x-coordinate of the node.
+     * 
+     * @return The x-coordinate of the node.
+     */
     public double getX()
     {
         return x;
     }
 
+    /**
+     * Set the x-coordinate of the node.
+     * 
+     * @param x
+     *            The x-coordinate to set.
+     */
     public void setX( double x )
     {
         this.x = x;
     }
 
+    /**
+     * Get the y-coordinate of the node.
+     * 
+     * @return The y-coordinate of the node.
+     */
     public double getY()
     {
         return y;
     }
 
+    /**
+     * Set the y-coordinate of the node.
+     * 
+     * @param y
+     *            The y-coordinate to set.
+     */
     public void setY( double y )
     {
         this.y = y;
     }
 
+    /**
+     * Get the z-coordinate of the node.
+     * 
+     * @return The z-coordinate of the node.
+     */
     public double getZ()
     {
         return z;
     }
 
+    /**
+     * Set the z-coordinate of the node.
+     * 
+     * @param z
+     *            The z-coordinate to set.
+     */
     public void setZ( double z )
     {
         this.z = z;
     }
 
+    /**
+     * Get the color of the node.
+     * 
+     * @return The color of the node as an RGBA array.
+     */
     public double[] getColor()
     {
         return color;
     }
 
+    /**
+     * Set the color of the node.
+     * 
+     * @param color
+     *            The color to set as an RGBA array.
+     */
     public void setColor( double[] color )
     {
         if ( color != null && color.length == 4 )
@@ -169,31 +267,66 @@ public class GeffNode implements ZarrEntity
         }
     }
 
+    /**
+     * Get the segment ID of the node.
+     * 
+     * @return The segment ID of the node.
+     */
     public int getSegmentId()
     {
         return segmentId;
     }
 
+    /**
+     * Set the segment ID of the node.
+     * 
+     * @param segmentId
+     *            The segment ID to set.
+     */
     public void setSegmentId( int segmentId )
     {
         this.segmentId = segmentId;
     }
 
+    /**
+     * Get the radius of the node.
+     * 
+     * @return The radius of the node.
+     */
     public double getRadius()
     {
         return radius;
     }
 
+    /**
+     * Set the radius of the node.
+     * 
+     * @param radius
+     *            The radius to set.
+     */
     public void setRadius( double radius )
     {
         this.radius = radius;
     }
 
+    /**
+     * Get the 2D covariance matrix of the node.
+     * 
+     * @return The 2D covariance matrix as a 4-element array.
+     */
     public double[] getCovariance2d()
     {
         return covariance2d;
     }
 
+    /**
+     * Set the 2D covariance matrix of the node.
+     * 
+     * @param covariance2d
+     *            The 2D covariance matrix to set as a 4-element array.
+     * @throws IllegalArgumentException
+     *             if the covariance2d array is not of length 4.
+     */
     public void setCovariance2d( double[] covariance2d )
     {
         if ( covariance2d != null && covariance2d.length == 4 )
@@ -206,11 +339,24 @@ public class GeffNode implements ZarrEntity
         }
     }
 
+    /**
+     * Get the 3D covariance matrix of the node.
+     * 
+     * @return The 3D covariance matrix as a 6-element array.
+     */
     public double[] getCovariance3d()
     {
         return covariance3d;
     }
 
+    /**
+     * Set the 3D covariance matrix of the node.
+     * 
+     * @param covariance3d
+     *            The 3D covariance matrix to set as a 6-element array.
+     * @throws IllegalArgumentException
+     *             if the covariance3d array is not of length 6.
+     */
     public void setCovariance3d( double[] covariance3d )
     {
         if ( covariance3d != null && covariance3d.length == 6 )
@@ -221,6 +367,86 @@ public class GeffNode implements ZarrEntity
         {
             throw new IllegalArgumentException( "Covariance3D must be a 6-element array" );
         }
+    }
+
+    /**
+     * Get the polygon offset for the serialized vertex array.
+     * 
+     * @return The polygon offset.
+     */
+    public int getPolygonStartIndex()
+    {
+        return polygonStartIndex;
+    }
+
+    /**
+     * Set the polygon offset for the serialized vertex array.
+     * 
+     * @param polygonOffset
+     *            The polygon offset to set.
+     */
+    public void setPolygonStartIndex( int polygonOffset )
+    {
+        this.polygonStartIndex = polygonOffset;
+    }
+
+    /**
+     * Get the slice information for polygon vertices as an array.
+     * 
+     * @return An array containing the polygon startIndex and endIndex.
+     */
+    public int[] getPolygonSliceAsArray()
+    {
+        if ( polygonX == null || polygonY == null )
+        {
+            System.err.println( "Warning: Polygon is null, returning empty array." );
+            return new int[] { polygonStartIndex, 0 };
+        }
+        if ( polygonStartIndex < 0 )
+            throw new IllegalArgumentException( "Polygon startIndex is invalid: " + polygonStartIndex );
+        return new int[] { polygonStartIndex, polygonStartIndex + polygonX.length };
+    }
+
+    /**
+     * Get the x-coordinates of the polygon vertices.
+     * 
+     * @return The x-coordinates of the polygon vertices.
+     */
+    public double[] getPolygonX()
+    {
+        return polygonX;
+    }
+
+    /**
+     * Get the y-coordinates of the polygon vertices.
+     * 
+     * @return The y-coordinates of the polygon vertices.
+     */
+    public double[] getPolygonY()
+    {
+        return polygonY;
+    }
+
+    /**
+     * Set the x-coordinates of the polygon vertices.
+     * 
+     * @param polygonX
+     *            The x-coordinates to set.
+     */
+    public void setPolygonX( double[] polygonX )
+    {
+        this.polygonX = polygonX != null ? polygonX : new double[ 0 ];
+    }
+
+    /**
+     * Set the y-coordinates of the polygon vertices.
+     * 
+     * @param polygonY
+     *            The y-coordinates to set.
+     */
+    public void setPolygonY( double[] polygonY )
+    {
+        this.polygonY = polygonY != null ? polygonY : new double[ 0 ];
     }
 
     /**
@@ -296,6 +522,10 @@ public class GeffNode implements ZarrEntity
         private double[] covariance2d = DEFAULT_COVARIANCE_2D;
 
         private double[] covariance3d = DEFAULT_COVARIANCE_3D;
+
+        private double[] polygonX;
+
+        private double[] polygonY;
 
         public Builder id( int id )
         {
@@ -378,9 +608,21 @@ public class GeffNode implements ZarrEntity
             return this;
         }
 
+        public Builder polygonX( double[] polygonX )
+        {
+            this.polygonX = polygonX;
+            return this;
+        }
+
+        public Builder polygonY( double[] polygonY )
+        {
+            this.polygonY = polygonY;
+            return this;
+        }
+
         public GeffNode build()
         {
-            return new GeffNode( id, timepoint, x, y, z, color, segmentId, radius, covariance2d, covariance3d );
+            return new GeffNode( id, timepoint, x, y, z, color, segmentId, radius, covariance2d, covariance3d, polygonX, polygonY );
         }
     }
 
@@ -487,7 +729,8 @@ public class GeffNode implements ZarrEntity
                 nodes.add( node );
             }
         }
-        else if ( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) )
+        else if ( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) ||
+                geffVersion.startsWith( "0.4" ) )
         {
             // Read node IDs from chunks
             int[] nodeIds = ZarrUtils.readChunkedIntArray( nodesGroup, "ids", "node IDs" );
@@ -572,6 +815,46 @@ public class GeffNode implements ZarrEntity
                 System.out.println( "Warning: Could not read covariance3d: " + e.getMessage() + " skipping..." );
             }
 
+            // Read polygon from chunks
+            double[][] polygonsX = new double[ 0 ][];
+            double[][] polygonsY = new double[ 0 ][];
+            if ( geffVersion.startsWith( "0.4" ) )
+            {
+                try
+                {
+                    int[][] polygonSlices = ZarrUtils.readChunkedIntMatrix( propsGroup, "polygon/slices", "polygon slices" );
+                    // expected shape: [numVertices, 2]
+                    double[][] polygonValues = ZarrUtils.readChunkedDoubleMatrix( propsGroup, "polygon/values", "polygon values" );
+                    polygonsX = new double[ polygonSlices.length ][];
+                    polygonsY = new double[ polygonSlices.length ][];
+                    for ( int i = 0; i < polygonSlices.length; i++ )
+                    {
+                        int start = polygonSlices[ i ][ 0 ];
+                        int length = polygonSlices[ i ][ 1 ];
+                        if ( start >= 0 && start + length <= polygonValues.length )
+                        {
+                            double[] xPoints = new double[ length ];
+                            double[] yPoints = new double[ length ];
+                            for ( int j = 0; j < length; j++ )
+                            {
+                                xPoints[ j ] = polygonValues[ start + j ][ 0 ];
+                                yPoints[ j ] = polygonValues[ start + j ][ 1 ];
+                            }
+                            polygonsX[ i ] = xPoints;
+                            polygonsY[ i ] = yPoints;
+                        }
+                        else
+                        {
+                            System.out.println( "Warning: Invalid polygon slice at index " + i + ", skipping..." );
+                        }
+                    }
+                }
+                catch ( Exception e )
+                {
+                    System.out.println( "Warning: Could not read polygon: " + e.getMessage() + " skipping..." );
+                }
+            }
+
             // Create node objects
             for ( int i = 0; i < nodeIds.length; i++ )
             {
@@ -586,6 +869,8 @@ public class GeffNode implements ZarrEntity
                         .radius( i < radii.length ? radii[ i ] : Double.NaN )
                         .covariance2d( i < covariance2ds.length ? covariance2ds[ i ] : DEFAULT_COVARIANCE_2D )
                         .covariance3d( i < covariance3ds.length ? covariance3ds[ i ] : DEFAULT_COVARIANCE_3D )
+                        .polygonX( i < polygonsX.length ? polygonsX[ i ] : null )
+                        .polygonY( i < polygonsY.length ? polygonsY[ i ] : null )
                         .build();
 
                 nodes.add( node );
@@ -681,7 +966,7 @@ public class GeffNode implements ZarrEntity
                 ZarrUtils.writeChunkedDoubleMatrix( nodes, attrsGroup, "position", chunkSize, GeffNode::getPosition, 3 );
             }
         }
-        else if ( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) )
+        else if ( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) || geffVersion.startsWith( "0.4" ) )
         {
             // Create the main nodes group
             ZarrGroup rootGroup = ZarrGroup.create( zarrPath );
@@ -696,33 +981,56 @@ public class GeffNode implements ZarrEntity
             writeChunkedNodeIds( nodes, nodesGroup, chunkSize );
 
             // Write timepoints in chunks
-            ZarrUtils.writeChunkedIntAttribute( nodes, propsGroup, "t", chunkSize, GeffNode::getT );
+            ZarrUtils.writeChunkedIntAttribute( nodes, propsGroup, "t/values", chunkSize, GeffNode::getT );
 
             // Write X coordinates in chunks
-            ZarrUtils.writeChunkedDoubleAttribute( nodes, propsGroup, "x", chunkSize, GeffNode::getX );
+            ZarrUtils.writeChunkedDoubleAttribute( nodes, propsGroup, "x/values", chunkSize, GeffNode::getX );
 
             // Write Y coordinates in chunks
-            ZarrUtils.writeChunkedDoubleAttribute( nodes, propsGroup, "y", chunkSize, GeffNode::getY );
+            ZarrUtils.writeChunkedDoubleAttribute( nodes, propsGroup, "y/values", chunkSize, GeffNode::getY );
 
             // Write Z coordinates in chunks
-            ZarrUtils.writeChunkedDoubleAttribute( nodes, propsGroup, "z", chunkSize, GeffNode::getZ );
+            ZarrUtils.writeChunkedDoubleAttribute( nodes, propsGroup, "z/values", chunkSize, GeffNode::getZ );
 
             // Write color in chunks
-            ZarrUtils.writeChunkedDoubleMatrix( nodes, propsGroup, "color", chunkSize, GeffNode::getColor, 4 );
+            ZarrUtils.writeChunkedDoubleMatrix( nodes, propsGroup, "color/values", chunkSize, GeffNode::getColor, 4 );
 
             // Write segment IDs in chunks
-            ZarrUtils.writeChunkedIntAttribute( nodes, propsGroup, "track_id", chunkSize, GeffNode::getSegmentId );
+            ZarrUtils.writeChunkedIntAttribute( nodes, propsGroup, "track_id/values", chunkSize, GeffNode::getSegmentId );
 
             // Write radius and covariance attributes if available
-            ZarrUtils.writeChunkedDoubleAttribute( nodes, propsGroup, "radius", chunkSize, GeffNode::getRadius );
+            ZarrUtils.writeChunkedDoubleAttribute( nodes, propsGroup, "radius/values", chunkSize, GeffNode::getRadius );
 
             // Write covariance2d in chunks
-            ZarrUtils.writeChunkedDoubleMatrix( nodes, propsGroup, "covariance2d", chunkSize, GeffNode::getCovariance2d,
+            ZarrUtils.writeChunkedDoubleMatrix( nodes, propsGroup, "covariance2d/values", chunkSize, GeffNode::getCovariance2d,
                     4 );
 
             // Write covariance3d in chunks
-            ZarrUtils.writeChunkedDoubleMatrix( nodes, propsGroup, "covariance3d", chunkSize, GeffNode::getCovariance3d,
+            ZarrUtils.writeChunkedDoubleMatrix( nodes, propsGroup, "covariance3d/values", chunkSize, GeffNode::getCovariance3d,
                     6 );
+
+            if ( geffVersion.startsWith( "0.4" ) )
+            {
+                // Write polygon slices and values if available
+                List< GeffSerializableVertex > geffVertices = new ArrayList<>();
+                int polygonOffset = 0;
+                for ( GeffNode node : nodes )
+                {
+                    if ( node.polygonX == null || node.polygonY == null )
+                        throw new IllegalArgumentException( "Polygon coordinates cannot be null" );
+                    if ( node.getPolygonX().length != node.getPolygonY().length )
+                        throw new IllegalArgumentException( "Polygon X and Y coordinates must have the same length" );
+                    node.setPolygonStartIndex( polygonOffset );
+                    for ( int i = 0; i < node.getPolygonX().length; i++ )
+                    {
+                        geffVertices.add( new GeffSerializableVertex( node.getPolygonX()[ i ],
+                                node.getPolygonY()[ i ] ) );
+                    }
+                    polygonOffset += node.getPolygonX().length;
+                }
+                ZarrUtils.writeChunkedIntMatrix( nodes, propsGroup, "polygon/slices", chunkSize, GeffNode::getPolygonSliceAsArray, 2 );
+                ZarrUtils.writeChunkedDoubleMatrix( geffVertices, propsGroup, "polygon/values", chunkSize, GeffSerializableVertex::getCoordinates, 2 );
+            }
 
         }
 
@@ -808,7 +1116,9 @@ public class GeffNode implements ZarrEntity
                 segmentId == geffNode.segmentId &&
                 Double.compare( geffNode.radius, radius ) == 0 &&
                 java.util.Arrays.equals( covariance2d, geffNode.covariance2d ) &&
-                java.util.Arrays.equals( covariance3d, geffNode.covariance3d );
+                java.util.Arrays.equals( covariance3d, geffNode.covariance3d ) &&
+                java.util.Arrays.equals( polygonX, geffNode.polygonX ) &&
+                java.util.Arrays.equals( polygonY, geffNode.polygonY );
     }
 
     @Override

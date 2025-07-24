@@ -276,7 +276,7 @@ public class GeffEdge implements ZarrEntity
                 }
             }
         }
-        else if ( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) )
+        else if ( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) || geffVersion.startsWith( "0.4" ) )
         {
 
             int[][] edgeIds = ZarrUtils.readChunkedIntMatrix( edgesGroup, "ids", "edge IDs" );
@@ -287,7 +287,7 @@ public class GeffEdge implements ZarrEntity
             // Read attributes
             if ( edgesGroup.getGroupKeys().contains( "props" ) )
             {
-                ZarrGroup propsGroup = edgesGroup.openSubGroup( "props" );
+                ZarrGroup propsGroup = ZarrGroup.open( zarrPath + "/edges/props" );
 
                 // Read distances from chunks
                 try
@@ -395,27 +395,29 @@ public class GeffEdge implements ZarrEntity
             ZarrGroup attrsGroup = edgesGroup.createSubGroup( "attrs" );
 
             // Write distances
-            ZarrUtils.writeChunkedDoubleAttribute( edges, attrsGroup, "distance", chunks, GeffEdge::getDistance );
+            ZarrUtils.writeChunkedDoubleAttribute( edges, attrsGroup, "distance/values", chunks, GeffEdge::getDistance );
 
             // Write scores
-            ZarrUtils.writeChunkedDoubleAttribute( edges, attrsGroup, "score", chunks, GeffEdge::getScore );
+            ZarrUtils.writeChunkedDoubleAttribute( edges, attrsGroup, "score/values", chunks, GeffEdge::getScore );
         }
-        else if ( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) )
+        else if ( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) || geffVersion.startsWith( "0.4" ) )
         {
             // Create props subgroup for 0.3 version
 
             // Create the main edges group
-            ZarrGroup edgesGroup = ZarrGroup.create( zarrPath );
+            ZarrGroup rootGroup = ZarrGroup.create( zarrPath );
+
+            ZarrGroup edgesGroup = rootGroup.createSubGroup( "edges" );
 
             writeChunkedEdgeIds( edgesGroup, edges, chunks );
 
             ZarrGroup propsGroup = edgesGroup.createSubGroup( "props" );
 
             // Write distances
-            ZarrUtils.writeChunkedDoubleAttribute( edges, propsGroup, "distance", chunks, GeffEdge::getDistance );
+            ZarrUtils.writeChunkedDoubleAttribute( edges, propsGroup, "distance/values", chunks, GeffEdge::getDistance );
 
             // Write scores
-            ZarrUtils.writeChunkedDoubleAttribute( edges, propsGroup, "score", chunks, GeffEdge::getScore );
+            ZarrUtils.writeChunkedDoubleAttribute( edges, propsGroup, "score/values", chunks, GeffEdge::getScore );
         }
         else
         {
@@ -535,7 +537,8 @@ public class GeffEdge implements ZarrEntity
         return sourceNodeId == geffEdge.sourceNodeId &&
                 targetNodeId == geffEdge.targetNodeId &&
                 id == geffEdge.id &&
-                Double.compare( geffEdge.score, score ) == 0;
+                Double.compare( geffEdge.score, score ) == 0 &&
+                Double.compare( geffEdge.distance, distance ) == 0;
     }
 
     @Override

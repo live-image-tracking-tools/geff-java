@@ -49,6 +49,40 @@ public class ZarrUtils
 	public static final int DEFAULT_CHUNK_SIZE = 1000; // Default chunk size if
 														// not specified
 
+	public static ZarrGroup openSubGroups( ZarrGroup parentGroup, String subGroupName ) throws IOException
+	{
+		ZarrGroup subGroup = null;
+		for ( final String groupName : subGroupName.split( "/" ) )
+		{
+			if ( subGroup == null )
+			{
+				subGroup = parentGroup.openSubGroup( groupName );
+			}
+			else
+			{
+				subGroup = subGroup.openSubGroup( groupName );
+			}
+		}
+		return subGroup;
+	}
+
+	public static ZarrGroup createSubGroups( ZarrGroup parentGroup, String subGroupName ) throws IOException
+	{
+		ZarrGroup subGroup = null;
+		for ( final String groupName : subGroupName.split( "/" ) )
+		{
+			if ( subGroup == null )
+			{
+				subGroup = parentGroup.createSubGroup( groupName );
+			}
+			else
+			{
+				subGroup = subGroup.createSubGroup( groupName );
+			}
+		}
+		return subGroup;
+	}
+
 	/**
 	 * Helper method to read chunked int arrays
 	 */
@@ -74,7 +108,8 @@ public class ZarrUtils
 			final List< Integer > allData = new ArrayList<>();
 
 			// Look for numeric chunk keys (0, 1, 2, etc.)
-			final ZarrGroup arrayGroup = group.openSubGroup( arrayPath );
+			final ZarrGroup arrayGroup = openSubGroups( group, arrayPath );
+
 			final String[] chunkKeys = arrayGroup.getArrayKeys().toArray( new String[ 0 ] );
 
 			for ( final String chunkKey : chunkKeys )
@@ -130,7 +165,8 @@ public class ZarrUtils
 			final List< Double > allData = new ArrayList<>();
 
 			// Look for numeric chunk keys (0, 1, 2, etc.)
-			final ZarrGroup arrayGroup = group.openSubGroup( arrayPath );
+			final ZarrGroup arrayGroup = openSubGroups( group, arrayPath );
+
 			final String[] chunkKeys = arrayGroup.getArrayKeys().toArray( new String[ 0 ] );
 
 			for ( final String chunkKey : chunkKeys )
@@ -186,7 +222,8 @@ public class ZarrUtils
 			final List< int[] > allData = new ArrayList<>();
 
 			// Look for numeric chunk keys (0, 1, 2, etc.)
-			final ZarrGroup arrayGroup = group.openSubGroup( arrayPath );
+			final ZarrGroup arrayGroup = openSubGroups( group, arrayPath );
+
 			final String[] chunkKeys = arrayGroup.getArrayKeys().toArray( new String[ 0 ] );
 
 			for ( final String chunkKey : chunkKeys )
@@ -243,7 +280,8 @@ public class ZarrUtils
 			final List< double[] > allData = new ArrayList<>();
 
 			// Look for numeric chunk keys (0, 1, 2, etc.)
-			final ZarrGroup arrayGroup = group.openSubGroup( arrayPath );
+			final ZarrGroup arrayGroup = openSubGroups( group, arrayPath );
+
 			final String[] chunkKeys = arrayGroup.getArrayKeys().toArray( new String[ 0 ] );
 
 			for ( final String chunkKey : chunkKeys )
@@ -294,7 +332,7 @@ public class ZarrUtils
 	 * Helper method to write chunked int attributes
 	 */
 	public static < T extends ZarrEntity > void writeChunkedIntAttribute( final List< T > nodes, final ZarrGroup attrsGroup,
-			final String attrName,
+			final String subGroupName,
 			final int chunkSize, final ToIntFunction< T > extractor )
 			throws IOException, InvalidRangeException
 	{
@@ -302,8 +340,7 @@ public class ZarrUtils
 		final int totalNodes = nodes.size();
 
 		// Create the attribute subgroup
-		final ZarrGroup attrGroup = attrsGroup.createSubGroup( attrName );
-		final ZarrGroup valuesGroup = attrGroup.createSubGroup( "values" );
+		final ZarrGroup valuesGroup = createSubGroups( attrsGroup, subGroupName );
 
 		// Create a single ZarrArray for all values with proper chunking
 		final ZarrArray valuesArray = valuesGroup.createArray( "", new ArrayParams()
@@ -330,7 +367,7 @@ public class ZarrUtils
 			// Write chunk at specific offset
 			valuesArray.write( chunkData, new int[] { currentChunkSize }, new int[] { startIdx } );
 
-			System.out.println( "- Wrote " + attrName + " chunk " + chunkIndex + ": " + currentChunkSize + " values" );
+			System.out.println( "- Wrote " + subGroupName + " chunk " + chunkIndex + ": " + currentChunkSize + " values" );
 			chunkIndex++;
 		}
 	}
@@ -339,7 +376,7 @@ public class ZarrUtils
 	 * Helper method to write chunked double attributes
 	 */
 	public static < T extends ZarrEntity > void writeChunkedDoubleAttribute( final List< T > nodes, final ZarrGroup attrsGroup,
-			final String attrName,
+			final String subGroupName,
 			final int chunkSize, final java.util.function.ToDoubleFunction< T > extractor )
 			throws IOException, InvalidRangeException
 	{
@@ -347,8 +384,7 @@ public class ZarrUtils
 		final int totalNodes = nodes.size();
 
 		// Create the attribute subgroup
-		final ZarrGroup attrGroup = attrsGroup.createSubGroup( attrName );
-		final ZarrGroup valuesGroup = attrGroup.createSubGroup( "values" );
+		final ZarrGroup valuesGroup = createSubGroups( attrsGroup, subGroupName );
 
 		// Create a single ZarrArray for all values with proper chunking
 		final ZarrArray valuesArray = valuesGroup.createArray( "", new ArrayParams()
@@ -375,7 +411,7 @@ public class ZarrUtils
 			// Write chunk at specific offset
 			valuesArray.write( chunkData, new int[] { currentChunkSize }, new int[] { startIdx } );
 
-			System.out.println( "- Wrote " + attrName + " chunk " + chunkIndex + ": " + currentChunkSize + " values" );
+			System.out.println( "- Wrote " + subGroupName + " chunk " + chunkIndex + ": " + currentChunkSize + " values" );
 			chunkIndex++;
 		}
 	}
@@ -384,21 +420,20 @@ public class ZarrUtils
 	 * Helper method to write chunked integer matrices
 	 */
 	public static < T extends ZarrEntity > void writeChunkedIntMatrix( final List< T > nodes, final ZarrGroup attrsGroup,
-			final String attrName,
+			final String subGroupName,
 			final int chunkSize, final ToIntArrayFunction< T > extractor, final int numColumns )
 			throws IOException, InvalidRangeException
 	{
 		final int totalNodes = nodes.size();
 
 		// Create the attribute subgroup
-		final ZarrGroup attrGroup = attrsGroup.createSubGroup( attrName );
-		final ZarrGroup valuesGroup = attrGroup.createSubGroup( "values" );
+		final ZarrGroup valuesGroup = createSubGroups( attrsGroup, subGroupName );
 
 		// Create a single ZarrArray for all data with proper chunking
 		final ZarrArray array2d = valuesGroup.createArray( "", new ArrayParams()
 				.shape( totalNodes, numColumns )
 				.chunks( new int[] { chunkSize, numColumns } )
-				.dataType( DataType.f4 ) );
+				.dataType( DataType.i8 ) );
 
 		// Write data in chunks
 		int chunkIndex = 0;
@@ -436,7 +471,7 @@ public class ZarrUtils
 			array2d.write( chunkData, new int[] { currentChunkSize, numColumns },
 					new int[] { startIdx, 0 } );
 
-			System.out.println( "- Wrote " + attrName + " chunk " + chunkIndex + ": " + currentChunkSize + " values" );
+			System.out.println( "- Wrote " + subGroupName + " chunk " + chunkIndex + ": " + currentChunkSize + " values" );
 			chunkIndex++;
 		}
 	}
@@ -445,15 +480,14 @@ public class ZarrUtils
 	 * Helper method to write chunked double matrices
 	 */
 	public static < T extends ZarrEntity > void writeChunkedDoubleMatrix( final List< T > nodes, final ZarrGroup attrsGroup,
-			final String attrName,
+			final String subGroupName,
 			final int chunkSize, final ToDoubleArrayFunction< T > extractor, final int numColumns )
 			throws IOException, InvalidRangeException
 	{
 		final int totalNodes = nodes.size();
 
 		// Create the attribute subgroup
-		final ZarrGroup attrGroup = attrsGroup.createSubGroup( attrName );
-		final ZarrGroup valuesGroup = attrGroup.createSubGroup( "values" );
+		final ZarrGroup valuesGroup = createSubGroups( attrsGroup, subGroupName );
 
 		// Create a single ZarrArray for all data with proper chunking
 		final ZarrArray array2d = valuesGroup.createArray( "", new ArrayParams()
@@ -498,7 +532,7 @@ public class ZarrUtils
 			array2d.write( chunkData, new int[] { currentChunkSize, numColumns },
 					new int[] { startIdx, 0 } );
 
-			System.out.println( "- Wrote " + attrName + " chunk " + chunkIndex + ": " + currentChunkSize + " values" );
+			System.out.println( "- Wrote " + subGroupName + " chunk " + chunkIndex + ": " + currentChunkSize + " values" );
 			chunkIndex++;
 		}
 	}
