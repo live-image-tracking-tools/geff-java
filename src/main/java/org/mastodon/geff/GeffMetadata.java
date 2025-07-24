@@ -29,15 +29,19 @@
 package org.mastodon.geff;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
+import java.util.Objects;
 import java.util.regex.Pattern;
 
-import com.bc.zarr.ZarrGroup;
+import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
+import org.janelia.saalfeldlab.n5.zarr.N5ZarrWriter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import ucar.ma2.InvalidRangeException;
+import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
+
 
 /**
  * Represents metadata for a Geff (Graph Exchange Format for Features) dataset.
@@ -48,6 +52,7 @@ import ucar.ma2.InvalidRangeException;
  */
 public class GeffMetadata
 {
+	private static final Logger LOG = LoggerFactory.getLogger( GeffMetadata.class );
 
     // Supported GEFF versions
     public static final List< String > SUPPORTED_VERSIONS = Arrays.asList( "0.2", "0.3" );
@@ -63,7 +68,7 @@ public class GeffMetadata
 
     private boolean directed;
 
-    private GeffAxis[] geffAxes;
+    private GeffAxis[] geffAxes; // TODO make List<GeffAxis>
 
     /**
      * Default constructor
@@ -83,14 +88,24 @@ public class GeffMetadata
     /**
      * Constructor with all parameters
      */
-    public GeffMetadata( String geffVersion, boolean directed, GeffAxis[] geffAxes )
-    {
-        setGeffVersion( geffVersion );
-        this.directed = directed;
-        setGeffAxes( geffAxes );
-    }
+	public GeffMetadata( String geffVersion, boolean directed, GeffAxis[] geffAxes )
+	{
+		setGeffVersion( geffVersion );
+		this.directed = directed;
+		setGeffAxes( geffAxes );
+	}
 
-    // Getters and Setters
+	/**
+	 * Constructor with all parameters
+	 */
+	public GeffMetadata( String geffVersion, boolean directed, List< GeffAxis > geffAxes )
+	{
+		setGeffVersion( geffVersion );
+		this.directed = directed;
+		setGeffAxes( geffAxes );
+	}
+
+	// Getters and Setters
     public String getGeffVersion()
     {
         return geffVersion;
@@ -117,23 +132,39 @@ public class GeffMetadata
         this.directed = directed;
     }
 
-    public GeffAxis[] getGeffAxes()
-    {
-        return geffAxes;
-    }
+	public GeffAxis[] getGeffAxes() // TODO make List<GeffAxis>
+	{
+		return geffAxes;
+	}
 
-    public void setGeffAxes( GeffAxis[] geffAxes )
-    {
-        this.geffAxes = geffAxes != null ? geffAxes.clone() : null;
-        validate();
-    }
+	public List< GeffAxis > getGeffAxesList() // TODO rename getGeffAxes()
+	{
+		return ( geffAxes != null ) ? Arrays.asList( geffAxes ) : null;
+	}
 
-    /**
+	public void setGeffAxes( GeffAxis[] geffAxes ) // TODO make List<GeffAxis>
+	{
+		this.geffAxes = geffAxes != null ? geffAxes.clone() : null;
+		validate();
+	}
+
+	public void setGeffAxes( final List< GeffAxis > geffAxes )
+	{
+		this.geffAxes = ( geffAxes != null ) ? geffAxes.toArray( GeffAxis[]::new ) : null;
+		validate();
+	}
+
+	/**
      * Validates the metadata according to the GEFF schema rules
      */
     public void validate()
     {
-        // Check spatial metadata consistency if position is provided
+		if ( geffVersion == null )
+		{
+			throw new IllegalArgumentException( "geff_version is missing." );
+		}
+
+		// Check spatial metadata consistency if position is provided
         if ( geffAxes != null )
         {
             for ( GeffAxis axis : geffAxes )
@@ -156,50 +187,21 @@ public class GeffMetadata
         }
     }
 
-    /**
-     * Read metadata from a Zarr group
-     */
-    public static GeffMetadata readFromZarr( String zarrPath ) throws IOException, InvalidRangeException
-    {
-        ZarrGroup group = ZarrGroup.open( zarrPath );
-        return readFromZarr( group );
-    }
+	/**
+	 * Read metadata from a Zarr group
+	 */
+	public static GeffMetadata readFromZarr( final String zarrPath ) throws IOException
+	{
+		try ( final N5ZarrReader reader = new N5ZarrReader( zarrPath, true ) )
+		{
+			return readFromZarr( reader, "/" );
+		}
+	}
 
-    /**
-     * Read metadata from a Zarr group
-     */
-    public static GeffMetadata readFromZarr( ZarrGroup group ) throws IOException
-    {
-        // Check if geff_version exists in zattrs
-        String geffVersion = null;
-        Map< ?, ? > attrs = null;
-        if ( group.getAttributes().containsKey( "geff" ) )
-        {
-            System.out.println( "Found geff entry in " + group );
-            Object geffRootObj = group.getAttributes().get( "geff" );
-            if ( geffRootObj instanceof Map )
-            {
-                try
-                {
-                    // Check if geff_version exists in the geff entry
-                    if ( ( ( Map< ?, ? > ) geffRootObj ).containsKey( "geff_version" ) )
-                    {
-                        System.out.println(
-                                "Found geff_version in geff entry: " + ( ( Map< ?, ? > ) geffRootObj ).get( "geff_version" ) );
-                        geffVersion = ( String ) ( ( Map< ?, ? > ) geffRootObj ).get( "geff_version" );
-                        attrs = ( Map< ?, ? > ) geffRootObj;
-                    }
-                    else
-                    {
-                        System.out.println( "No geff_version found in geff entry." );
-                    }
-                }
-                catch ( ClassCastException e )
-                {
-                    System.err.println( "Invalid geff entry format: " + e.getMessage() );
-                }
-            }
-        }
+	public static GeffMetadata readFromZarr( final N5ZarrReader reader, final String group ) throws IOException
+	{
+		final String geffVersion = reader.getAttribute( group, "geff/geff_version", String.class );
+		LOG.debug( "found geff/geff_version = {}", geffVersion );
 		if ( geffVersion == null )
 		{
 			throw new IllegalArgumentException(
@@ -208,194 +210,63 @@ public class GeffMetadata
 							"/dataset.zarr/)." );
 		}
 
-        GeffMetadata metadata = new GeffMetadata();
-
-        // Read required fields
-
-        metadata.setGeffVersion( geffVersion );
-
-        if ( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) )
-        {
-            // For 0.2 and 0.3, we expect a different structure
-            metadata.setDirected( ( Boolean ) attrs.get( "directed" ) );
-
-            // Read axes
-            List< GeffAxis > axes = new ArrayList<>();
-            if ( attrs.containsKey( "axes" ) )
-            {
-                Object axesObj = attrs.get( "axes" );
-                if ( axesObj instanceof List )
-                {
-                    for ( Object axisObj : ( List< ? > ) axesObj )
-                    {
-                        if ( axisObj instanceof Map )
-                        {
-                            Map< ?, ? > axisMap = ( Map< ?, ? > ) axisObj;
-                            String name = ( String ) axisMap.get( "name" );
-                            String type = ( String ) axisMap.get( "type" );
-                            String unit = ( String ) axisMap.get( "unit" );
-                            Double min = ( Double ) axisMap.get( "min" );
-                            Double max = ( Double ) axisMap.get( "max" );
-                            axes.add( new GeffAxis( name, type, unit, min, max ) );
-                        }
-                    }
-                }
-                else
-                {
-                    throw new IllegalArgumentException( "Invalid axes format: " + axesObj );
-                }
-            }
-            metadata.setGeffAxes( axes.toArray( new GeffAxis[ 0 ] ) );
-        }
-
-        // Validate the loaded metadata
-        metadata.validate();
-
-        return metadata;
-    }
-
-    /**
-     * Write metadata to Zarr format at specified path
-     */
-    public static void writeToZarr( GeffMetadata metadata, String zarrPath ) throws IOException
-    {
-        ZarrGroup group = ZarrGroup.create( zarrPath );
-        metadata.writeToZarr( group );
-    }
-
-    /**
-     * Write metadata to Zarr format
-     */
-    public void writeToZarr( ZarrGroup group ) throws IOException
-    {
-        // Validate before writing
-        validate();
-
-		if ( geffVersion == null )
+		if ( !( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) ) )
 		{
-			throw new IllegalArgumentException( "Geff version must be set before writing metadata." );
+			throw new IllegalArgumentException( "geff_version " + geffVersion + " not supported." );
 		}
 
-        if ( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) )
-        {
-            java.util.Map< String, Object > rootAttrs = new java.util.TreeMap<>();
-            java.util.Map< String, Object > attrs = new java.util.TreeMap<>();
-            // Write required fields
-            attrs.put( "directed", directed );
-            attrs.put( "geff_version", geffVersion );
-            ArrayList< Map< String, Object > > axisMaps = new ArrayList<>();
-            for ( GeffAxis axis : geffAxes )
-            {
-                if ( axis.getName() == null || axis.getType() == null )
-                { throw new IllegalArgumentException(
-                        "Axis name and type must be set for all axes in version 0.2 and 0.3." ); }
-                Map< String, Object > axisMap = new java.util.TreeMap<>();
-                axisMap.put( "name", axis.getName() );
-                axisMap.put( "type", axis.getType() );
-                axisMap.put( "unit", axis.getUnit() );
-                if ( axis.getMin() != null )
-                {
-                    axisMap.put( "min", axis.getMin() );
-                }
-                if ( axis.getMax() != null )
-                {
-                    axisMap.put( "max", axis.getMax() );
-                }
-                axisMaps.add( axisMap );
-            }
-            attrs.put( "axes", axisMaps );
-            rootAttrs.put( "geff", attrs );
-            // Write the attributes to the Zarr group
-            group.writeAttributes( rootAttrs );
-            System.out.println( "Written metadata attributes: " + rootAttrs.keySet() );
-        }
+		final Boolean directed = reader.getAttribute( group, "geff/directed", Boolean.class );
+		LOG.debug( "found geff/directed = {}", directed );
+		if ( directed == null )
+		{
+			throw new IllegalArgumentException( "required attribute 'geff/directed' is missing." );
+		}
 
-    }
+		final List< GeffAxis > axes = reader.getAttribute( group, "geff/axes",
+				new TypeToken< List< GeffAxis > >() {}.getType() );
+		LOG.debug( "found geff/axes = {}", axes );
 
-    // Helper methods for type conversion
-    private static double[] convertToDoubleArray( Object obj )
-    {
-        if ( obj instanceof double[] )
-        {
-            return ( double[] ) obj;
-        }
-        else if ( obj instanceof java.util.ArrayList )
-        {
-            @SuppressWarnings( "unchecked" )
-            java.util.ArrayList< Object > list = ( java.util.ArrayList< Object > ) obj;
-            double[] result = new double[ list.size() ];
-            for ( int i = 0; i < list.size(); i++ )
-            {
-                if ( list.get( i ) instanceof Number )
-                {
-                    result[ i ] = ( ( Number ) list.get( i ) ).doubleValue();
-                }
-                else
-                {
-                    result[ i ] = Double.parseDouble( list.get( i ).toString() );
-                }
-            }
-            return result;
-        }
-        else if ( obj instanceof Object[] )
-        {
-            Object[] arr = ( Object[] ) obj;
-            double[] result = new double[ arr.length ];
-            for ( int i = 0; i < arr.length; i++ )
-            {
-                if ( arr[ i ] instanceof Number )
-                {
-                    result[ i ] = ( ( Number ) arr[ i ] ).doubleValue();
-                }
-                else
-                {
-                    result[ i ] = Double.parseDouble( arr[ i ].toString() );
-                }
-            }
-            return result;
-        }
-        else if ( obj instanceof float[] )
-        {
-            float[] floatArray = ( float[] ) obj;
-            double[] result = new double[ floatArray.length ];
-            for ( int i = 0; i < floatArray.length; i++ )
-            {
-                result[ i ] = floatArray[ i ];
-            }
-            return result;
-        }
-        return null;
-    }
+		final GeffMetadata metadata = new GeffMetadata( geffVersion, directed, axes );
+		metadata.validate();
 
-    private static String[] convertToStringArray( Object obj )
-    {
-        if ( obj instanceof String[] )
-        {
-            return ( String[] ) obj;
-        }
-        else if ( obj instanceof java.util.ArrayList )
-        {
-            @SuppressWarnings( "unchecked" )
-            java.util.ArrayList< Object > list = ( java.util.ArrayList< Object > ) obj;
-            String[] result = new String[ list.size() ];
-            for ( int i = 0; i < list.size(); i++ )
-            {
-                result[ i ] = list.get( i ) != null ? list.get( i ).toString() : null;
-            }
-            return result;
-        }
-        else if ( obj instanceof Object[] )
-        {
-            Object[] arr = ( Object[] ) obj;
-            String[] result = new String[ arr.length ];
-            for ( int i = 0; i < arr.length; i++ )
-            {
-                result[ i ] = arr[ i ] != null ? arr[ i ].toString() : null;
-            }
-            return result;
-        }
-        return null;
-    }
+		return metadata;
+	}
+
+	/**
+	 * Write metadata to Zarr format at specified path
+	 */
+	public static void writeToZarr( final GeffMetadata metadata, final String zarrPath ) throws IOException
+	{
+		try ( final N5ZarrWriter writer = new N5ZarrWriter( zarrPath, new GsonBuilder().setPrettyPrinting(),true ) )
+		{
+			metadata.writeToZarr( writer, "/" );
+		}
+	}
+
+	public void writeToZarr( final N5ZarrWriter writer, final String group )
+	{
+		// Validate before writing
+		validate();
+
+		if ( !( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) ) )
+		{
+			throw new IllegalArgumentException( "geff_version " + geffVersion + " not supported." );
+		}
+
+		// required
+		LOG.debug( "writing geff/geff_version {}", getGeffVersion() );
+		writer.setAttribute( group, "geff/geff_version", getGeffVersion() );
+		LOG.debug( "writing geff/directed {}", isDirected() );
+		writer.setAttribute( group, "geff/directed", isDirected() );
+
+		// optional
+		final List< GeffAxis > axes = getGeffAxesList();
+		if ( axes != null )
+		{
+			LOG.debug( "writing geff/axes {}", axes );
+			writer.setAttribute( group, "geff/axes", axes );
+		}
+	}
 
     @Override
     public String toString()
@@ -405,34 +276,17 @@ public class GeffMetadata
                 geffVersion, directed, Arrays.toString( geffAxes ) );
     }
 
-    @Override
-    public boolean equals( Object obj )
-    {
-        if ( this == obj )
-            return true;
-        if ( obj == null || getClass() != obj.getClass() )
-            return false;
+	@Override
+	public boolean equals( final Object o )
+	{
+		if ( !( o instanceof final GeffMetadata that ) )
+			return false;
+		return directed == that.directed && Objects.equals( geffVersion, that.geffVersion ) && Objects.deepEquals( geffAxes, that.geffAxes );
+	}
 
-        GeffMetadata that = ( GeffMetadata ) obj;
-
-        if ( directed != that.directed )
-            return false;
-        if ( geffVersion != null ? !geffVersion.equals( that.geffVersion ) : that.geffVersion != null )
-            return false;
-        for ( int i = 0; i < geffAxes.length; i++ )
-        {
-            if ( !geffAxes[ i ].equals( that.geffAxes[ i ] ) )
-            { return false; }
-        }
-        return true;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        int result = geffVersion != null ? geffVersion.hashCode() : 0;
-        result = 31 * result + ( directed ? 1 : 0 );
-        result = 31 * result + Arrays.hashCode( geffAxes );
-        return result;
-    }
+	@Override
+	public int hashCode()
+	{
+		return Objects.hash( geffVersion, directed, Arrays.hashCode( geffAxes ) );
+	}
 }
