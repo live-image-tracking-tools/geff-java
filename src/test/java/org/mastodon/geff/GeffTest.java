@@ -279,7 +279,7 @@ public class GeffTest
 
         // Test various valid version formats
         String[] validVersions = {
-                "0.0", "0.1", "0.2", "0.3",
+                "0.0", "0.1", "0.2", "0.3", "0.4",
                 "0.1.1", "0.2.0", "0.3.5",
                 "0.2.2.dev20", "0.1.0-alpha.1", "0.3.0-beta.2+build.123"
         };
@@ -293,7 +293,7 @@ public class GeffTest
         }
 
         // Test invalid versions
-        String[] invalidVersions = { "1.0", "0.4", "invalid", "0.1..x" };
+        String[] invalidVersions = { "1.0", "invalid", "0.1..x" };
 
         for ( String version : invalidVersions )
         {

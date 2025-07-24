@@ -71,7 +71,6 @@ public class VersionPatternTest
         // Test cases for version formats that should be rejected
         String[] invalidVersions = {
                 "1.0", // Unsupported major version
-                "0.4", // Unsupported minor version
                 "invalid", // Not a version at all
                 "0.1..x", // Invalid patch format
         };
