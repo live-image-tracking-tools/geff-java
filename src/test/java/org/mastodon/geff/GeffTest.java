@@ -177,7 +177,7 @@ public class GeffTest
 
         // Test invalid metadata - create axes with invalid bounds
         GeffMetadata invalidMetadata = new GeffMetadata();
-        invalidMetadata.setGeffVersion( "0.1" );
+        invalidMetadata.setGeffVersion( "0.2" );
         invalidMetadata.setDirected( false );
 
         // Create invalid axes (min > max)
@@ -279,9 +279,9 @@ public class GeffTest
 
         // Test various valid version formats
         String[] validVersions = {
-                "0.0", "0.1", "0.2", "0.3",
-                "0.1.1", "0.2.0", "0.3.5",
-                "0.2.2.dev20", "0.1.0-alpha.1", "0.3.0-beta.2+build.123"
+                "0.2", "0.3",
+                "0.2.0", "0.3.5",
+                "0.2.2.dev20", "0.2.0-alpha.1", "0.3.0-beta.2+build.123"
         };
 
         for ( String version : validVersions )
