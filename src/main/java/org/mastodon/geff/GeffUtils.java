@@ -76,17 +76,28 @@ public class GeffUtils
 
 		double at(final int i0)
 		{
+			assert size.length == 1;
 			return data[ i0 ];
 		}
 
 		double at(final int i0, final int i1)
 		{
+			assert size.length == 2;
 			return data[ i0 + size[ 0 ] * i1 ];
 		}
 
 		double at(final int i0, final int i1, final int i2)
 		{
+			assert size.length == 3;
 			return data[ i0 + size[ 0 ] * ( i1 * i2 * size[ 1 ] ) ];
+		}
+
+		double[] rowAt(final int i0)
+		{
+			assert size.length == 2;
+			final double[] row = new double[ size[ 1 ] ];
+			Arrays.setAll( row, i1 -> at( i0, i1 ) );
+			return row;
 		}
 	}
 

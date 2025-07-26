@@ -79,9 +79,7 @@ public class GeffNode implements ZarrEntity
 
     private double[] covariance3d;
 
-    public static final double[] DEFAULT_COLOR = { 1.0, 1.0, 1.0, 1.0 }; // Default
-                                                                         // white
-                                                                         // color
+    public static final double[] DEFAULT_COLOR = { 1.0, 1.0, 1.0, 1.0 }; // Default white color
 
     public static final double DEFAULT_RADIUS = 1.0;
 
@@ -411,8 +409,17 @@ public class GeffNode implements ZarrEntity
 	//
 	//
 
-
-
+	/**
+	 * Read nodes from Zarr format with default version and chunked structure
+	 *
+	 * @param zarrPath
+	 *            The path to the Zarr directory containing nodes.
+	 * @return List of GeffNode objects read from the Zarr path.
+	 */
+	public static List< GeffNode > readFromZarr( String zarrPath ) throws IOException
+	{
+		return readFromZarr( zarrPath, Geff.VERSION );
+	}
 
 	/**
 	 * Read nodes from Zarr format with specified version and chunked structure
@@ -423,7 +430,7 @@ public class GeffNode implements ZarrEntity
 	 *            The version of the GEFF format to read.
 	 * @return List of GeffNode objects read from the Zarr path.
 	 */
-	public static List< GeffNode > n5ReadFromZarr( final String zarrPath, final String geffVersion )
+	public static List< GeffNode > readFromZarr( final String zarrPath, final String geffVersion )
 	{
 		LOG.debug( "Reading nodes from Zarr path: " + zarrPath + " with Geff version: " + geffVersion );
 		try ( final N5ZarrReader reader = new N5ZarrReader( zarrPath, true ) )
@@ -432,18 +439,21 @@ public class GeffNode implements ZarrEntity
 		}
 	}
 
+	// TODO: move to Util
 	private static void verifyLength( final int[] array, final int expectedLength, final String name )
 	{
 		if ( array != null && array.length != expectedLength )
 			throw new IllegalArgumentException( "property " + name + " does not have expected length (" + array.length + " vs " + expectedLength + ")" );
 	}
 
+	// TODO: move to Util
 	private static void verifyLength( final double[] array, final int expectedLength, final String name )
 	{
 		if ( array != null && array.length != expectedLength )
 			throw new IllegalArgumentException( "property " + name + " does not have expected length (" + array.length + " vs " + expectedLength + ")" );
 	}
 
+	// TODO: move to Util
 	private static void verifyLength( final FlattenedDoubles array, final int expectedLength, final String name )
 	{
 		if ( array != null && array.size()[ 0 ] != expectedLength )
@@ -464,251 +474,61 @@ public class GeffNode implements ZarrEntity
 		{
 			throw new IllegalArgumentException( "required property '/nodes/ids' not found" );
 		}
+		final int numNodes = nodeIds.length;
 
 		// Read time points from chunks
 		final int[] timepoints = GeffUtils.readAsIntArray( reader, "/nodes/props/t/values", "timepoints" );
-		verifyLength( timepoints, nodeIds.length, "/nodes/props/t/values" );
+		verifyLength( timepoints, numNodes, "/nodes/props/t/values" );
 
 		// Read X coordinates from chunks
 		final double[] xCoords = GeffUtils.readAsDoubleArray( reader, "/nodes/props/x/values", "X coordinates" );
-		verifyLength( xCoords, nodeIds.length, "/nodes/props/x/values" );
+		verifyLength( xCoords, numNodes, "/nodes/props/x/values" );
 
 		// Read Y coordinates from chunks
 		final double[] yCoords = GeffUtils.readAsDoubleArray( reader, "/nodes/props/y/values", "Y coordinates" );
-		verifyLength( yCoords, nodeIds.length, "/nodes/props/y/values" );
+		verifyLength( yCoords, numNodes, "/nodes/props/y/values" );
 
 		// Read Z coordinates from chunks
 		final double[] zCoords = GeffUtils.readAsDoubleArray( reader, "/nodes/props/z/values", "Z coordinates" );
-		verifyLength( zCoords, nodeIds.length, "/nodes/props/z/values" );
+		verifyLength( zCoords, numNodes, "/nodes/props/z/values" );
 
 		// Read color from chunks
 		final FlattenedDoubles colors = GeffUtils.readAsDoubleMatrix( reader, "/nodes/props/color/values", "color" );
-		verifyLength( colors, nodeIds.length, "/nodes/props/color/values" );
+		verifyLength( colors, numNodes, "/nodes/props/color/values" );
+
+		// Read track IDs from chunks
+		final int[] trackIds = GeffUtils.readAsIntArray( reader, "/nodes/props/track_id/values", "track IDs" );
+		verifyLength( trackIds, numNodes, "/nodes/props/track_id/values" );
 
 		// Read radius from chunks
-		int[] radius = GeffUtils.readAsIntArray( reader, "/nodes/props/radius/values", "track IDs" );
-		verifyLength( radius, nodeIds.length, "/nodes/props/radius/values" );
+		double[] radius = GeffUtils.readAsDoubleArray( reader, "/nodes/props/radius/values", "radius" );
+		verifyLength( radius, numNodes, "/nodes/props/radius/values" );
 
-		printArray( nodeIds,"nodeIds" );
-		printArray( timepoints,"timepoints" );
-		printArray( xCoords,"xCoords" );
-		printArray( yCoords,"yCoords" );
-		printArray( zCoords,"zCoords" );
+		// TODO: ellipsoid etc
 
 		// Create node objects
-		for ( int i = 0; i < nodeIds.length; i++ )
+		final List< GeffNode > nodes = new ArrayList<>( numNodes );
+		for ( int i = 0; i < numNodes; i++ )
 		{
-			GeffNode node = new Builder()
-					.id( nodeIds[ i ] )
-					.timepoint( i < timepoints.length ? timepoints[ i ] : -1 )
-					.x( i < xCoords.length ? xCoords[ i ] : Double.NaN )
-					.y( i < yCoords.length ? yCoords[ i ] : Double.NaN )
-					.z( i < zCoords.length ? zCoords[ i ] : Double.NaN )
-					.color( i < colors.length ? colors[ i ] : DEFAULT_COLOR )
-					.segmentId( i < trackIds.length ? trackIds[ i ] : -1 )
-					.radius( i < radii.length ? radii[ i ] : Double.NaN )
-					.covariance2d( i < covariance2ds.length ? covariance2ds[ i ] : DEFAULT_COVARIANCE_2D )
-					.covariance3d( i < covariance3ds.length ? covariance3ds[ i ] : DEFAULT_COVARIANCE_3D )
-					.build();
-
+			final int id = nodeIds[ i ];
+			final int t = timepoints != null ? timepoints[ i ] : -1;
+			final double x = xCoords != null ? xCoords[ i ] : Double.NaN;
+			final double y = yCoords != null ? yCoords[ i ] : Double.NaN;
+			final double z = zCoords != null ? zCoords[ i ] : Double.NaN;
+			final double[] color = colors != null ? colors.rowAt( i ) : DEFAULT_COLOR;
+			final int segmentId = trackIds != null ? trackIds[ i ] : -1;
+			final double r = radius != null ? radius[ i ] : Double.NaN;
+			final double[] covariance2d = DEFAULT_COVARIANCE_2D;
+			final double[] covariance3d = DEFAULT_COVARIANCE_2D;
+			final GeffNode node = new GeffNode( id, t, x, y, z, color, segmentId, r, covariance2d, covariance3d );
 			nodes.add( node );
 		}
-
-		throw new UnsupportedOperationException( "TODO. not implemented." );
+		return nodes;
 	}
-
-	private static final int maxLength = 5;
-	private static void printArray( int[] array, String name )
-	{
-		if ( array == null )
-		{
-			System.out.println( name + " = null " );
-		}
-		else
-		{
-			final int[] a = array.length <= maxLength ? array : Arrays.copyOf( array, maxLength );
-			final String suffix = array.length > maxLength ? " ... and " + ( array.length - maxLength ) + " more elements" : "";
-			System.out.println( name + " = " + Arrays.toString( a ) + suffix );
-		}
-	}
-	private static void printArray( double[] array, String name )
-	{
-		if ( array == null )
-		{
-			System.out.println( name + " = null " );
-		}
-		else
-		{
-			final double[] a = array.length <= maxLength ? array : Arrays.copyOf( array, maxLength );
-			final String suffix = array.length > maxLength ? " ... and " + ( array.length - maxLength ) + " more elements" : "";
-			System.out.println( name + " = " + Arrays.toString( a ) + suffix );
-		}
-	}
-
-
 
 	// ------ jzarr version -------------------------------------------
 	//
 	//
-
-	/**
-     * Read nodes from Zarr format with default version and chunked structure
-     *
-     * @param zarrPath
-     *            The path to the Zarr directory containing nodes.
-     * @return List of GeffNode objects read from the Zarr path.
-     */
-    public static List< GeffNode > readFromZarr( String zarrPath ) throws IOException
-    {
-        return readFromZarrWithChunks( zarrPath, Geff.VERSION );
-    }
-
-    /**
-     * Read nodes from Zarr format with specified version and chunked structure
-     *
-     * @param zarrPath
-     *            The path to the Zarr directory containing nodes.
-     * @param geffVersion
-     *            The version of the GEFF format to read.
-     * @return List of GeffNode objects read from the Zarr path.
-     */
-    public static List< GeffNode > readFromZarr( String zarrPath, String geffVersion )
-            throws IOException
-    {
-        return readFromZarrWithChunks( zarrPath, geffVersion );
-    }
-
-    /**
-     * Read nodes from Zarr format with chunked structure. This method handles
-     * different Geff versions and reads node attributes accordingly.
-     *
-     * @param zarrPath
-     *            The path to the Zarr directory containing nodes.
-     * @param geffVersion
-     *            The version of the GEFF format to read.
-     * @return List of GeffNode objects read from the Zarr path.
-     */
-    public static List< GeffNode > readFromZarrWithChunks( String zarrPath, String geffVersion )
-            throws IOException
-    {
-        List< GeffNode > nodes = new ArrayList<>();
-
-        ZarrGroup nodesGroup = ZarrGroup.open( zarrPath + "/nodes" );
-
-        System.out.println(
-                "Reading nodes from Zarr path: " + zarrPath + " with Geff version: " + geffVersion );
-
-		if ( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) )
-        {
-            // Read node IDs from chunks
-            int[] nodeIds = ZarrUtils.readChunkedIntArray( nodesGroup, "ids", "node IDs" );
-
-            // Read properties
-            ZarrGroup propsGroup = nodesGroup.openSubGroup( "props" );
-
-            // Read time points from chunks
-            int[] timepoints = ZarrUtils.readChunkedIntArray( propsGroup, "t/values", "timepoints" );
-
-            // Read X coordinates from chunks
-            double[] xCoords = ZarrUtils.readChunkedDoubleArray( propsGroup, "x/values", "X coordinates" );
-
-            // Read Y coordinates from chunks
-            double[] yCoords = ZarrUtils.readChunkedDoubleArray( propsGroup, "y/values", "Y coordinates" );
-
-            // Read Z coordinates from chunks
-            double[] zCoords = new double[ 0 ];
-            try
-            {
-                zCoords = ZarrUtils.readChunkedDoubleArray( propsGroup, "z/values", "Z coordinates" );
-            }
-            catch ( Exception e )
-            {
-                System.out.println( "Warning: Could not read Z coordinates: " + e.getMessage() + " skipping..." );
-            }
-
-            // Read color from chunks
-            double[][] colors = new double[ 0 ][];
-            try
-            {
-                colors = ZarrUtils.readChunkedDoubleMatrix( propsGroup, "color/values", "color" );
-            }
-            catch ( Exception e )
-            {
-                System.out.println( "Warning: Could not read color array: " + e.getMessage() + " skipping..." );
-            }
-
-            // Read track IDs from chunks
-            int[] trackIds = new int[ 0 ];
-            try
-            {
-                trackIds = ZarrUtils.readChunkedIntArray( propsGroup, "track_id/values", "track IDs" );
-            }
-            catch ( Exception e )
-            {
-                System.out.println( "Warning: Could not read track IDs: " + e.getMessage() + " skipping..." );
-            }
-
-            // Read radius from chunks
-            double[] radii = new double[ 0 ];
-            try
-            {
-                radii = ZarrUtils.readChunkedDoubleArray( propsGroup, "radius/values", "radius" );
-            }
-            catch ( Exception e )
-            {
-                System.out.println( "Warning: Could not read radius: " + e.getMessage() + " skipping..." );
-            }
-
-            // Read covariance2d from chunks
-            double[][] covariance2ds = new double[ 0 ][];
-            try
-            {
-                covariance2ds = ZarrUtils.readChunkedDoubleMatrix( propsGroup, "covariance2d/values",
-                        "covariance2d" );
-            }
-            catch ( Exception e )
-            {
-                System.out.println( "Warning: Could not read covariance2d: " + e.getMessage() + " skipping..." );
-            }
-
-            // Read covariance3d from chunks
-            double[][] covariance3ds = new double[ 0 ][];
-            try
-            {
-                covariance3ds = ZarrUtils.readChunkedDoubleMatrix( propsGroup, "covariance3d/values",
-                        "covariance3d" );
-            }
-            catch ( Exception e )
-            {
-                System.out.println( "Warning: Could not read covariance3d: " + e.getMessage() + " skipping..." );
-            }
-
-            // Create node objects
-            for ( int i = 0; i < nodeIds.length; i++ )
-            {
-                GeffNode node = new Builder()
-                        .id( nodeIds[ i ] )
-                        .timepoint( i < timepoints.length ? timepoints[ i ] : -1 )
-                        .x( i < xCoords.length ? xCoords[ i ] : Double.NaN )
-                        .y( i < yCoords.length ? yCoords[ i ] : Double.NaN )
-                        .z( i < zCoords.length ? zCoords[ i ] : Double.NaN )
-                        .color( i < colors.length ? colors[ i ] : DEFAULT_COLOR )
-                        .segmentId( i < trackIds.length ? trackIds[ i ] : -1 )
-                        .radius( i < radii.length ? radii[ i ] : Double.NaN )
-                        .covariance2d( i < covariance2ds.length ? covariance2ds[ i ] : DEFAULT_COVARIANCE_2D )
-                        .covariance3d( i < covariance3ds.length ? covariance3ds[ i ] : DEFAULT_COVARIANCE_3D )
-                        .build();
-
-                nodes.add( node );
-            }
-        }
-        else
-        {
-            throw new IOException( "Unsupported Geff version: " + geffVersion );
-        }
-
-        return nodes;
-    }
 
     /**
      * Write nodes to Zarr format with chunked structure
