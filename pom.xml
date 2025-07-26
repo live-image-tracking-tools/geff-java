@@ -72,6 +72,18 @@
 		</dependency>
 
 		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-api</artifactId>
+		</dependency>
+
+		<!--
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-jdk14</artifactId>
+		</dependency>
+		-->
+
+		<dependency>
             <groupId>com.bc.zarr</groupId>
             <artifactId>jzarr</artifactId>
             <version>0.3.5</version>
