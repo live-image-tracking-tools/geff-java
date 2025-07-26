@@ -28,7 +28,7 @@
  */
 package org.mastodon.geff;
 
-import static org.mastodon.geff.GeffUtil.checkSupportedVersion;
+import static org.mastodon.geff.GeffUtils.checkSupportedVersion;
 import static org.mastodon.geff.GeffUtils.verifyLength;
 
 import java.util.ArrayList;
@@ -49,7 +49,7 @@ import org.slf4j.LoggerFactory;
  * connects two nodes in a tracking graph, typically representing temporal
  * connections between objects across time points.
  */
-public class GeffEdge implements ZarrEntity
+public class GeffEdge
 {
 	private static final Logger LOG = LoggerFactory.getLogger( GeffEdge.class );
 
@@ -259,12 +259,12 @@ public class GeffEdge implements ZarrEntity
 	 */
 	public static void writeToZarr( List< GeffEdge > edges, String zarrPath )
 	{
-		writeToZarr( edges, zarrPath, ZarrUtils.DEFAULT_CHUNK_SIZE );
+		writeToZarr( edges, zarrPath, GeffUtils.DEFAULT_CHUNK_SIZE );
 	}
 
 	public static void writeToZarr( List< GeffEdge > edges, String zarrPath, String geffVersion )
 	{
-		writeToZarr( edges, zarrPath, ZarrUtils.DEFAULT_CHUNK_SIZE, geffVersion );
+		writeToZarr( edges, zarrPath, GeffUtils.DEFAULT_CHUNK_SIZE, geffVersion );
 	}
 
 	/**
@@ -298,7 +298,7 @@ public class GeffEdge implements ZarrEntity
 		{
 			geffVersion = Geff.VERSION; // Use default version if not specified
 		}
-		GeffUtil.checkSupportedVersion( geffVersion );
+		GeffUtils.checkSupportedVersion( geffVersion );
 
 		final String path = N5URI.normalizeGroupPath( group );
 

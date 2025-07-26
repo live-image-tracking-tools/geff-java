@@ -6,13 +6,13 @@
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -73,8 +73,7 @@ public class GeffTest
             node.setX( i * 10.0 );
             node.setY( i * 15.0 );
             node.setSegmentId( i + 100 );
-            // Note: setPosition is deprecated, using individual coordinates
-            // instead
+            // Note: setPosition is deprecated, using individual coordinates instead
             testNodes.add( node );
         }
 
@@ -250,6 +249,7 @@ public class GeffTest
             catch ( Exception e )
             {
                 // If any exception occurs, fail with details
+				e.printStackTrace();
                 fail( "Write operations should not throw exceptions: " + e.getMessage() );
             }
         } );

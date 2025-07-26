@@ -28,7 +28,7 @@
  */
 package org.mastodon.geff;
 
-import static org.mastodon.geff.GeffUtil.checkSupportedVersion;
+import static org.mastodon.geff.GeffUtils.checkSupportedVersion;
 import static org.mastodon.geff.GeffUtils.verifyLength;
 
 import java.io.IOException;
@@ -48,7 +48,7 @@ import org.slf4j.LoggerFactory;
  * Represents a node in the Geff (Graph Exchange Format for Features) format.
  * This class handles reading and writing node data from/to Zarr format.
  */
-public class GeffNode implements ZarrEntity
+public class GeffNode
 {
 	private static final Logger LOG = LoggerFactory.getLogger( GeffNode.class );
 
@@ -393,7 +393,7 @@ public class GeffNode implements ZarrEntity
 	 */
 	public static void writeToZarr( List< GeffNode > nodes, String zarrPath )
 	{
-		writeToZarr( nodes, zarrPath, ZarrUtils.DEFAULT_CHUNK_SIZE );
+		writeToZarr( nodes, zarrPath, GeffUtils.DEFAULT_CHUNK_SIZE );
 	}
 	/**
 	 * Write nodes to Zarr format with specified chunk size
@@ -405,7 +405,7 @@ public class GeffNode implements ZarrEntity
 
 	public static void writeToZarr( List< GeffNode > nodes, String zarrPath, String geffVersion )
 	{
-		writeToZarr( nodes, zarrPath, ZarrUtils.DEFAULT_CHUNK_SIZE, geffVersion );
+		writeToZarr( nodes, zarrPath, GeffUtils.DEFAULT_CHUNK_SIZE, geffVersion );
 	}
 
 	public static void writeToZarr( List< GeffNode > nodes, String zarrPath, int chunkSize, String geffVersion )
@@ -431,7 +431,7 @@ public class GeffNode implements ZarrEntity
 		{
 			geffVersion = Geff.VERSION; // Use default version if not specified
 		}
-		GeffUtil.checkSupportedVersion( geffVersion );
+		GeffUtils.checkSupportedVersion( geffVersion );
 
 		final String path = N5URI.normalizeGroupPath( group );
 

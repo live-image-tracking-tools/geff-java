@@ -28,7 +28,7 @@
  */
 package org.mastodon.geff;
 
-import static org.mastodon.geff.GeffUtil.checkSupportedVersion;
+import static org.mastodon.geff.GeffUtils.checkSupportedVersion;
 
 import java.io.IOException;
 import java.util.Arrays;

@@ -10,9 +10,11 @@ import java.util.function.ToIntFunction;
 import org.janelia.saalfeldlab.n5.DataBlock;
 import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
+import org.janelia.saalfeldlab.n5.N5Exception;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.blosc.BloscCompression;
+import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,12 +27,35 @@ import net.imglib2.iterator.IntervalIterator;
 import net.imglib2.util.Intervals;
 import net.imglib2.util.Util;
 
-// TODO: split good parts into GeffN5Utils, move questionable parts to ZarrUtils
-public class GeffUtils
+class GeffUtils
 {
 	private static final Logger LOG = LoggerFactory.getLogger( GeffUtils.class );
 
+	public static void checkSupportedVersion( final String version ) throws IllegalArgumentException
+	{
+		if ( !( version.startsWith( "0.2" ) || version.startsWith( "0.3" ) ) )
+		{
+			throw new IllegalArgumentException( "geff_version " + version + " not supported." );
+		}
+	}
 
+	// Default chunk size if not specified
+	public static final int DEFAULT_CHUNK_SIZE = 1000;
+
+	public static int getChunkSize( final String zarrPath )
+	{
+		try ( final N5ZarrReader reader = new N5ZarrReader( zarrPath, true ) )
+		{
+			final int[] chunkSize = reader.getDatasetAttributes( "/nodes/ids" ).getBlockSize();
+			return chunkSize[ 0 ];
+		}
+		catch ( final N5Exception.N5IOException e )
+		{
+			// If the path doesn't exist, return a default chunk size
+			System.out.println( "Path doesn't exist, using default chunk size: " + e.getMessage() );
+			return DEFAULT_CHUNK_SIZE; // Default chunk size
+		}
+	}
 
 	public static < T > void writeIntArray(
 			final List< T > elements,
@@ -115,12 +140,6 @@ public class GeffUtils
 		writer.createDataset(dataset, attributes);
 		write( data, writer, dataset, attributes );
 	}
-
-
-
-
-
-
 
 	public static int[] readAsIntArray( final N5Reader reader, final String dataset, final String description )
 	{
@@ -261,7 +280,6 @@ public class GeffUtils
 		return new FlattenedInts( convertToIntArray( readFully( reader, dataset ), description ), attributes.getDimensions() );
 	}
 
-
 	public static int[] convertToIntArray( final Object array, final String fieldName )
 	{
 		if ( array instanceof int[] )
@@ -383,7 +401,6 @@ public class GeffUtils
 	}
 
 
-
 	// -- read dataset fully --
 
 	public static Object readFully( final N5Reader reader, final String dataset )
@@ -461,5 +478,10 @@ public class GeffUtils
 			Arrays.setAll( destPos, d -> ( int ) ( intersection.min( d ) - destInterval.min( d ) ) );
 			SubArrayCopy.copy( block.getData(), blockInterval.size(), srcPos, dest, destSize, destPos, Util.long2int( intersection.dimensionsAsLongArray() ) );
 		}
+	}
+
+	private GeffUtils()
+	{
+		// static utility methods. don't instantiate.
 	}
 }
