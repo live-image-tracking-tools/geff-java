@@ -29,12 +29,12 @@
 package org.mastodon.geff;
 
 import static org.mastodon.geff.GeffUtil.checkSupportedVersion;
+import static org.mastodon.geff.GeffUtils.verifyLength;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5URI;
 import org.janelia.saalfeldlab.n5.N5Writer;
@@ -43,13 +43,6 @@ import org.janelia.saalfeldlab.n5.zarr.N5ZarrWriter;
 import org.mastodon.geff.GeffUtils.FlattenedDoubles;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.bc.zarr.ArrayParams;
-import com.bc.zarr.DataType;
-import com.bc.zarr.ZarrArray;
-import com.bc.zarr.ZarrGroup;
-
-import ucar.ma2.InvalidRangeException;
 
 /**
  * Represents a node in the Geff (Graph Exchange Format for Features) format.
@@ -398,7 +391,7 @@ public class GeffNode implements ZarrEntity
 	/**
 	 * Write nodes to Zarr format with chunked structure
 	 */
-	public static void writeToZarr( List< GeffNode > nodes, String zarrPath ) throws IOException, InvalidRangeException
+	public static void writeToZarr( List< GeffNode > nodes, String zarrPath )
 	{
 		writeToZarr( nodes, zarrPath, ZarrUtils.DEFAULT_CHUNK_SIZE );
 	}
@@ -406,20 +399,18 @@ public class GeffNode implements ZarrEntity
 	 * Write nodes to Zarr format with specified chunk size
 	 */
 	public static void writeToZarr( List< GeffNode > nodes, String zarrPath, int chunkSize )
-			throws IOException, InvalidRangeException
 	{
 		writeToZarr( nodes, zarrPath, chunkSize, Geff.VERSION );
 	}
 
 	public static void writeToZarr( List< GeffNode > nodes, String zarrPath, String geffVersion )
-			throws IOException, InvalidRangeException
 	{
 		writeToZarr( nodes, zarrPath, ZarrUtils.DEFAULT_CHUNK_SIZE, geffVersion );
 	}
 
 	public static void writeToZarr( List< GeffNode > nodes, String zarrPath, int chunkSize, String geffVersion )
 	{
-		LOG.debug( "Writing {} nodes to Zarr path: {} with chunk size: {} to Geff version: {}" + geffVersion, nodes.size(), zarrPath, chunkSize, geffVersion );
+		LOG.debug( "Writing {} nodes to Zarr path: {} with chunk size: {} to Geff version: {}", nodes.size(), zarrPath, chunkSize, geffVersion );
 		try ( final N5ZarrWriter writer = new N5ZarrWriter( zarrPath, true ) )
 		{
 			writeToN5( nodes, writer, "/", chunkSize, geffVersion );
@@ -434,7 +425,7 @@ public class GeffNode implements ZarrEntity
 			String geffVersion )
 	{
 		if ( nodes == null )
-			throw new NullPointerException( "Nodes list cannot be null or empty" );
+			throw new NullPointerException( "Nodes list cannot be null" );
 
 		if ( geffVersion == null || geffVersion.isEmpty() )
 		{
@@ -503,34 +494,10 @@ public class GeffNode implements ZarrEntity
 		}
 	}
 
-	// TODO: move to Util
-	private static void verifyLength( final int[] array, final int expectedLength, final String name )
-	{
-		if ( array != null && array.length != expectedLength )
-			throw new IllegalArgumentException( "property " + name + " does not have expected length (" + array.length + " vs " + expectedLength + ")" );
-	}
-
-	// TODO: move to Util
-	private static void verifyLength( final double[] array, final int expectedLength, final String name )
-	{
-		if ( array != null && array.length != expectedLength )
-			throw new IllegalArgumentException( "property " + name + " does not have expected length (" + array.length + " vs " + expectedLength + ")" );
-	}
-
-	// TODO: move to Util
-	private static void verifyLength( final FlattenedDoubles array, final int expectedLength, final String name )
-	{
-		if ( array != null && array.size()[ 0 ] != expectedLength )
-		{
-			throw new IllegalArgumentException( "property " + name + " does not have expected length (" + array.size()[ 0 ] + " vs " + expectedLength + ")" );
-		}
-	}
-
 	public static List< GeffNode > readFromN5( final N5Reader reader, final String group, final String geffVersion )
 	{
 		checkSupportedVersion( geffVersion );
 		final String path = N5URI.normalizeGroupPath( group );
-		final DatasetAttributes attributes = reader.getDatasetAttributes( path + "/edges/ids" );
 
 		// Read node IDs from chunks
 		final int[] nodeIds = GeffUtils.readAsIntArray( reader, path + "/nodes/ids", "node IDs" );
@@ -574,7 +541,7 @@ public class GeffNode implements ZarrEntity
 		final List< GeffNode > nodes = new ArrayList<>( numNodes );
 		for ( int i = 0; i < numNodes; i++ )
 		{
-			final int id = nodeIds[ i ];
+			final int id	 = nodeIds[ i ];
 			final int t = timepoints != null ? timepoints[ i ] : -1;
 			final double x = xCoords != null ? xCoords[ i ] : Double.NaN;
 			final double y = yCoords != null ? yCoords[ i ] : Double.NaN;

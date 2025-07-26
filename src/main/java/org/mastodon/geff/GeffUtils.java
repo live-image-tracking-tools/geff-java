@@ -51,6 +51,29 @@ public class GeffUtils
 		write( data, writer, dataset, attributes );
 	}
 
+	public static < T > void writeIntMatrix(
+			final List< T > elements,
+			final int numColumns,
+			final Function< T, int[] > extractor,
+			final N5Writer writer,
+			final String dataset,
+			final int chunkSize )
+	{
+		final int size = elements.size();
+		final int[] data = new int[ numColumns * size ];
+		for ( int i = 0; i < size; ++i ) {
+			final int[] row = extractor.apply( elements.get( i ) );
+			System.arraycopy( row, 0, data, numColumns * i, numColumns );
+		}
+		final DatasetAttributes attributes = new DatasetAttributes(
+				new long[] { numColumns, size },
+				new int[] { numColumns, chunkSize },
+				DataType.INT32,
+				new BloscCompression() );
+		writer.createDataset(dataset, attributes);
+		write( data, writer, dataset, attributes );
+	}
+
 	public static < T > void writeDoubleArray(
 			final List< T > elements,
 			final ToDoubleFunction< T > extractor,
@@ -86,7 +109,7 @@ public class GeffUtils
 		}
 		final DatasetAttributes attributes = new DatasetAttributes(
 				new long[] { numColumns, size },
-				new int[] { size, chunkSize },
+				new int[] { numColumns, chunkSize },
 				DataType.FLOAT64,
 				new BloscCompression() );
 		writer.createDataset(dataset, attributes);
@@ -149,13 +172,6 @@ public class GeffUtils
 			return size;
 		}
 
-		// TODO: remove until needed
-		double at( final int i0 )
-		{
-			assert size.length == 1;
-			return data[ i0 ];
-		}
-
 		double at( final int i0, final int i1 )
 		{
 			assert size.length == 2;
@@ -169,11 +185,11 @@ public class GeffUtils
 			return data[ i0 + size[ 0 ] * ( i1 * i2 * size[ 1 ] ) ];
 		}
 
-		double[] rowAt( final int i0 )
+		double[] rowAt( final int i1 )
 		{
 			assert size.length == 2;
-			final double[] row = new double[ size[ 1 ] ];
-			Arrays.setAll( row, i1 -> at( i0, i1 ) );
+			final double[] row = new double[ size[ 0 ] ];
+			Arrays.setAll( row, i0 -> at( i0, i1 ) );
 			return row;
 		}
 	}
@@ -191,6 +207,58 @@ public class GeffUtils
 			throw new IllegalArgumentException( "Expected 2D array" );
 		}
 		return new FlattenedDoubles( convertToDoubleArray( readFully( reader, dataset ), description ), attributes.getDimensions() );
+	}
+
+	public static class FlattenedInts
+	{
+		private final int[] data;
+
+		private final int[] size;
+
+		FlattenedInts( final int[] data, final int[] size )
+		{
+			this.data = data;
+			this.size = size;
+		}
+
+		FlattenedInts( final int[] data, final long[] size )
+		{
+			this( data, Util.long2int( size ) );
+		}
+
+		int[] size()
+		{
+			return size;
+		}
+
+		int at( final int i0, final int i1 )
+		{
+			assert size.length == 2;
+			return data[ i0 + size[ 0 ] * i1 ];
+		}
+
+		int[] rowAt( final int i0 )
+		{
+			assert size.length == 2;
+			final int[] row = new int[ size[ 1 ] ];
+			Arrays.setAll( row, i1 -> at( i0, i1 ) );
+			return row;
+		}
+	}
+
+	public static FlattenedInts readAsIntMatrix( final N5Reader reader, final String dataset, final String description )
+	{
+		if ( !reader.datasetExists( dataset ) )
+		{
+			LOG.debug( "No arrays found in group for " + description );
+			return null;
+		}
+		final DatasetAttributes attributes = reader.getDatasetAttributes( dataset );
+		if ( attributes.getNumDimensions() != 2 )
+		{
+			throw new IllegalArgumentException( "Expected 2D array" );
+		}
+		return new FlattenedInts( convertToIntArray( readFully( reader, dataset ), description ), attributes.getDimensions() );
 	}
 
 
@@ -252,7 +320,33 @@ public class GeffUtils
 		return doubles;
 	}
 
+	public static void verifyLength( final int[] array, final int expectedLength, final String name )
+	{
+		if ( array != null && array.length != expectedLength )
+			throw new IllegalArgumentException( "property " + name + " does not have expected length (" + array.length + " vs " + expectedLength + ")" );
+	}
 
+	public static void verifyLength( final double[] array, final int expectedLength, final String name )
+	{
+		if ( array != null && array.length != expectedLength )
+			throw new IllegalArgumentException( "property " + name + " does not have expected length (" + array.length + " vs " + expectedLength + ")" );
+	}
+
+	public static void verifyLength( final FlattenedDoubles array, final int expectedLength, final String name )
+	{
+		if ( array != null && array.size()[ array.size().length - 1 ] != expectedLength )
+		{
+			throw new IllegalArgumentException( "property " + name + " does not have expected length (" + array.size()[ array.size().length - 1 ] + " vs " + expectedLength + ")" );
+		}
+	}
+
+	public static void verifyLength( final FlattenedInts array, final int expectedLength, final String name )
+	{
+		if ( array != null && array.size()[ array.size().length - 1 ] != expectedLength )
+		{
+			throw new IllegalArgumentException( "property " + name + " does not have expected length (" + array.size()[ array.size().length - 1 ] + " vs " + expectedLength + ")" );
+		}
+	}
 
 
 	// -- write dataset fully --
