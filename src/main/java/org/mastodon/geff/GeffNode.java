@@ -737,6 +737,9 @@ public class GeffNode implements ZarrEntity
             // Read properties
             ZarrGroup propsGroup = nodesGroup.openSubGroup( "props" );
 
+            // Read serialized properties
+            ZarrGroup serializedPropsGroup = nodesGroup.openSubGroup( "serialized_props" );
+
             // Read time points from chunks
             int[] timepoints = ZarrUtils.readChunkedIntArray( propsGroup, "t/values", "timepoints" );
 
@@ -821,9 +824,9 @@ public class GeffNode implements ZarrEntity
             {
                 try
                 {
-                    int[][] polygonSlices = ZarrUtils.readChunkedIntMatrix( propsGroup, "polygon/slices", "polygon slices" );
+                    int[][] polygonSlices = ZarrUtils.readChunkedIntMatrix( serializedPropsGroup, "polygon/slices", "polygon slices" );
                     // expected shape: [numVertices, 2]
-                    double[][] polygonValues = ZarrUtils.readChunkedDoubleMatrix( propsGroup, "polygon/values", "polygon values" );
+                    double[][] polygonValues = ZarrUtils.readChunkedDoubleMatrix( serializedPropsGroup, "polygon/values", "polygon values" );
                     polygonsX = new double[ polygonSlices.length ][];
                     polygonsY = new double[ polygonSlices.length ][];
                     for ( int i = 0; i < polygonSlices.length; i++ )
@@ -976,6 +979,8 @@ public class GeffNode implements ZarrEntity
             // Create props subgroup for chunked storage
             ZarrGroup propsGroup = nodesGroup.createSubGroup( "props" );
 
+            ZarrGroup serializedPropsGroup = nodesGroup.createSubGroup( "serialized_props" );
+
             // Write node IDs in chunks
             writeChunkedNodeIds( nodes, nodesGroup, chunkSize );
 
@@ -1027,8 +1032,8 @@ public class GeffNode implements ZarrEntity
                     }
                     polygonOffset += node.getPolygonX().length;
                 }
-                ZarrUtils.writeChunkedIntMatrix( nodes, propsGroup, "polygon/slices", chunkSize, GeffNode::getPolygonSliceAsArray, 2 );
-                ZarrUtils.writeChunkedDoubleMatrix( geffVertices, propsGroup, "polygon/values", chunkSize, GeffSerializableVertex::getCoordinates, 2 );
+                ZarrUtils.writeChunkedIntMatrix( nodes, serializedPropsGroup, "polygon/slices", chunkSize, GeffNode::getPolygonSliceAsArray, 2 );
+                ZarrUtils.writeChunkedDoubleMatrix( geffVertices, serializedPropsGroup, "polygon/values", chunkSize, GeffSerializableVertex::getCoordinates, 2 );
             }
 
         }
