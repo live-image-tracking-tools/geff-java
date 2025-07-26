@@ -88,6 +88,8 @@ class GeffUtils
 		final int[] data = new int[ numColumns * size ];
 		for ( int i = 0; i < size; ++i ) {
 			final int[] row = extractor.apply( elements.get( i ) );
+			if ( row == null || row.length < numColumns )
+				continue;
 			System.arraycopy( row, 0, data, numColumns * i, numColumns );
 		}
 		final DatasetAttributes attributes = new DatasetAttributes(
@@ -130,6 +132,8 @@ class GeffUtils
 		final double[] data = new double[ numColumns * size ];
 		for ( int i = 0; i < size; ++i ) {
 			final double[] row = extractor.apply( elements.get( i ) );
+			if ( row == null || row.length < numColumns )
+				continue;
 			System.arraycopy( row, 0, data, numColumns * i, numColumns );
 		}
 		final DatasetAttributes attributes = new DatasetAttributes(
