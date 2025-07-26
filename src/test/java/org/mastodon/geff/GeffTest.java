@@ -58,9 +58,9 @@ public class GeffTest
 
         // Create axes using GeffAxis
         GeffAxis[] axes = {
-                GeffAxis.createSpaceAxis( "x", GeffAxis.UNIT_MICROMETERS, 0.0, 100.0 ),
-                GeffAxis.createSpaceAxis( "y", GeffAxis.UNIT_MICROMETERS, 0.0, 100.0 ),
-                GeffAxis.createSpaceAxis( "z", GeffAxis.UNIT_MICROMETERS, 0.0, 50.0 )
+                GeffAxis.createSpaceAxis( "x", GeffAxis.UNIT_MICROMETER, 0.0, 100.0 ),
+                GeffAxis.createSpaceAxis( "y", GeffAxis.UNIT_MICROMETER, 0.0, 100.0 ),
+                GeffAxis.createSpaceAxis( "z", GeffAxis.UNIT_MICROMETER, 0.0, 50.0 )
         };
         testMetadata.setGeffAxes( axes );
 
@@ -162,7 +162,7 @@ public class GeffTest
         // Test individual axes
         assertEquals( "x", axes[ 0 ].getName() );
         assertEquals( GeffAxis.TYPE_SPACE, axes[ 0 ].getType() );
-        assertEquals( GeffAxis.UNIT_MICROMETERS, axes[ 0 ].getUnit() );
+        assertEquals( GeffAxis.UNIT_MICROMETER, axes[ 0 ].getUnit() );
         assertEquals( 0.0, axes[ 0 ].getMin(), 0.001 );
         assertEquals( 100.0, axes[ 0 ].getMax(), 0.001 );
 
@@ -183,9 +183,9 @@ public class GeffTest
 
         // Create invalid axes (min > max)
         GeffAxis[] invalidAxes = {
-                new GeffAxis( "x", GeffAxis.TYPE_SPACE, GeffAxis.UNIT_MICROMETERS, 100.0, 50.0 ) // min
-                                                                                                 // >
-                                                                                                 // max
+                new GeffAxis( "x", GeffAxis.TYPE_SPACE, GeffAxis.UNIT_MICROMETER, 100.0, 50.0 ) // min
+                                                                                                // >
+                                                                                                // max
         };
 
         assertThrows( IllegalArgumentException.class, () -> {

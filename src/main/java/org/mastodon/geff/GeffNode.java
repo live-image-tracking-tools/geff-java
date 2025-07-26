@@ -673,7 +673,7 @@ public class GeffNode implements ZarrEntity
         System.out.println(
                 "Reading nodes from Zarr path: " + zarrPath + " with Geff version: " + geffVersion );
 
-		if ( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) )
+        if ( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) )
         {
             // Read node IDs from chunks
             int[] nodeIds = ZarrUtils.readChunkedIntArray( nodesGroup, "ids", "node IDs" );
@@ -925,7 +925,7 @@ public class GeffNode implements ZarrEntity
                 "Writing " + nodes.size() + " nodes to Zarr path: " + zarrPath + " with chunk size: " + chunkSize
                         + " to Geff version: " + geffVersion );
 
-		if ( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) )
+        if ( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) )
         {
             // Create the main nodes group
             ZarrGroup rootGroup = ZarrGroup.create( zarrPath );

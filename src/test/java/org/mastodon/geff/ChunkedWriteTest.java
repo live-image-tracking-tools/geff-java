@@ -132,9 +132,9 @@ public class ChunkedWriteTest
 
         // Create axes using GeffAxis
         GeffAxis[] axes = {
-                GeffAxis.createSpaceAxis( "x", GeffAxis.UNIT_MICROMETERS, 0.0, 100.0 ),
-                GeffAxis.createSpaceAxis( "y", GeffAxis.UNIT_MICROMETERS, 0.0, 100.0 ),
-                GeffAxis.createSpaceAxis( "z", GeffAxis.UNIT_MICROMETERS, 0.0, 50.0 )
+                GeffAxis.createSpaceAxis( "x", GeffAxis.UNIT_MICROMETER, 0.0, 100.0 ),
+                GeffAxis.createSpaceAxis( "y", GeffAxis.UNIT_MICROMETER, 0.0, 100.0 ),
+                GeffAxis.createSpaceAxis( "z", GeffAxis.UNIT_MICROMETER, 0.0, 50.0 )
         };
         metadata.setGeffAxes( axes );
 
