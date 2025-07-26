@@ -33,7 +33,7 @@ class GeffUtils
 
 	public static void checkSupportedVersion( final String version ) throws IllegalArgumentException
 	{
-		if ( !( version.startsWith( "0.2" ) || version.startsWith( "0.3" ) ) )
+		if ( !( version.startsWith( "0.2" ) || version.startsWith( "0.3" ) || version.startsWith( "0.4" ) ) )
 		{
 			throw new IllegalArgumentException( "geff_version " + version + " not supported." );
 		}

@@ -56,13 +56,13 @@ public class GeffAxis
     public static final String TYPE_SPACE = "space";
 
     // Common units
-    public static final String UNIT_SECONDS = "seconds";
+    public static final String UNIT_SECOND = "second";
 
-    public static final String UNIT_MICROMETERS = "micrometers";
+    public static final String UNIT_MICROMETER = "micrometer";
 
-    public static final String UNIT_PIXELS = "pixels";
+    public static final String UNIT_PIXEL = "pixel";
 
-    public static final String UNIT_MILLIMETERS = "millimeters";
+    public static final String UNIT_MILLIMETER = "millimeter";
 
     private String name;
 

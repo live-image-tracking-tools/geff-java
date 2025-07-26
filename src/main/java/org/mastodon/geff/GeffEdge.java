@@ -384,7 +384,8 @@ public class GeffEdge
         return sourceNodeId == geffEdge.sourceNodeId &&
                 targetNodeId == geffEdge.targetNodeId &&
                 id == geffEdge.id &&
-                Double.compare( geffEdge.score, score ) == 0;
+                Double.compare( geffEdge.score, score ) == 0 &&
+                Double.compare( geffEdge.distance, distance ) == 0;
     }
 
     @Override

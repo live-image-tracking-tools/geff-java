@@ -1,7 +1,7 @@
 [![Build Status](https://github.com/live-image-tracking-tools/geff-java/actions/workflows/build.yml/badge.svg)](https://github.com/live-image-tracking-tools/geff-java/actions/workflows/build.yml)
 [![License](https://img.shields.io/badge/License-BSD%202--Clause-orange.svg)](https://opensource.org/licenses/BSD-2-Clause)
-[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=mastodon-sc_geff-java&metric=coverage)](https://sonarcloud.io/summary/overall?id=mastodon-sc_geff-java)
-[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=mastodon-sc_geff-java&metric=ncloc)](https://sonarcloud.io/summary/overall?id=mastodon-sc_geff-java)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=live-image-tracking-tools_geff-java&metric=coverage)](https://sonarcloud.io/summary/overall?id=live-image-tracking-tools_geff-java)
+[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=live-image-tracking-tools_geff-java&metric=ncloc)](https://sonarcloud.io/summary/overall?id=live-image-tracking-tools_geff-java)
 
 # geff Java implementation
 
@@ -27,6 +27,7 @@ Represents nodes in tracking graphs with spatial and temporal attributes:
 - Spatial coordinates (x, y, z)
 - Segment identifiers
 - Additional properties: color, radius, covariance2d, covariance3d
+- Polygon geometry: separate polygonX and polygonY coordinate arrays with polygon offset for serialization
 - Builder pattern for convenient object construction
 - Chunked Zarr I/O support for versions 0.1, 0.2, and 0.3
 
@@ -44,6 +45,11 @@ Represents axis metadata for spatial and temporal dimensions:
 - Type classifications (time, space)
 - Unit specifications with common constants
 - Optional min/max bounds for ROI definition
+
+### GeffSerializableVertex
+Lightweight geometry class internally used for storing polygon vertex coordinates:
+- Simple (x, y) coordinate storage
+- Part of the geometry package for efficient polygon handling
 
 ### GeffMetadata
 Handles Geff metadata with schema validation:
@@ -93,6 +99,8 @@ GeffNode node0 = new GeffNode.Builder()
     .color(new double[]{1.0, 0.0, 0.0, 1.0}) // Red color
     .radius(2.5)
     .covariance2d(new double[]{1.0, 0.2, 0.2, 1.5}) // 2x2 covariance matrix flattened
+    .polygonX(new double[]{1.0, 2.0, 3.0, 4.0}) // Polygon X coordinates
+    .polygonY(new double[]{5.0, 6.0, 7.0, 8.0}) // Polygon Y coordinates
     .build();
 newNodes.add(node0);
 
@@ -104,6 +112,8 @@ GeffNode node1 = new GeffNode.Builder()
     .z(6.0)
     .segmentId(1)
     .covariance2d(new double[]{0.8, 0.1, 0.1, 1.2}) // Different covariance
+    .polygonX(new double[]{-1.0, -2.0, -3.0, -4.0}) // Different polygon X coordinates
+    .polygonY(new double[]{-5.0, -6.0, -7.0, -8.0}) // Different polygon Y coordinates
     .build();
 newNodes.add(node1);
 
@@ -155,22 +165,19 @@ dataset.zarr/
     ├── .zgroup
     ├── nodes/
     │   ├── .zgroup
-    │   ├── attrs/              # For Geff 0.1 format
-    │   │   ├── t/              # Time points
-    │   │   ├── x/              # X coordinates  
-    │   │   ├── y/              # Y coordinates
-    │   │   ├── seg_id/         # Segment IDs
-    │   │   └── position/       # Multidimensional positions
     │   ├── props/              # For Geff 0.2/0.3 format
-    │   │   ├── t/              # Time points
-    │   │   ├── x/              # X coordinates
-    │   │   ├── y/              # Y coordinates
-    │   │   ├── z/              # Z coordinates (optional)
-    │   │   ├── color/          # Node colors (optional)
-    │   │   ├── radius/         # Node radii (optional)
-    │   │   ├── track_id/       # Track identifiers (optional)
-    │   │   ├── covariance2d/   # 2D covariance matrices (optional)
-    │   │   └── covariance3d/   # 3D covariance matrices (optional)
+    │   │   ├── t/              # Time points [N]
+    │   │   ├── x/              # X coordinates [N]
+    │   │   ├── y/              # Y coordinates [N]
+    │   │   ├── z/              # Z coordinates [N] (optional)
+    │   │   ├── color/          # Node colors [N] (optional)
+    │   │   ├── radius/         # Node radii [N] (optional)
+    │   │   ├── track_id/       # Track identifiers [N] (optional)
+    │   │   ├── covariance2d/   # 2D covariance matrices for ellipse serialized in 1D [N, 4] (optional)
+    │   │   ├── covariance3d/   # 3D covariance matrices for ellipsoid serialized in 1D [N, 6] (optional)
+    │   │   └── polygon/        # Polygon coordinates (optional)
+    │   │       ├── slices/     # Polygon slices with startIndex and endIndex [N, 2] (optional)
+    │   │       └── values/     # XY coordinates of vertices in polygons [numVertices, 2] (optional)
     │   └── ids/
     │       └── 0               # Node ID chunks
     └── edges/
@@ -200,8 +207,8 @@ dataset.zarr/
 ### Contribute Code or Provide Feedback
 
 * You are welcome to submit Pull Requests to this repository. This repository runs code analyses on
-  every Pull Request using [SonarCloud](https://sonarcloud.io/dashboard?id=mastodon-sc_geff-java).
-* Please read the [general advice](https://github.com/mastodon-sc/) re contributing to Mastodon and its plugins.
+  every Pull Request using [SonarCloud](https://sonarcloud.io/dashboard?id=live-image-tracking-tools_geff-java).
+* Please read the [general advice](https://github.com/live-image-tracking-tools/) for contributing to Live Image Tracking Tools and its projects.
 
 ### Contribute Documentation
 

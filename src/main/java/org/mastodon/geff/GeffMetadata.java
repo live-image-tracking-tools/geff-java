@@ -59,13 +59,13 @@ public class GeffMetadata
 	private static final Logger LOG = LoggerFactory.getLogger( GeffMetadata.class );
 
     // Supported GEFF versions
-    public static final List< String > SUPPORTED_VERSIONS = Arrays.asList( "0.2", "0.3" );
+    public static final List< String > SUPPORTED_VERSIONS = Arrays.asList( "0.2", "0.3", "0.4" );
 
     // Pattern to match major.minor versions, allowing for patch versions and
     // development versions
     // Examples: 0.1.1, 0.2.2.dev20+g611e7a2.d20250719, 0.2.0-alpha.1, etc.
     private static final Pattern SUPPORTED_VERSIONS_PATTERN = Pattern
-            .compile( "(0\\.2|0\\.3)(?:\\.\\d+)?(?:\\.[a-zA-Z0-9]+(?:\\d+)?)?(?:[+\\-][a-zA-Z0-9\\.]+)*" );
+            .compile( "(0\\.2|0\\.3|0\\.4)(?:\\.\\d+)?(?:\\.[a-zA-Z0-9]+(?:\\d+)?)?(?:[+\\-][a-zA-Z0-9\\.]+)*" );
 
     // Metadata attributes - matching the Python schema
     private String geffVersion;
