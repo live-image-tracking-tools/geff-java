@@ -236,7 +236,7 @@ public class GeffAxisTest
 
         assertTrue( str.contains( "name='t'" ) );
         assertTrue( str.contains( "type='time'" ) );
-        assertTrue( str.contains( "unit='seconds'" ) );
+        assertTrue( str.contains( "unit='second'" ) );
         assertTrue( str.contains( "min=0.0" ) );
         assertTrue( str.contains( "max=125.0" ) );
 
@@ -245,7 +245,7 @@ public class GeffAxisTest
 
         assertTrue( strNoBounds.contains( "name='x'" ) );
         assertTrue( strNoBounds.contains( "type='space'" ) );
-        assertTrue( strNoBounds.contains( "unit='micrometers'" ) );
+        assertTrue( strNoBounds.contains( "unit='micrometer'" ) );
         assertFalse( strNoBounds.contains( "min=" ) );
         assertFalse( strNoBounds.contains( "max=" ) );
     }
