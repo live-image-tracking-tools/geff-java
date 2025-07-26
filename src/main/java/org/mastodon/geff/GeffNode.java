@@ -28,9 +28,20 @@
  */
 package org.mastodon.geff;
 
+import static org.mastodon.geff.GeffUtil.checkSupportedVersion;
+
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+
+import org.janelia.saalfeldlab.n5.DatasetAttributes;
+import org.janelia.saalfeldlab.n5.N5Reader;
+import org.janelia.saalfeldlab.n5.N5URI;
+import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
+import org.mastodon.geff.GeffUtils.FlattenedDoubles;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.bc.zarr.ArrayParams;
 import com.bc.zarr.DataType;
@@ -45,6 +56,7 @@ import ucar.ma2.InvalidRangeException;
  */
 public class GeffNode implements ZarrEntity
 {
+	private static final Logger LOG = LoggerFactory.getLogger( GeffNode.class );
 
     // Node attributes
     private int id;
@@ -384,14 +396,169 @@ public class GeffNode implements ZarrEntity
         }
     }
 
-    /**
+
+
+
+
+
+
+
+
+
+
+
+	// ------ n5 version -------------------------------------------
+	//
+	//
+
+
+
+
+	/**
+	 * Read nodes from Zarr format with specified version and chunked structure
+	 *
+	 * @param zarrPath
+	 *            The path to the Zarr directory containing nodes.
+	 * @param geffVersion
+	 *            The version of the GEFF format to read.
+	 * @return List of GeffNode objects read from the Zarr path.
+	 */
+	public static List< GeffNode > n5ReadFromZarr( final String zarrPath, final String geffVersion )
+	{
+		LOG.debug( "Reading nodes from Zarr path: " + zarrPath + " with Geff version: " + geffVersion );
+		try ( final N5ZarrReader reader = new N5ZarrReader( zarrPath, true ) )
+		{
+			return readFromN5( reader, "/", geffVersion );
+		}
+	}
+
+	private static void verifyLength( final int[] array, final int expectedLength, final String name )
+	{
+		if ( array != null && array.length != expectedLength )
+			throw new IllegalArgumentException( "property " + name + " does not have expected length (" + array.length + " vs " + expectedLength + ")" );
+	}
+
+	private static void verifyLength( final double[] array, final int expectedLength, final String name )
+	{
+		if ( array != null && array.length != expectedLength )
+			throw new IllegalArgumentException( "property " + name + " does not have expected length (" + array.length + " vs " + expectedLength + ")" );
+	}
+
+	private static void verifyLength( final FlattenedDoubles array, final int expectedLength, final String name )
+	{
+		if ( array != null && array.size()[ 0 ] != expectedLength )
+		{
+			throw new IllegalArgumentException( "property " + name + " does not have expected length (" + array.size()[ 0 ] + " vs " + expectedLength + ")" );
+		}
+	}
+
+	public static List< GeffNode > readFromN5( final N5Reader reader, final String group, final String geffVersion )
+	{
+		checkSupportedVersion( geffVersion );
+		final String path = N5URI.normalizeGroupPath( group );
+		final DatasetAttributes attributes = reader.getDatasetAttributes( path + "/edges/ids" );
+
+		// Read node IDs from chunks
+		final int[] nodeIds = GeffUtils.readAsIntArray( reader, path + "/nodes/ids", "node IDs" );
+		if ( nodeIds == null )
+		{
+			throw new IllegalArgumentException( "required property '/nodes/ids' not found" );
+		}
+
+		// Read time points from chunks
+		final int[] timepoints = GeffUtils.readAsIntArray( reader, "/nodes/props/t/values", "timepoints" );
+		verifyLength( timepoints, nodeIds.length, "/nodes/props/t/values" );
+
+		// Read X coordinates from chunks
+		final double[] xCoords = GeffUtils.readAsDoubleArray( reader, "/nodes/props/x/values", "X coordinates" );
+		verifyLength( xCoords, nodeIds.length, "/nodes/props/x/values" );
+
+		// Read Y coordinates from chunks
+		final double[] yCoords = GeffUtils.readAsDoubleArray( reader, "/nodes/props/y/values", "Y coordinates" );
+		verifyLength( yCoords, nodeIds.length, "/nodes/props/y/values" );
+
+		// Read Z coordinates from chunks
+		final double[] zCoords = GeffUtils.readAsDoubleArray( reader, "/nodes/props/z/values", "Z coordinates" );
+		verifyLength( zCoords, nodeIds.length, "/nodes/props/z/values" );
+
+		// Read color from chunks
+		final FlattenedDoubles colors = GeffUtils.readAsDoubleMatrix( reader, "/nodes/props/color/values", "color" );
+		verifyLength( colors, nodeIds.length, "/nodes/props/color/values" );
+
+		// Read radius from chunks
+		int[] radius = GeffUtils.readAsIntArray( reader, "/nodes/props/radius/values", "track IDs" );
+		verifyLength( radius, nodeIds.length, "/nodes/props/radius/values" );
+
+		printArray( nodeIds,"nodeIds" );
+		printArray( timepoints,"timepoints" );
+		printArray( xCoords,"xCoords" );
+		printArray( yCoords,"yCoords" );
+		printArray( zCoords,"zCoords" );
+
+		// Create node objects
+		for ( int i = 0; i < nodeIds.length; i++ )
+		{
+			GeffNode node = new Builder()
+					.id( nodeIds[ i ] )
+					.timepoint( i < timepoints.length ? timepoints[ i ] : -1 )
+					.x( i < xCoords.length ? xCoords[ i ] : Double.NaN )
+					.y( i < yCoords.length ? yCoords[ i ] : Double.NaN )
+					.z( i < zCoords.length ? zCoords[ i ] : Double.NaN )
+					.color( i < colors.length ? colors[ i ] : DEFAULT_COLOR )
+					.segmentId( i < trackIds.length ? trackIds[ i ] : -1 )
+					.radius( i < radii.length ? radii[ i ] : Double.NaN )
+					.covariance2d( i < covariance2ds.length ? covariance2ds[ i ] : DEFAULT_COVARIANCE_2D )
+					.covariance3d( i < covariance3ds.length ? covariance3ds[ i ] : DEFAULT_COVARIANCE_3D )
+					.build();
+
+			nodes.add( node );
+		}
+
+		throw new UnsupportedOperationException( "TODO. not implemented." );
+	}
+
+	private static final int maxLength = 5;
+	private static void printArray( int[] array, String name )
+	{
+		if ( array == null )
+		{
+			System.out.println( name + " = null " );
+		}
+		else
+		{
+			final int[] a = array.length <= maxLength ? array : Arrays.copyOf( array, maxLength );
+			final String suffix = array.length > maxLength ? " ... and " + ( array.length - maxLength ) + " more elements" : "";
+			System.out.println( name + " = " + Arrays.toString( a ) + suffix );
+		}
+	}
+	private static void printArray( double[] array, String name )
+	{
+		if ( array == null )
+		{
+			System.out.println( name + " = null " );
+		}
+		else
+		{
+			final double[] a = array.length <= maxLength ? array : Arrays.copyOf( array, maxLength );
+			final String suffix = array.length > maxLength ? " ... and " + ( array.length - maxLength ) + " more elements" : "";
+			System.out.println( name + " = " + Arrays.toString( a ) + suffix );
+		}
+	}
+
+
+
+	// ------ jzarr version -------------------------------------------
+	//
+	//
+
+	/**
      * Read nodes from Zarr format with default version and chunked structure
      *
      * @param zarrPath
      *            The path to the Zarr directory containing nodes.
      * @return List of GeffNode objects read from the Zarr path.
      */
-    public static List< GeffNode > readFromZarr( String zarrPath ) throws IOException, InvalidRangeException
+    public static List< GeffNode > readFromZarr( String zarrPath ) throws IOException
     {
         return readFromZarrWithChunks( zarrPath, Geff.VERSION );
     }
@@ -406,7 +573,7 @@ public class GeffNode implements ZarrEntity
      * @return List of GeffNode objects read from the Zarr path.
      */
     public static List< GeffNode > readFromZarr( String zarrPath, String geffVersion )
-            throws IOException, InvalidRangeException
+            throws IOException
     {
         return readFromZarrWithChunks( zarrPath, geffVersion );
     }
@@ -422,7 +589,7 @@ public class GeffNode implements ZarrEntity
      * @return List of GeffNode objects read from the Zarr path.
      */
     public static List< GeffNode > readFromZarrWithChunks( String zarrPath, String geffVersion )
-            throws IOException, InvalidRangeException
+            throws IOException
     {
         List< GeffNode > nodes = new ArrayList<>();
 

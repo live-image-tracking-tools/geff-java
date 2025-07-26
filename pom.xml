@@ -25,6 +25,7 @@
 		<n5.version>4.0.0-alpha-3-SNAPSHOT</n5.version>
 		<n5-zarr.version>2.0.0-alpha-2-SNAPSHOT</n5-zarr.version>
 		<n5-blosc.version>2.0.0-alpha-1</n5-blosc.version>
+		<imglib2.version>7.1.5</imglib2.version>
 
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
         <sonar.java.coveragePlugin>jacoco</sonar.java.coveragePlugin>
@@ -63,6 +64,11 @@
 		<dependency>
 			<groupId>org.janelia.saalfeldlab</groupId>
 			<artifactId>n5-blosc</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>net.imglib2</groupId>
+			<artifactId>imglib2</artifactId>
 		</dependency>
 
 		<dependency>

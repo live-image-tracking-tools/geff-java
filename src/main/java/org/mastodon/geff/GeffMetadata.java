@@ -28,12 +28,16 @@
  */
 package org.mastodon.geff;
 
+import static org.mastodon.geff.GeffUtil.checkSupportedVersion;
+
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
+import org.janelia.saalfeldlab.n5.N5Reader;
+import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrWriter;
 import org.slf4j.Logger;
@@ -150,7 +154,7 @@ public class GeffMetadata
 
 	public void setGeffAxes( final List< GeffAxis > geffAxes )
 	{
-		this.geffAxes = ( geffAxes != null ) ? geffAxes.toArray( GeffAxis[]::new ) : null;
+		this.geffAxes = ( geffAxes != null ) ? geffAxes.toArray( new GeffAxis[ 0 ] ) : null;
 		validate();
 	}
 
@@ -190,15 +194,15 @@ public class GeffMetadata
 	/**
 	 * Read metadata from a Zarr group
 	 */
-	public static GeffMetadata readFromZarr( final String zarrPath ) throws IOException
+	public static GeffMetadata readFromZarr( final String zarrPath )
 	{
 		try ( final N5ZarrReader reader = new N5ZarrReader( zarrPath, true ) )
 		{
-			return readFromZarr( reader, "/" );
+			return readFromN5( reader, "/" );
 		}
 	}
 
-	public static GeffMetadata readFromZarr( final N5ZarrReader reader, final String group ) throws IOException
+	public static GeffMetadata readFromN5( final N5Reader reader, final String group )
 	{
 		final String geffVersion = reader.getAttribute( group, "geff/geff_version", String.class );
 		LOG.debug( "found geff/geff_version = {}", geffVersion );
@@ -209,11 +213,7 @@ public class GeffMetadata
 							"zarr group name is not specified (e.g. /dataset.zarr/tracks/ instead of " +
 							"/dataset.zarr/)." );
 		}
-
-		if ( !( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) ) )
-		{
-			throw new IllegalArgumentException( "geff_version " + geffVersion + " not supported." );
-		}
+		checkSupportedVersion( geffVersion );
 
 		final Boolean directed = reader.getAttribute( group, "geff/directed", Boolean.class );
 		LOG.debug( "found geff/directed = {}", directed );
@@ -239,19 +239,16 @@ public class GeffMetadata
 	{
 		try ( final N5ZarrWriter writer = new N5ZarrWriter( zarrPath, new GsonBuilder().setPrettyPrinting(),true ) )
 		{
-			metadata.writeToZarr( writer, "/" );
+			metadata.writeToN5( writer, "/" );
 		}
 	}
 
-	public void writeToZarr( final N5ZarrWriter writer, final String group )
+	public void writeToN5( final N5Writer writer, final String group )
 	{
 		// Validate before writing
 		validate();
 
-		if ( !( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) ) )
-		{
-			throw new IllegalArgumentException( "geff_version " + geffVersion + " not supported." );
-		}
+		checkSupportedVersion( geffVersion );
 
 		// required
 		LOG.debug( "writing geff/geff_version {}", getGeffVersion() );
@@ -279,8 +276,9 @@ public class GeffMetadata
 	@Override
 	public boolean equals( final Object o )
 	{
-		if ( !( o instanceof final GeffMetadata that ) )
+		if ( !( o instanceof GeffMetadata ) )
 			return false;
+		GeffMetadata that = ( GeffMetadata ) o;
 		return directed == that.directed && Objects.equals( geffVersion, that.geffVersion ) && Objects.deepEquals( geffAxes, that.geffAxes );
 	}
 
