@@ -1,13 +1,18 @@
 package org.mastodon.geff;
 
 import java.util.Arrays;
+import java.util.List;
+import java.util.function.Function;
 import java.util.function.IntFunction;
+import java.util.function.ToDoubleFunction;
 import java.util.function.ToIntFunction;
 
 import org.janelia.saalfeldlab.n5.DataBlock;
 import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.N5Reader;
+import org.janelia.saalfeldlab.n5.N5Writer;
+import org.janelia.saalfeldlab.n5.blosc.BloscCompression;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,6 +20,7 @@ import net.imglib2.FinalInterval;
 import net.imglib2.Interval;
 import net.imglib2.blocks.BlockInterval;
 import net.imglib2.blocks.SubArrayCopy;
+import net.imglib2.img.cell.CellGrid;
 import net.imglib2.iterator.IntervalIterator;
 import net.imglib2.util.Intervals;
 import net.imglib2.util.Util;
@@ -23,6 +29,75 @@ import net.imglib2.util.Util;
 public class GeffUtils
 {
 	private static final Logger LOG = LoggerFactory.getLogger( GeffUtils.class );
+
+
+
+	public static < T > void writeIntArray(
+			final List< T > elements,
+			final ToIntFunction< T > extractor,
+			final N5Writer writer,
+			final String dataset,
+			final int chunkSize )
+	{
+		final int size = elements.size();
+		final int[] data = new int[ size ];
+		Arrays.setAll(data, i -> extractor.applyAsInt(elements.get(i)));
+		final DatasetAttributes attributes = new DatasetAttributes(
+				new long[] { size },
+				new int[] { chunkSize },
+				DataType.INT32,
+				new BloscCompression() );
+		writer.createDataset(dataset, attributes);
+		write( data, writer, dataset, attributes );
+	}
+
+	public static < T > void writeDoubleArray(
+			final List< T > elements,
+			final ToDoubleFunction< T > extractor,
+			final N5Writer writer,
+			final String dataset,
+			final int chunkSize )
+	{
+		final int size = elements.size();
+		final double[] data = new double[ size ];
+		Arrays.setAll(data, i -> extractor.applyAsDouble(elements.get(i)));
+		final DatasetAttributes attributes = new DatasetAttributes(
+				new long[] { size },
+				new int[] { chunkSize },
+				DataType.FLOAT64,
+				new BloscCompression() );
+		writer.createDataset(dataset, attributes);
+		write( data, writer, dataset, attributes );
+	}
+
+	public static < T > void writeDoubleMatrix(
+			final List< T > elements,
+			final int numColumns,
+			final Function< T, double[] > extractor,
+			final N5Writer writer,
+			final String dataset,
+			final int chunkSize )
+	{
+		final int size = elements.size();
+		final double[] data = new double[ numColumns * size ];
+		for ( int i = 0; i < size; ++i ) {
+			final double[] row = extractor.apply( elements.get( i ) );
+			System.arraycopy( row, 0, data, numColumns * i, numColumns );
+		}
+		final DatasetAttributes attributes = new DatasetAttributes(
+				new long[] { numColumns, size },
+				new int[] { size, chunkSize },
+				DataType.FLOAT64,
+				new BloscCompression() );
+		writer.createDataset(dataset, attributes);
+		write( data, writer, dataset, attributes );
+	}
+
+
+
+
+
+
 
 	public static int[] readAsIntArray( final N5Reader reader, final String dataset, final String description )
 	{
@@ -52,7 +127,7 @@ public class GeffUtils
 		return convertToDoubleArray( readFully( reader, dataset ), description );
 	}
 
-	static class FlattenedDoubles
+	public static class FlattenedDoubles
 	{
 		private final double[] data;
 
@@ -74,25 +149,27 @@ public class GeffUtils
 			return size;
 		}
 
-		double at(final int i0)
+		// TODO: remove until needed
+		double at( final int i0 )
 		{
 			assert size.length == 1;
 			return data[ i0 ];
 		}
 
-		double at(final int i0, final int i1)
+		double at( final int i0, final int i1 )
 		{
 			assert size.length == 2;
 			return data[ i0 + size[ 0 ] * i1 ];
 		}
 
-		double at(final int i0, final int i1, final int i2)
+		// TODO: remove until needed
+		double at( final int i0, final int i1, final int i2 )
 		{
 			assert size.length == 3;
 			return data[ i0 + size[ 0 ] * ( i1 * i2 * size[ 1 ] ) ];
 		}
 
-		double[] rowAt(final int i0)
+		double[] rowAt( final int i0 )
 		{
 			assert size.length == 2;
 			final double[] row = new double[ size[ 1 ] ];
@@ -117,77 +194,103 @@ public class GeffUtils
 	}
 
 
-
-
-
+	public static int[] convertToIntArray( final Object array, final String fieldName )
+	{
+		if ( array instanceof int[] )
+			return ( int[] ) array;
+		else if ( array instanceof long[] )
+			return copyToIntArray( ( long[] ) array, a -> a.length, ( a, i ) -> ( int ) a[ i ] );
+		else if ( array instanceof double[] )
+			return copyToIntArray( ( double[] ) array, a -> a.length, ( a, i ) -> ( int ) a[ i ] );
+		else if ( array instanceof float[] )
+			return copyToIntArray( ( float[] ) array, a -> a.length, ( a, i ) -> ( int ) a[ i ] );
+		else
+			throw new IllegalArgumentException(
+					"Unsupported data type for " + fieldName + ": " +
+							( array != null ? array.getClass().getName() : "null" ) );
+	}
 
 	@FunctionalInterface
 	private interface IntValueAtIndex< T >
 	{
-		int apply( T data, int index );
+		int apply( T array, int index );
 	}
 
-	private static < T > int[] copyToIntArray( final T data, final ToIntFunction< T > numElements, final IntValueAtIndex< T > elementAtIndex )
+	private static < T > int[] copyToIntArray( final T array, final ToIntFunction< T > numElements, final IntValueAtIndex< T > elementAtIndex )
 	{
-		final int[] ints = new int[ numElements.applyAsInt( data ) ];
-		Arrays.setAll( ints, i -> elementAtIndex.apply( data, i ) );
+		final int[] ints = new int[ numElements.applyAsInt( array ) ];
+		Arrays.setAll( ints, i -> elementAtIndex.apply( array, i ) );
 		return ints;
 	}
 
-	public static int[] convertToIntArray( final Object data, final String fieldName )
+	public static double[] convertToDoubleArray( final Object array, final String fieldName )
 	{
-		if ( data instanceof int[] )
-			return ( int[] ) data;
-		else if ( data instanceof long[] )
-			return copyToIntArray( ( long[] ) data, a -> a.length, ( a, i ) -> ( int ) a[ i ] );
-		else if ( data instanceof double[] )
-			return copyToIntArray( ( double[] ) data, a -> a.length, ( a, i ) -> ( int ) a[ i ] );
-		else if ( data instanceof float[] )
-			return copyToIntArray( ( float[] ) data, a -> a.length, ( a, i ) -> ( int ) a[ i ] );
+		if ( array instanceof double[] )
+			return ( double[] ) array;
+		else if ( array instanceof int[] )
+			return copyToDoubleArray( ( int[] ) array, a -> a.length, ( a, i ) -> a[ i ] );
+		else if ( array instanceof long[] )
+			return copyToDoubleArray( ( long[] ) array, a -> a.length, ( a, i ) -> a[ i ] );
+		else if ( array instanceof float[] )
+			return copyToDoubleArray( ( float[] ) array, a -> a.length, ( a, i ) -> a[ i ] );
 		else
 			throw new IllegalArgumentException(
 					"Unsupported data type for " + fieldName + ": " +
-							( data != null ? data.getClass().getName() : "null" ) );
+							( array != null ? array.getClass().getName() : "null" ) );
 	}
-
 
 	@FunctionalInterface
 	private interface DoubleValueAtIndex< T >
 	{
-		double apply( T data, int index );
+		double apply( T array, int index );
 	}
 
-	private static < T > double[] copyToDoubleArray( final T data, final ToIntFunction< T > numElements, final DoubleValueAtIndex< T > elementAtIndex )
+	private static < T > double[] copyToDoubleArray( final T array, final ToIntFunction< T > numElements, final DoubleValueAtIndex< T > elementAtIndex )
 	{
-		final double[] doubles = new double[ numElements.applyAsInt( data ) ];
-		Arrays.setAll( doubles, i -> elementAtIndex.apply( data, i ) );
+		final double[] doubles = new double[ numElements.applyAsInt( array ) ];
+		Arrays.setAll( doubles, i -> elementAtIndex.apply( array, i ) );
 		return doubles;
 	}
 
-	public static double[] convertToDoubleArray( final Object data, final String fieldName )
+
+
+
+	// -- write dataset fully --
+
+	public static void write(
+			final Object src,
+			final N5Writer writer,
+			final String dataset,
+			final DatasetAttributes attributes )
 	{
-		if ( data instanceof double[] )
-			return ( double[] ) data;
-		else if ( data instanceof int[] )
-			return copyToDoubleArray( ( int[] ) data, a -> a.length, ( a, i ) -> a[ i ] );
-		else if ( data instanceof long[] )
-			return copyToDoubleArray( ( long[] ) data, a -> a.length, ( a, i ) -> a[ i ] );
-		else if ( data instanceof float[] )
-			return copyToDoubleArray( ( float[] ) data, a -> a.length, ( a, i ) -> a[ i ] );
-		else
-			throw new IllegalArgumentException(
-					"Unsupported data type for " + fieldName + ": " +
-							( data != null ? data.getClass().getName() : "null" ) );
+		final int[] blockSize = attributes.getBlockSize();
+		final long[] size = attributes.getDimensions();
+		final int n = attributes.getNumDimensions();
+		final DataType dataType = attributes.getDataType();
+
+		final CellGrid grid = new CellGrid( size, blockSize );
+
+		final int[] srcSize = Util.long2int( size );
+		final long[] srcPos = new long[ n ];
+		final int[] destSize = new int[ n ];
+		final int[] destPos = new int[ n ];
+
+		final long[] gridPos = new long[ n ];
+		final IntervalIterator gridIter = new IntervalIterator( grid.getGridDimensions() );
+		while ( gridIter.hasNext() )
+		{
+			gridIter.fwd();
+			gridIter.localize( gridPos );
+			grid.getCellDimensions( gridPos, srcPos, destSize );
+			final DataBlock< ? > block = dataType.createDataBlock( destSize, gridPos );
+			SubArrayCopy.copy( src, srcSize, Util.long2int( srcPos ), block.getData(), destSize, destPos, destSize );
+			writer.writeBlock( dataset, attributes, block );
+		}
 	}
 
 
 
-
-
-
-
-
-
+	// -- read dataset fully --
 
 	public static Object readFully( final N5Reader reader, final String dataset )
 	{
@@ -238,13 +341,12 @@ public class GeffUtils
 		final int n = attributes.getNumDimensions();
 
 		final long[] gridMin = new long[ n ];
-		final long[] gridMax = new long[ n ];
 		final long[] gridSize = new long[ n ];
 		for ( int d = 0; d < n; d++ )
 		{
 			gridMin[ d ] = destInterval.min( d ) / blockSize[ d ];
-			gridMax[ d ] = destInterval.max( d ) / blockSize[ d ];
-			gridSize[ d ] = gridMax[ d ] + 1 - gridMin[ d ];
+			final long gridMax = destInterval.max( d ) / blockSize[ d ];
+			gridSize[ d ] = gridMax + 1 - gridMin[ d ];
 		}
 
 		final long[] gridPos = new long[ n ];

@@ -32,13 +32,14 @@ import static org.mastodon.geff.GeffUtil.checkSupportedVersion;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5URI;
+import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
+import org.janelia.saalfeldlab.n5.zarr.N5ZarrWriter;
 import org.mastodon.geff.GeffUtils.FlattenedDoubles;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -394,20 +395,83 @@ public class GeffNode implements ZarrEntity
         }
     }
 
+	/**
+	 * Write nodes to Zarr format with chunked structure
+	 */
+	public static void writeToZarr( List< GeffNode > nodes, String zarrPath ) throws IOException, InvalidRangeException
+	{
+		writeToZarr( nodes, zarrPath, ZarrUtils.DEFAULT_CHUNK_SIZE );
+	}
+	/**
+	 * Write nodes to Zarr format with specified chunk size
+	 */
+	public static void writeToZarr( List< GeffNode > nodes, String zarrPath, int chunkSize )
+			throws IOException, InvalidRangeException
+	{
+		writeToZarr( nodes, zarrPath, chunkSize, Geff.VERSION );
+	}
 
+	public static void writeToZarr( List< GeffNode > nodes, String zarrPath, String geffVersion )
+			throws IOException, InvalidRangeException
+	{
+		writeToZarr( nodes, zarrPath, ZarrUtils.DEFAULT_CHUNK_SIZE, geffVersion );
+	}
 
+	public static void writeToZarr( List< GeffNode > nodes, String zarrPath, int chunkSize, String geffVersion )
+	{
+		LOG.debug( "Writing {} nodes to Zarr path: {} with chunk size: {} to Geff version: {}" + geffVersion, nodes.size(), zarrPath, chunkSize, geffVersion );
+		try ( final N5ZarrWriter writer = new N5ZarrWriter( zarrPath, true ) )
+		{
+			writeToN5( nodes, writer, "/", chunkSize, geffVersion );
+		}
+	}
 
+	public static void writeToN5(
+			final List< GeffNode > nodes,
+			final N5Writer writer,
+			final String group,
+			final int chunkSize,
+			String geffVersion )
+	{
+		if ( nodes == null )
+			throw new NullPointerException( "Nodes list cannot be null or empty" );
 
+		if ( geffVersion == null || geffVersion.isEmpty() )
+		{
+			geffVersion = Geff.VERSION; // Use default version if not specified
+		}
+		GeffUtil.checkSupportedVersion( geffVersion );
 
+		final String path = N5URI.normalizeGroupPath( group );
 
+		// Write node IDs in chunks
+		GeffUtils.writeIntArray( nodes, GeffNode::getId, writer, path + "/nodes/ids", chunkSize );
 
+		// Write timepoints in chunks
+		GeffUtils.writeIntArray( nodes, GeffNode::getT, writer, path + "/nodes/props/t/values", chunkSize );
 
+		// Write X coordinates in chunks
+		GeffUtils.writeDoubleArray( nodes, GeffNode::getX, writer, path + "/nodes/props/x/values", chunkSize );
 
+		// Write Y coordinates in chunks
+		GeffUtils.writeDoubleArray( nodes, GeffNode::getY, writer, path + "/nodes/props/y/values", chunkSize );
 
+		// Write Z coordinates in chunks
+		GeffUtils.writeDoubleArray( nodes, GeffNode::getZ, writer, path + "/nodes/props/z/values", chunkSize );
 
-	// ------ n5 version -------------------------------------------
-	//
-	//
+		// Write color in chunks
+		GeffUtils.writeDoubleMatrix( nodes, 4, GeffNode::getColor, writer, path + "/nodes/props/color/values", chunkSize );
+
+		// Write segment IDs in chunks
+		GeffUtils.writeIntArray( nodes, GeffNode::getSegmentId, writer, path + "/nodes/props/track_id/values", chunkSize );
+
+		// Write radius and covariance attributes if available
+		GeffUtils.writeDoubleArray( nodes, GeffNode::getRadius, writer, path + "/nodes/props/radius/values", chunkSize );
+
+		// TODO: ellipsoid etc
+
+		LOG.debug( "Successfully wrote nodes to Zarr format with chunked structure" );
+	}
 
 	/**
 	 * Read nodes from Zarr format with default version and chunked structure
@@ -525,143 +589,6 @@ public class GeffNode implements ZarrEntity
 		}
 		return nodes;
 	}
-
-	// ------ jzarr version -------------------------------------------
-	//
-	//
-
-    /**
-     * Write nodes to Zarr format with chunked structure
-     */
-    public static void writeToZarr( List< GeffNode > nodes, String zarrPath ) throws IOException, InvalidRangeException
-    {
-        writeToZarr( nodes, zarrPath, ZarrUtils.DEFAULT_CHUNK_SIZE );
-    }
-
-    public static void writeToZarr( List< GeffNode > nodes, String zarrPath, String geffVersion )
-            throws IOException, InvalidRangeException
-    {
-        if ( geffVersion == null || geffVersion.isEmpty() )
-        {
-            geffVersion = Geff.VERSION; // Use default version if not specified
-        }
-        writeToZarr( nodes, zarrPath, ZarrUtils.DEFAULT_CHUNK_SIZE, geffVersion );
-    }
-
-    /**
-     * Write nodes to Zarr format with specified chunk size
-     */
-    public static void writeToZarr( List< GeffNode > nodes, String zarrPath, int chunkSize )
-            throws IOException, InvalidRangeException
-    {
-        writeToZarr( nodes, zarrPath, chunkSize, Geff.VERSION );
-    }
-
-    public static void writeToZarr( List< GeffNode > nodes, String zarrPath, int chunkSize, String geffVersion )
-            throws IOException, InvalidRangeException
-    {
-        if ( nodes == null )
-        { throw new IllegalArgumentException( "Nodes list cannot be null or empty" ); }
-
-        if ( geffVersion == null || geffVersion.isEmpty() )
-        {
-            geffVersion = Geff.VERSION; // Use default version if not specified
-        }
-
-        System.out.println(
-                "Writing " + nodes.size() + " nodes to Zarr path: " + zarrPath + " with chunk size: " + chunkSize
-                        + " to Geff version: " + geffVersion );
-
-		if ( geffVersion.startsWith( "0.2" ) || geffVersion.startsWith( "0.3" ) )
-        {
-            // Create the main nodes group
-            ZarrGroup rootGroup = ZarrGroup.create( zarrPath );
-
-            // Create the main nodes group
-            ZarrGroup nodesGroup = rootGroup.createSubGroup( "nodes" );
-
-            // Create props subgroup for chunked storage
-            ZarrGroup propsGroup = nodesGroup.createSubGroup( "props" );
-
-            // Write node IDs in chunks
-            writeChunkedNodeIds( nodes, nodesGroup, chunkSize );
-
-            // Write timepoints in chunks
-            ZarrUtils.writeChunkedIntAttribute( nodes, propsGroup, "t", chunkSize, GeffNode::getT );
-
-            // Write X coordinates in chunks
-            ZarrUtils.writeChunkedDoubleAttribute( nodes, propsGroup, "x", chunkSize, GeffNode::getX );
-
-            // Write Y coordinates in chunks
-            ZarrUtils.writeChunkedDoubleAttribute( nodes, propsGroup, "y", chunkSize, GeffNode::getY );
-
-            // Write Z coordinates in chunks
-            ZarrUtils.writeChunkedDoubleAttribute( nodes, propsGroup, "z", chunkSize, GeffNode::getZ );
-
-            // Write color in chunks
-            ZarrUtils.writeChunkedDoubleMatrix( nodes, propsGroup, "color", chunkSize, GeffNode::getColor, 4 );
-
-            // Write segment IDs in chunks
-            ZarrUtils.writeChunkedIntAttribute( nodes, propsGroup, "track_id", chunkSize, GeffNode::getSegmentId );
-
-            // Write radius and covariance attributes if available
-            ZarrUtils.writeChunkedDoubleAttribute( nodes, propsGroup, "radius", chunkSize, GeffNode::getRadius );
-
-            // Write covariance2d in chunks
-            ZarrUtils.writeChunkedDoubleMatrix( nodes, propsGroup, "covariance2d", chunkSize, GeffNode::getCovariance2d,
-                    4 );
-
-            // Write covariance3d in chunks
-            ZarrUtils.writeChunkedDoubleMatrix( nodes, propsGroup, "covariance3d", chunkSize, GeffNode::getCovariance3d,
-                    6 );
-
-        }
-
-        System.out.println( "Successfully wrote nodes to Zarr format with chunked structure" );
-    }
-
-    /**
-     * Helper method to write chunked node IDs
-     */
-    private static void writeChunkedNodeIds( List< GeffNode > nodes, ZarrGroup parentGroup, int chunkSize )
-            throws IOException, InvalidRangeException
-    {
-
-        int totalNodes = nodes.size();
-
-        // Create the ids subgroup
-        ZarrGroup idsGroup = parentGroup.createSubGroup( "ids" );
-
-        // Create a single ZarrArray for all IDs with proper chunking
-        ZarrArray idsArray = idsGroup.createArray( "", new ArrayParams()
-                .shape( totalNodes )
-                .chunks( chunkSize )
-                .dataType( DataType.i4 ) );
-
-        // Write data in chunks
-        int chunkIndex = 0;
-        for ( int startIdx = 0; startIdx < totalNodes; startIdx += chunkSize )
-        {
-            int endIdx = Math.min( startIdx + chunkSize, totalNodes );
-            int currentChunkSize = endIdx - startIdx;
-
-            // Prepare chunk data array
-            int[] chunkData = new int[ currentChunkSize ];
-
-            // Fill chunk data array
-            for ( int i = 0; i < currentChunkSize; i++ )
-            {
-                chunkData[ i ] = nodes.get( startIdx + i ).getId();
-            }
-
-            // Write chunk at specific offset
-            idsArray.write( chunkData, new int[] { currentChunkSize }, new int[] { startIdx } );
-
-            System.out.println( "- Wrote node IDs chunk " + chunkIndex + ": " + currentChunkSize + " nodes (indices "
-                    + startIdx + "-" + ( endIdx - 1 ) + ")" );
-            chunkIndex++;
-        }
-    }
 
     @Override
     public String toString()
