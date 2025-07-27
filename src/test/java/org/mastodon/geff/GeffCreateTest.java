@@ -34,9 +34,10 @@ import java.util.List;
 
 public class GeffCreateTest
 {
+
         public static void main( String[] args ) throws IOException
         {
-                List< GeffNode > newNodes = new ArrayList<>();
+                List< GeffNode > writeNodes = new ArrayList<>();
                 GeffNode node0 = new GeffNode.Builder()
                                 .id( 0 )
                                 .timepoint( 0 )
@@ -44,14 +45,13 @@ public class GeffCreateTest
                                 .y( 20.3 )
                                 .z( 5.0 )
                                 .segmentId( 0 )
-                                .color( new double[] { 1.0, 0.0, 0.0, 1.0 } ) // Red
-                                                                              // color
+                                .color( new double[] { 1.0, 0.0, 0.0, 1.0 } )
                                 .radius( 2.5 )
-                                // .covariance2d(new double[] { 1.0, 0.2, 0.2,
-                                // 1.5 }) // 2x2 covariance matrix
-                                // flattened
+                                .covariance2d( new double[] { 1.0, 0.2, 0.2, 1.5 } )
+                                .polygonX( new double[] { 0.1, 0.2, 0.3, 0.4 } )
+                                .polygonY( new double[] { 0.5, 0.6, 0.7, 0.8 } )
                                 .build();
-                newNodes.add( node0 );
+                writeNodes.add( node0 );
 
                 GeffNode node1 = new GeffNode.Builder()
                                 .id( 1 )
@@ -60,18 +60,19 @@ public class GeffCreateTest
                                 .y( 21.3 )
                                 .z( 6.0 )
                                 .segmentId( 1 )
-                                // .covariance2d(new double[] { 0.8, 0.1, 0.1,
-                                // 1.2 }) // Different covariance
+                                .covariance2d( new double[] { 0.8, 0.1, 0.1, 1.2 } )
+                                .polygonX( new double[] { -0.1, -0.2, -0.3, -0.4 } )
+                                .polygonY( new double[] { -0.5, -0.6, -0.7, -0.8 } )
                                 .build();
-                newNodes.add( node1 );
+                writeNodes.add( node1 );
 
                 // Write to Zarr format with version specification
-                GeffNode.writeToZarr( newNodes,
-                                "/Users/sugawara/Repositories/geff-java/src/test/resources/create_test_output.zarr/tracks/nodes",
-                                "0.3.0" );
+                GeffNode.writeToZarr( writeNodes,
+                                "src/test/resources/create_test_output.zarr/tracks",
+                                "0.4.0" );
 
                 // Create new edges using builder pattern
-                List< GeffEdge > newEdges = new ArrayList<>();
+                List< GeffEdge > writeEdges = new ArrayList<>();
                 GeffEdge edge = new GeffEdge.Builder()
                                 .setId( 0 )
                                 .setSourceNodeId( 0 )
@@ -79,31 +80,43 @@ public class GeffCreateTest
                                 .setScore( 0.95 )
                                 .setDistance( 1.4 )
                                 .build();
-                newEdges.add( edge );
+                writeEdges.add( edge );
 
                 // Write to Zarr format
-                GeffEdge.writeToZarr( newEdges,
-                                "/Users/sugawara/Repositories/geff-java/src/test/resources/create_test_output.zarr/tracks/edges",
-                                "0.3.0" );
+                GeffEdge.writeToZarr( writeEdges,
+                                "src/test/resources/create_test_output.zarr/tracks",
+                                "0.4.0" );
 
                 // Create metadata with axis information
                 GeffAxis[] axes = {
-                                new GeffAxis( GeffAxis.NAME_TIME, GeffAxis.TYPE_TIME, GeffAxis.UNIT_SECONDS, 0.0, 100.0 ),
-                                new GeffAxis( GeffAxis.NAME_SPACE_X, GeffAxis.TYPE_SPACE, GeffAxis.UNIT_MICROMETERS, 0.0, 1024.0 ),
-                                new GeffAxis( GeffAxis.NAME_SPACE_Y, GeffAxis.TYPE_SPACE, GeffAxis.UNIT_MICROMETERS, 0.0, 1024.0 ),
-                                new GeffAxis( GeffAxis.NAME_SPACE_Z, GeffAxis.TYPE_SPACE, GeffAxis.UNIT_MICROMETERS, 0.0, 100.0 )
+                                new GeffAxis( GeffAxis.NAME_TIME, GeffAxis.TYPE_TIME, GeffAxis.UNIT_SECOND, 0.0, 100.0 ),
+                                new GeffAxis( GeffAxis.NAME_SPACE_X, GeffAxis.TYPE_SPACE, GeffAxis.UNIT_MICROMETER, 0.0, 1024.0 ),
+                                new GeffAxis( GeffAxis.NAME_SPACE_Y, GeffAxis.TYPE_SPACE, GeffAxis.UNIT_MICROMETER, 0.0, 1024.0 ),
+                                new GeffAxis( GeffAxis.NAME_SPACE_Z, GeffAxis.TYPE_SPACE, GeffAxis.UNIT_MICROMETER, 0.0, 100.0 )
                 };
-                GeffMetadata metadata = new GeffMetadata( "0.3.0", true, axes );
-                GeffMetadata.writeToZarr( metadata,
-                                "/Users/sugawara/Repositories/geff-java/src/test/resources/create_test_output.zarr/tracks" );
+                GeffMetadata writeMetadata = new GeffMetadata( "0.4.0", true, axes );
+                GeffMetadata.writeToZarr( writeMetadata,
+                                "src/test/resources/create_test_output.zarr/tracks" );
 
-                GeffMetadata metadata_read = GeffMetadata.readFromZarr(
-                                "/Users/sugawara/Repositories/geff-java/src/test/resources/create_test_output.zarr/tracks" );
-                List< GeffNode > nodes = GeffNode.readFromZarr(
-                                "/Users/sugawara/Repositories/geff-java/src/test/resources/create_test_output.zarr/tracks",
-                                metadata_read.getGeffVersion() );
-                List< GeffEdge > edges = GeffEdge.readFromZarr(
-                                "/Users/sugawara/Repositories/geff-java/src/test/resources/create_test_output.zarr/tracks",
-                                metadata_read.getGeffVersion() );
+                GeffMetadata readMetadata = GeffMetadata.readFromZarr(
+                                "src/test/resources/create_test_output.zarr/tracks" );
+                List< GeffNode > readNodes = GeffNode.readFromZarr(
+                                "src/test/resources/create_test_output.zarr/tracks",
+                                readMetadata.getGeffVersion() );
+                List< GeffEdge > readEdges = GeffEdge.readFromZarr(
+                                "src/test/resources/create_test_output.zarr/tracks",
+                                readMetadata.getGeffVersion() );
+                // Check if read nodes and edges match written data with
+                // assertions
+                for ( int i = 0; i < writeNodes.size(); i++ )
+                {
+                        assert writeNodes.get( i ).equals( readNodes.get( i ) ): "Node mismatch at index " + i;
+                }
+                for ( int i = 0; i < writeEdges.size(); i++ )
+                {
+                        assert writeEdges.get( i ).equals( readEdges.get( i ) ): "Edge mismatch at index " + i;
+                }
+                assert writeMetadata.equals( readMetadata ): "Metadata mismatch";
+                System.out.println( "GeffCreateTest completed successfully!" );
         }
 }
