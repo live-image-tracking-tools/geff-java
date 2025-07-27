@@ -40,6 +40,7 @@ import org.janelia.saalfeldlab.n5.N5URI;
 import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrWriter;
+import org.mastodon.geff.geom.GeffSerializableVertex;
 import org.mastodon.geff.GeffUtils.FlattenedDoubles;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -73,7 +74,13 @@ public class GeffNode
 
     private double[] covariance3d;
 
-    public static final double[] DEFAULT_COLOR = { 1.0, 1.0, 1.0, 1.0 }; // Default white color
+    private int polygonStartIndex = -1;
+
+    private double[] polygonX;
+
+    private double[] polygonY;
+
+    private static final double[] DEFAULT_COLOR = { 1.0, 1.0, 1.0, 1.0 }; // RGBA
 
     public static final double DEFAULT_RADIUS = 1.0;
 
@@ -89,9 +96,34 @@ public class GeffNode
 
     /**
      * Constructor with basic node parameters
+     *
+     * @param id
+     *            The unique identifier for the node.
+     * @param timepoint
+     *            The timepoint of the node.
+     * @param x
+     *            The x-coordinate of the node.
+     * @param y
+     *            The y-coordinate of the node.
+     * @param z
+     *            The z-coordinate of the node.
+     * @param color
+     *            The color of the node (RGBA).
+     * @param segmentId
+     *            The segment ID the node belongs to.
+     * @param radius
+     *            The radius of the node.
+     * @param covariance2d
+     *            The 2D covariance matrix of the node.
+     * @param covariance3d
+     *            The 3D covariance matrix of the node.
+     * @param polygonX
+     *            The x-coordinates of the polygon vertices.
+     * @param polygonY
+     *            The y-coordinates of the polygon vertices.
      */
     public GeffNode( int id, int timepoint, double x, double y, double z, double[] color, int segmentId, double radius,
-            double[] covariance2d, double[] covariance3d )
+            double[] covariance2d, double[] covariance3d, double[] polygonX, double[] polygonY )
     {
         this.id = id;
         this.t = timepoint;
@@ -103,64 +135,131 @@ public class GeffNode
         this.radius = radius;
         this.covariance2d = covariance2d != null ? covariance2d : DEFAULT_COVARIANCE_2D;
         this.covariance3d = covariance3d != null ? covariance3d : DEFAULT_COVARIANCE_3D;
+        this.polygonX = polygonX != null ? polygonX : new double[ 0 ];
+        this.polygonY = polygonY != null ? polygonY : new double[ 0 ];
     }
 
-    // Getters and Setters
+    /**
+     * Get the unique identifier of the node.
+     *
+     * @return The unique identifier of the node.
+     */
     public int getId()
     {
         return id;
     }
 
+    /**
+     * Set the unique identifier of the node.
+     *
+     * @param id
+     *            The unique identifier to set.
+     */
     public void setId( int id )
     {
         this.id = id;
     }
 
+    /**
+     * Get the timepoint of the node.
+     *
+     * @return The timepoint of the node.
+     */
     public int getT()
     {
         return t;
     }
 
+    /**
+     * Set the timepoint of the node.
+     *
+     * @param timepoint
+     *            The timepoint to set.
+     */
     public void setT( int timepoint )
     {
         this.t = timepoint;
     }
 
+    /**
+     * Get the x-coordinate of the node.
+     *
+     * @return The x-coordinate of the node.
+     */
     public double getX()
     {
         return x;
     }
 
+    /**
+     * Set the x-coordinate of the node.
+     *
+     * @param x
+     *            The x-coordinate to set.
+     */
     public void setX( double x )
     {
         this.x = x;
     }
 
+    /**
+     * Get the y-coordinate of the node.
+     *
+     * @return The y-coordinate of the node.
+     */
     public double getY()
     {
         return y;
     }
 
+    /**
+     * Set the y-coordinate of the node.
+     *
+     * @param y
+     *            The y-coordinate to set.
+     */
     public void setY( double y )
     {
         this.y = y;
     }
 
+    /**
+     * Get the z-coordinate of the node.
+     *
+     * @return The z-coordinate of the node.
+     */
     public double getZ()
     {
         return z;
     }
 
+    /**
+     * Set the z-coordinate of the node.
+     *
+     * @param z
+     *            The z-coordinate to set.
+     */
     public void setZ( double z )
     {
         this.z = z;
     }
 
+    /**
+     * Get the color of the node.
+     *
+     * @return The color of the node as an RGBA array.
+     */
     public double[] getColor()
     {
         return color;
     }
 
+    /**
+     * Set the color of the node.
+     *
+     * @param color
+     *            The color to set as an RGBA array.
+     */
     public void setColor( double[] color )
     {
         if ( color != null && color.length == 4 )
@@ -173,31 +272,66 @@ public class GeffNode
         }
     }
 
+    /**
+     * Get the segment ID of the node.
+     *
+     * @return The segment ID of the node.
+     */
     public int getSegmentId()
     {
         return segmentId;
     }
 
+    /**
+     * Set the segment ID of the node.
+     *
+     * @param segmentId
+     *            The segment ID to set.
+     */
     public void setSegmentId( int segmentId )
     {
         this.segmentId = segmentId;
     }
 
+    /**
+     * Get the radius of the node.
+     *
+     * @return The radius of the node.
+     */
     public double getRadius()
     {
         return radius;
     }
 
+    /**
+     * Set the radius of the node.
+     *
+     * @param radius
+     *            The radius to set.
+     */
     public void setRadius( double radius )
     {
         this.radius = radius;
     }
 
+    /**
+     * Get the 2D covariance matrix of the node.
+     *
+     * @return The 2D covariance matrix as a 4-element array.
+     */
     public double[] getCovariance2d()
     {
         return covariance2d;
     }
 
+    /**
+     * Set the 2D covariance matrix of the node.
+     *
+     * @param covariance2d
+     *            The 2D covariance matrix to set as a 4-element array.
+     * @throws IllegalArgumentException
+     *             if the covariance2d array is not of length 4.
+     */
     public void setCovariance2d( double[] covariance2d )
     {
         if ( covariance2d != null && covariance2d.length == 4 )
@@ -210,11 +344,24 @@ public class GeffNode
         }
     }
 
+    /**
+     * Get the 3D covariance matrix of the node.
+     *
+     * @return The 3D covariance matrix as a 6-element array.
+     */
     public double[] getCovariance3d()
     {
         return covariance3d;
     }
 
+    /**
+     * Set the 3D covariance matrix of the node.
+     *
+     * @param covariance3d
+     *            The 3D covariance matrix to set as a 6-element array.
+     * @throws IllegalArgumentException
+     *             if the covariance3d array is not of length 6.
+     */
     public void setCovariance3d( double[] covariance3d )
     {
         if ( covariance3d != null && covariance3d.length == 6 )
@@ -225,6 +372,86 @@ public class GeffNode
         {
             throw new IllegalArgumentException( "Covariance3D must be a 6-element array" );
         }
+    }
+
+    /**
+     * Get the polygon offset for the serialized vertex array.
+     *
+     * @return The polygon offset.
+     */
+    public int getPolygonStartIndex()
+    {
+        return polygonStartIndex;
+    }
+
+    /**
+     * Set the polygon offset for the serialized vertex array.
+     *
+     * @param polygonOffset
+     *            The polygon offset to set.
+     */
+    public void setPolygonStartIndex( int polygonOffset )
+    {
+        this.polygonStartIndex = polygonOffset;
+    }
+
+    /**
+     * Get the slice information for polygon vertices as an array.
+     *
+     * @return An array containing the polygon startIndex and endIndex.
+     */
+    public int[] getPolygonSliceAsArray()
+    {
+        if ( polygonX == null || polygonY == null )
+        {
+            System.err.println( "Warning: Polygon is null, returning empty array." );
+            return new int[] { polygonStartIndex, 0 };
+        }
+        if ( polygonStartIndex < 0 )
+            throw new IllegalArgumentException( "Polygon startIndex is invalid: " + polygonStartIndex );
+        return new int[] { polygonStartIndex, polygonStartIndex + polygonX.length };
+    }
+
+    /**
+     * Get the x-coordinates of the polygon vertices.
+     *
+     * @return The x-coordinates of the polygon vertices.
+     */
+    public double[] getPolygonX()
+    {
+        return polygonX;
+    }
+
+    /**
+     * Get the y-coordinates of the polygon vertices.
+     *
+     * @return The y-coordinates of the polygon vertices.
+     */
+    public double[] getPolygonY()
+    {
+        return polygonY;
+    }
+
+    /**
+     * Set the x-coordinates of the polygon vertices.
+     *
+     * @param polygonX
+     *            The x-coordinates to set.
+     */
+    public void setPolygonX( double[] polygonX )
+    {
+        this.polygonX = polygonX != null ? polygonX : new double[ 0 ];
+    }
+
+    /**
+     * Set the y-coordinates of the polygon vertices.
+     *
+     * @param polygonY
+     *            The y-coordinates to set.
+     */
+    public void setPolygonY( double[] polygonY )
+    {
+        this.polygonY = polygonY != null ? polygonY : new double[ 0 ];
     }
 
     /**
@@ -300,6 +527,10 @@ public class GeffNode
         private double[] covariance2d = DEFAULT_COVARIANCE_2D;
 
         private double[] covariance3d = DEFAULT_COVARIANCE_3D;
+
+        private double[] polygonX;
+
+        private double[] polygonY;
 
         public Builder id( int id )
         {
@@ -382,87 +613,23 @@ public class GeffNode
             return this;
         }
 
+        public Builder polygonX( double[] polygonX )
+        {
+            this.polygonX = polygonX;
+            return this;
+        }
+
+        public Builder polygonY( double[] polygonY )
+        {
+            this.polygonY = polygonY;
+            return this;
+        }
+
         public GeffNode build()
         {
-            return new GeffNode( id, timepoint, x, y, z, color, segmentId, radius, covariance2d, covariance3d );
+            return new GeffNode( id, timepoint, x, y, z, color, segmentId, radius, covariance2d, covariance3d, polygonX, polygonY );
         }
     }
-
-	/**
-	 * Write nodes to Zarr format with chunked structure
-	 */
-	public static void writeToZarr( List< GeffNode > nodes, String zarrPath )
-	{
-		writeToZarr( nodes, zarrPath, GeffUtils.DEFAULT_CHUNK_SIZE );
-	}
-	/**
-	 * Write nodes to Zarr format with specified chunk size
-	 */
-	public static void writeToZarr( List< GeffNode > nodes, String zarrPath, int chunkSize )
-	{
-		writeToZarr( nodes, zarrPath, chunkSize, Geff.VERSION );
-	}
-
-	public static void writeToZarr( List< GeffNode > nodes, String zarrPath, String geffVersion )
-	{
-		writeToZarr( nodes, zarrPath, GeffUtils.DEFAULT_CHUNK_SIZE, geffVersion );
-	}
-
-	public static void writeToZarr( List< GeffNode > nodes, String zarrPath, int chunkSize, String geffVersion )
-	{
-		LOG.debug( "Writing {} nodes to Zarr path: {} with chunk size: {} to Geff version: {}", nodes.size(), zarrPath, chunkSize, geffVersion );
-		try ( final N5ZarrWriter writer = new N5ZarrWriter( zarrPath, true ) )
-		{
-			writeToN5( nodes, writer, "/", chunkSize, geffVersion );
-		}
-	}
-
-	public static void writeToN5(
-			final List< GeffNode > nodes,
-			final N5Writer writer,
-			final String group,
-			final int chunkSize,
-			String geffVersion )
-	{
-		if ( nodes == null )
-			throw new NullPointerException( "Nodes list cannot be null" );
-
-		if ( geffVersion == null || geffVersion.isEmpty() )
-		{
-			geffVersion = Geff.VERSION; // Use default version if not specified
-		}
-		GeffUtils.checkSupportedVersion( geffVersion );
-
-		final String path = N5URI.normalizeGroupPath( group );
-
-		// Write node IDs in chunks
-		GeffUtils.writeIntArray( nodes, GeffNode::getId, writer, path + "/nodes/ids", chunkSize );
-
-		// Write timepoints in chunks
-		GeffUtils.writeIntArray( nodes, GeffNode::getT, writer, path + "/nodes/props/t/values", chunkSize );
-
-		// Write X coordinates in chunks
-		GeffUtils.writeDoubleArray( nodes, GeffNode::getX, writer, path + "/nodes/props/x/values", chunkSize );
-
-		// Write Y coordinates in chunks
-		GeffUtils.writeDoubleArray( nodes, GeffNode::getY, writer, path + "/nodes/props/y/values", chunkSize );
-
-		// Write Z coordinates in chunks
-		GeffUtils.writeDoubleArray( nodes, GeffNode::getZ, writer, path + "/nodes/props/z/values", chunkSize );
-
-		// Write color in chunks
-		GeffUtils.writeDoubleMatrix( nodes, 4, GeffNode::getColor, writer, path + "/nodes/props/color/values", chunkSize );
-
-		// Write segment IDs in chunks
-		GeffUtils.writeIntArray( nodes, GeffNode::getSegmentId, writer, path + "/nodes/props/track_id/values", chunkSize );
-
-		// Write radius and covariance attributes if available
-		GeffUtils.writeDoubleArray( nodes, GeffNode::getRadius, writer, path + "/nodes/props/radius/values", chunkSize );
-
-		// TODO: ellipsoid etc
-
-		LOG.debug( "Successfully wrote nodes to Zarr format with chunked structure" );
-	}
 
 	/**
 	 * Read nodes from Zarr format with default version and chunked structure
@@ -536,6 +703,96 @@ public class GeffNode
 		verifyLength( radius, numNodes, "/nodes/props/radius/values" );
 
 		// TODO: ellipsoid etc
+		// --> begin origin/main --
+
+
+
+            // Read covariance2d from chunks
+            double[][] covariance2ds = new double[ 0 ][];
+            try
+            {
+                covariance2ds = ZarrUtils.readChunkedDoubleMatrix( propsGroup, "covariance2d/values",
+                        "covariance2d" );
+            }
+            catch ( Exception e )
+            {
+                System.out.println( "Warning: Could not read covariance2d: " + e.getMessage() + " skipping..." );
+            }
+
+            // Read covariance3d from chunks
+            double[][] covariance3ds = new double[ 0 ][];
+            try
+            {
+                covariance3ds = ZarrUtils.readChunkedDoubleMatrix( propsGroup, "covariance3d/values",
+                        "covariance3d" );
+            }
+            catch ( Exception e )
+            {
+                System.out.println( "Warning: Could not read covariance3d: " + e.getMessage() + " skipping..." );
+            }
+
+            // Read polygon from chunks
+            double[][] polygonsX = new double[ 0 ][];
+            double[][] polygonsY = new double[ 0 ][];
+            if ( geffVersion.startsWith( "0.4" ) )
+            {
+                try
+                {
+                    int[][] polygonSlices = ZarrUtils.readChunkedIntMatrix( serializedPropsGroup, "polygon/slices", "polygon slices" );
+                    // expected shape: [numVertices, 2]
+                    double[][] polygonValues = ZarrUtils.readChunkedDoubleMatrix( serializedPropsGroup, "polygon/values", "polygon values" );
+                    polygonsX = new double[ polygonSlices.length ][];
+                    polygonsY = new double[ polygonSlices.length ][];
+                    for ( int i = 0; i < polygonSlices.length; i++ )
+                    {
+                        int start = polygonSlices[ i ][ 0 ];
+                        int length = polygonSlices[ i ][ 1 ];
+                        if ( start >= 0 && start + length <= polygonValues.length )
+                        {
+                            double[] xPoints = new double[ length ];
+                            double[] yPoints = new double[ length ];
+                            for ( int j = 0; j < length; j++ )
+                            {
+                                xPoints[ j ] = polygonValues[ start + j ][ 0 ];
+                                yPoints[ j ] = polygonValues[ start + j ][ 1 ];
+                            }
+                            polygonsX[ i ] = xPoints;
+                            polygonsY[ i ] = yPoints;
+                        }
+                        else
+                        {
+                            System.out.println( "Warning: Invalid polygon slice at index " + i + ", skipping..." );
+                        }
+                    }
+                }
+                catch ( Exception e )
+                {
+                    System.out.println( "Warning: Could not read polygon: " + e.getMessage() + " skipping..." );
+                }
+            }
+
+			// Create node objects
+			for ( int i = 0; i < nodeIds.length; i++ )
+			{
+				GeffNode node = new Builder()
+						.id( nodeIds[ i ] )
+						.timepoint( i < timepoints.length ? timepoints[ i ] : -1 )
+						.x( i < xCoords.length ? xCoords[ i ] : Double.NaN )
+						.y( i < yCoords.length ? yCoords[ i ] : Double.NaN )
+						.z( i < zCoords.length ? zCoords[ i ] : Double.NaN )
+						.color( i < colors.length ? colors[ i ] : DEFAULT_COLOR )
+						.segmentId( i < trackIds.length ? trackIds[ i ] : -1 )
+						.radius( i < radii.length ? radii[ i ] : Double.NaN )
+						.covariance2d( i < covariance2ds.length ? covariance2ds[ i ] : DEFAULT_COVARIANCE_2D )
+						.covariance3d( i < covariance3ds.length ? covariance3ds[ i ] : DEFAULT_COVARIANCE_3D )
+						.polygonX( i < polygonsX.length ? polygonsX[ i ] : null )
+						.polygonY( i < polygonsY.length ? polygonsY[ i ] : null )
+						.build();
+
+				nodes.add( node );
+			}
+
+		// --> end origin/main --
 
 		// Create node objects
 		final List< GeffNode > nodes = new ArrayList<>( numNodes );
@@ -557,7 +814,118 @@ public class GeffNode
 		return nodes;
 	}
 
-    @Override
+	/**
+	 * Write nodes to Zarr format with chunked structure
+	 */
+	public static void writeToZarr( List< GeffNode > nodes, String zarrPath )
+	{
+		writeToZarr( nodes, zarrPath, GeffUtils.DEFAULT_CHUNK_SIZE );
+	}
+
+	/**
+	 * Write nodes to Zarr format with specified chunk size
+	 */
+	public static void writeToZarr( List< GeffNode > nodes, String zarrPath, int chunkSize )
+	{
+		writeToZarr( nodes, zarrPath, chunkSize, Geff.VERSION );
+	}
+
+	public static void writeToZarr( List< GeffNode > nodes, String zarrPath, String geffVersion )
+	{
+		writeToZarr( nodes, zarrPath, GeffUtils.DEFAULT_CHUNK_SIZE, geffVersion );
+	}
+
+	public static void writeToZarr( List< GeffNode > nodes, String zarrPath, int chunkSize, String geffVersion )
+	{
+		LOG.debug( "Writing {} nodes to Zarr path: {} with chunk size: {} to Geff version: {}", nodes.size(), zarrPath, chunkSize, geffVersion );
+		try ( final N5ZarrWriter writer = new N5ZarrWriter( zarrPath, true ) )
+		{
+			writeToN5( nodes, writer, "/", chunkSize, geffVersion );
+		}
+	}
+
+	public static void writeToN5(
+			final List< GeffNode > nodes,
+			final N5Writer writer,
+			final String group,
+			final int chunkSize,
+			String geffVersion )
+	{
+		if ( nodes == null )
+			throw new NullPointerException( "Nodes list cannot be null" );
+
+		if ( geffVersion == null || geffVersion.isEmpty() )
+		{
+			geffVersion = Geff.VERSION; // Use default version if not specified
+		}
+		GeffUtils.checkSupportedVersion( geffVersion );
+
+		final String path = N5URI.normalizeGroupPath( group );
+
+		// Write node IDs in chunks
+		GeffUtils.writeIntArray( nodes, GeffNode::getId, writer, path + "/nodes/ids", chunkSize );
+
+		// Write timepoints in chunks
+		GeffUtils.writeIntArray( nodes, GeffNode::getT, writer, path + "/nodes/props/t/values", chunkSize );
+
+		// Write X coordinates in chunks
+		GeffUtils.writeDoubleArray( nodes, GeffNode::getX, writer, path + "/nodes/props/x/values", chunkSize );
+
+		// Write Y coordinates in chunks
+		GeffUtils.writeDoubleArray( nodes, GeffNode::getY, writer, path + "/nodes/props/y/values", chunkSize );
+
+		// Write Z coordinates in chunks
+		GeffUtils.writeDoubleArray( nodes, GeffNode::getZ, writer, path + "/nodes/props/z/values", chunkSize );
+
+		// Write color in chunks
+		GeffUtils.writeDoubleMatrix( nodes, 4, GeffNode::getColor, writer, path + "/nodes/props/color/values", chunkSize );
+
+		// Write segment IDs in chunks
+		GeffUtils.writeIntArray( nodes, GeffNode::getSegmentId, writer, path + "/nodes/props/track_id/values", chunkSize );
+
+		// Write radius and covariance attributes if available
+		GeffUtils.writeDoubleArray( nodes, GeffNode::getRadius, writer, path + "/nodes/props/radius/values", chunkSize );
+
+		// TODO: ellipsoid etc
+		// --> begin origin/main --
+
+			// Write covariance2d in chunks
+			ZarrUtils.writeChunkedDoubleMatrix( nodes, propsGroup, "covariance2d/values", chunkSize, GeffNode::getCovariance2d,
+					4 );
+
+			// Write covariance3d in chunks
+			ZarrUtils.writeChunkedDoubleMatrix( nodes, propsGroup, "covariance3d/values", chunkSize, GeffNode::getCovariance3d,
+					6 );
+
+			if ( geffVersion.startsWith( "0.4" ) )
+			{
+				// Write polygon slices and values if available
+				List< GeffSerializableVertex > geffVertices = new ArrayList<>();
+				int polygonOffset = 0;
+				for ( GeffNode node : nodes )
+				{
+					if ( node.polygonX == null || node.polygonY == null )
+						throw new IllegalArgumentException( "Polygon coordinates cannot be null" );
+					if ( node.getPolygonX().length != node.getPolygonY().length )
+						throw new IllegalArgumentException( "Polygon X and Y coordinates must have the same length" );
+					node.setPolygonStartIndex( polygonOffset );
+					for ( int i = 0; i < node.getPolygonX().length; i++ )
+					{
+						geffVertices.add( new GeffSerializableVertex( node.getPolygonX()[ i ],
+								node.getPolygonY()[ i ] ) );
+					}
+					polygonOffset += node.getPolygonX().length;
+				}
+				ZarrUtils.writeChunkedIntMatrix( nodes, serializedPropsGroup, "polygon/slices", chunkSize, GeffNode::getPolygonSliceAsArray, 2 );
+				ZarrUtils.writeChunkedDoubleMatrix( geffVertices, serializedPropsGroup, "polygon/values", chunkSize, GeffSerializableVertex::getCoordinates, 2 );
+			}
+
+		// --> end origin/main --
+
+		LOG.debug( "Successfully wrote nodes to Zarr format with chunked structure" );
+	}
+
+	@Override
     public String toString()
     {
         StringBuilder sb = new StringBuilder( "GeffNode{" )
@@ -593,7 +961,9 @@ public class GeffNode
                 segmentId == geffNode.segmentId &&
                 Double.compare( geffNode.radius, radius ) == 0 &&
                 java.util.Arrays.equals( covariance2d, geffNode.covariance2d ) &&
-                java.util.Arrays.equals( covariance3d, geffNode.covariance3d );
+                java.util.Arrays.equals( covariance3d, geffNode.covariance3d ) &&
+                java.util.Arrays.equals( polygonX, geffNode.polygonX ) &&
+                java.util.Arrays.equals( polygonY, geffNode.polygonY );
     }
 
     @Override
