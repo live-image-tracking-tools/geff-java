@@ -118,7 +118,7 @@ GeffNode node1 = new GeffNode.Builder()
 newNodes.add(node1);
 
 // Write to Zarr format with version specification
-GeffNode.writeToZarr(newNodes, "/path/to/output.zarr/tracks", "0.3.0");
+GeffNode.writeToZarr(newNodes, "/path/to/output.zarr/tracks", "0.4.0");
 
 // Create new edges using builder pattern
 List<GeffEdge> newEdges = new ArrayList<>();
@@ -132,7 +132,7 @@ GeffEdge edge = new GeffEdge.Builder()
 newEdges.add(edge);
 
 // Write to Zarr format
-GeffEdge.writeToZarr(newEdges, "/path/to/output.zarr/tracks", "0.3.0");
+GeffEdge.writeToZarr(newEdges, "/path/to/output.zarr/tracks", "0.4.0");
 
 // Create metadata with axis information
 GeffAxis[] axes = {
@@ -141,7 +141,7 @@ GeffAxis[] axes = {
     new GeffAxis(GeffAxis.NAME_SPACE_Y, GeffAxis.TYPE_SPACE, GeffAxis.UNIT_MICROMETER, 0.0, 1024.0),
     new GeffAxis(GeffAxis.NAME_SPACE_Z, GeffAxis.TYPE_SPACE, GeffAxis.UNIT_MICROMETER, 0.0, 100.0)
 };
-GeffMetadata metadata = new GeffMetadata("0.3.0", true, axes);
+GeffMetadata metadata = new GeffMetadata("0.4.0", true, axes);
 GeffMetadata.writeToZarr(metadata, "/path/to/output.zarr/tracks");
 ```
 
