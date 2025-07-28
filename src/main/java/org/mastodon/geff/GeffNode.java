@@ -702,34 +702,15 @@ public class GeffNode
 		double[] radius = GeffUtils.readAsDoubleArray( reader, "/nodes/props/radius/values", "radius" );
 		verifyLength( radius, numNodes, "/nodes/props/radius/values" );
 
-		// TODO: ellipsoid etc
+		// Read covariance2d from chunks
+		final FlattenedDoubles covariance2ds = GeffUtils.readAsDoubleMatrix( reader, "/nodes/props/covariance2d/values", "covariance2d" );
+		verifyLength( covariance2ds, numNodes, "/nodes/props/covariance2d/values" );
+
+		// Read covariance3d from chunks
+		final FlattenedDoubles covariance3ds = GeffUtils.readAsDoubleMatrix( reader, "/nodes/props/covariance3d/values", "covariance3d" );
+		verifyLength( covariance3ds, numNodes, "/nodes/props/covariance3d/values" );
+
 		// --> begin origin/main --
-
-
-
-            // Read covariance2d from chunks
-            double[][] covariance2ds = new double[ 0 ][];
-            try
-            {
-                covariance2ds = ZarrUtils.readChunkedDoubleMatrix( propsGroup, "covariance2d/values",
-                        "covariance2d" );
-            }
-            catch ( Exception e )
-            {
-                System.out.println( "Warning: Could not read covariance2d: " + e.getMessage() + " skipping..." );
-            }
-
-            // Read covariance3d from chunks
-            double[][] covariance3ds = new double[ 0 ][];
-            try
-            {
-                covariance3ds = ZarrUtils.readChunkedDoubleMatrix( propsGroup, "covariance3d/values",
-                        "covariance3d" );
-            }
-            catch ( Exception e )
-            {
-                System.out.println( "Warning: Could not read covariance3d: " + e.getMessage() + " skipping..." );
-            }
 
             // Read polygon from chunks
             double[][] polygonsX = new double[ 0 ][];
@@ -886,16 +867,14 @@ public class GeffNode
 		// Write radius and covariance attributes if available
 		GeffUtils.writeDoubleArray( nodes, GeffNode::getRadius, writer, path + "/nodes/props/radius/values", chunkSize );
 
-		// TODO: ellipsoid etc
+		// Write covariance2d in chunks
+		GeffUtils.writeDoubleMatrix( nodes, 4, GeffNode::getCovariance2d, writer, path + "/nodes/props/covariance2d/values", chunkSize );
+
+		// Write covariance3d in chunks
+		GeffUtils.writeDoubleMatrix( nodes, 6, GeffNode::getCovariance3d, writer, path + "/nodes/props/covariance3d/values", chunkSize );
+
+
 		// --> begin origin/main --
-
-			// Write covariance2d in chunks
-			ZarrUtils.writeChunkedDoubleMatrix( nodes, propsGroup, "covariance2d/values", chunkSize, GeffNode::getCovariance2d,
-					4 );
-
-			// Write covariance3d in chunks
-			ZarrUtils.writeChunkedDoubleMatrix( nodes, propsGroup, "covariance3d/values", chunkSize, GeffNode::getCovariance3d,
-					6 );
 
 			if ( geffVersion.startsWith( "0.4" ) )
 			{
@@ -908,6 +887,9 @@ public class GeffNode
 						throw new IllegalArgumentException( "Polygon coordinates cannot be null" );
 					if ( node.getPolygonX().length != node.getPolygonY().length )
 						throw new IllegalArgumentException( "Polygon X and Y coordinates must have the same length" );
+					// TODO: DO NOT DO THIS!
+				//  		 Dont store something into GeffNode as temp variables just for writing!
+					//       Instead: We know how many nodes. So make int[] polygonStartIndex locally here.
 					node.setPolygonStartIndex( polygonOffset );
 					for ( int i = 0; i < node.getPolygonX().length; i++ )
 					{

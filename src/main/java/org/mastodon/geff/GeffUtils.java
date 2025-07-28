@@ -286,7 +286,9 @@ class GeffUtils
 
 	public static int[] convertToIntArray( final Object array, final String fieldName )
 	{
-		if ( array instanceof int[] )
+		if (array == null)
+			return null;
+		else if ( array instanceof int[] )
 			return ( int[] ) array;
 		else if ( array instanceof long[] )
 			return copyToIntArray( ( long[] ) array, a -> a.length, ( a, i ) -> ( int ) a[ i ] );
@@ -315,7 +317,9 @@ class GeffUtils
 
 	public static double[] convertToDoubleArray( final Object array, final String fieldName )
 	{
-		if ( array instanceof double[] )
+		if (array == null)
+			return null;
+		else if ( array instanceof double[] )
 			return ( double[] ) array;
 		else if ( array instanceof int[] )
 			return copyToDoubleArray( ( int[] ) array, a -> a.length, ( a, i ) -> a[ i ] );
