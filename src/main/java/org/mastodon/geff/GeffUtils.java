@@ -84,16 +84,31 @@ class GeffUtils
 			final String dataset,
 			final int chunkSize )
 	{
-		final int size = elements.size();
-		final int[] data = new int[ numColumns * size ];
-		for ( int i = 0; i < size; ++i ) {
-			final int[] row = extractor.apply( elements.get( i ) );
+		writeIntMatrix( elements.size(), numColumns,
+				i -> extractor.apply( elements.get( i ) ),
+				writer, dataset, chunkSize );
+	}
+
+	/**
+	 * @param extractor function from row index to int[] with column data
+	 */
+	public static void writeIntMatrix(
+			final int numRows,
+			final int numColumns,
+			final IntFunction< int[] > extractor,
+			final N5Writer writer,
+			final String dataset,
+			final int chunkSize )
+	{
+		final int[] data = new int[ numColumns * numRows ];
+		for ( int i = 0; i < numRows; ++i ) {
+			final int[] row = extractor.apply( i );
 			if ( row == null || row.length < numColumns )
 				continue;
 			System.arraycopy( row, 0, data, numColumns * i, numColumns );
 		}
 		final DatasetAttributes attributes = new DatasetAttributes(
-				new long[] { numColumns, size },
+				new long[] { numColumns, numRows },
 				new int[] { numColumns, chunkSize },
 				DataType.INT32,
 				new BloscCompression() );

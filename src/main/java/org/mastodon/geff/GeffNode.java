@@ -33,13 +33,16 @@ import static org.mastodon.geff.GeffUtils.verifyLength;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.function.Function;
 
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5URI;
 import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrWriter;
+import org.mastodon.geff.GeffUtils.FlattenedInts;
 import org.mastodon.geff.geom.GeffSerializableVertex;
 import org.mastodon.geff.GeffUtils.FlattenedDoubles;
 import org.slf4j.Logger;
@@ -73,8 +76,6 @@ public class GeffNode
     private double[] covariance2d;
 
     private double[] covariance3d;
-
-    private int polygonStartIndex = -1;
 
     private double[] polygonX;
 
@@ -375,44 +376,6 @@ public class GeffNode
     }
 
     /**
-     * Get the polygon offset for the serialized vertex array.
-     *
-     * @return The polygon offset.
-     */
-    public int getPolygonStartIndex()
-    {
-        return polygonStartIndex;
-    }
-
-    /**
-     * Set the polygon offset for the serialized vertex array.
-     *
-     * @param polygonOffset
-     *            The polygon offset to set.
-     */
-    public void setPolygonStartIndex( int polygonOffset )
-    {
-        this.polygonStartIndex = polygonOffset;
-    }
-
-    /**
-     * Get the slice information for polygon vertices as an array.
-     *
-     * @return An array containing the polygon startIndex and endIndex.
-     */
-    public int[] getPolygonSliceAsArray()
-    {
-        if ( polygonX == null || polygonY == null )
-        {
-            System.err.println( "Warning: Polygon is null, returning empty array." );
-            return new int[] { polygonStartIndex, 0 };
-        }
-        if ( polygonStartIndex < 0 )
-            throw new IllegalArgumentException( "Polygon startIndex is invalid: " + polygonStartIndex );
-        return new int[] { polygonStartIndex, polygonStartIndex + polygonX.length };
-    }
-
-    /**
      * Get the x-coordinates of the polygon vertices.
      *
      * @return The x-coordinates of the polygon vertices.
@@ -675,105 +638,83 @@ public class GeffNode
 		final int numNodes = nodeIds.length;
 
 		// Read time points from chunks
-		final int[] timepoints = GeffUtils.readAsIntArray( reader, "/nodes/props/t/values", "timepoints" );
+		final int[] timepoints = GeffUtils.readAsIntArray( reader, path + "/nodes/props/t/values", "timepoints" );
 		verifyLength( timepoints, numNodes, "/nodes/props/t/values" );
 
 		// Read X coordinates from chunks
-		final double[] xCoords = GeffUtils.readAsDoubleArray( reader, "/nodes/props/x/values", "X coordinates" );
+		final double[] xCoords = GeffUtils.readAsDoubleArray( reader, path + "/nodes/props/x/values", "X coordinates" );
 		verifyLength( xCoords, numNodes, "/nodes/props/x/values" );
 
 		// Read Y coordinates from chunks
-		final double[] yCoords = GeffUtils.readAsDoubleArray( reader, "/nodes/props/y/values", "Y coordinates" );
+		final double[] yCoords = GeffUtils.readAsDoubleArray( reader, path + "/nodes/props/y/values", "Y coordinates" );
 		verifyLength( yCoords, numNodes, "/nodes/props/y/values" );
 
 		// Read Z coordinates from chunks
-		final double[] zCoords = GeffUtils.readAsDoubleArray( reader, "/nodes/props/z/values", "Z coordinates" );
+		final double[] zCoords = GeffUtils.readAsDoubleArray( reader, path + "/nodes/props/z/values", "Z coordinates" );
 		verifyLength( zCoords, numNodes, "/nodes/props/z/values" );
 
 		// Read color from chunks
-		final FlattenedDoubles colors = GeffUtils.readAsDoubleMatrix( reader, "/nodes/props/color/values", "color" );
+		final FlattenedDoubles colors = GeffUtils.readAsDoubleMatrix( reader, path + "/nodes/props/color/values", "color" );
 		verifyLength( colors, numNodes, "/nodes/props/color/values" );
 
 		// Read track IDs from chunks
-		final int[] trackIds = GeffUtils.readAsIntArray( reader, "/nodes/props/track_id/values", "track IDs" );
+		final int[] trackIds = GeffUtils.readAsIntArray( reader, path + "/nodes/props/track_id/values", "track IDs" );
 		verifyLength( trackIds, numNodes, "/nodes/props/track_id/values" );
 
 		// Read radius from chunks
-		double[] radius = GeffUtils.readAsDoubleArray( reader, "/nodes/props/radius/values", "radius" );
+		double[] radius = GeffUtils.readAsDoubleArray( reader, path + "/nodes/props/radius/values", "radius" );
 		verifyLength( radius, numNodes, "/nodes/props/radius/values" );
 
 		// Read covariance2d from chunks
-		final FlattenedDoubles covariance2ds = GeffUtils.readAsDoubleMatrix( reader, "/nodes/props/covariance2d/values", "covariance2d" );
+		final FlattenedDoubles covariance2ds = GeffUtils.readAsDoubleMatrix( reader, path + "/nodes/props/covariance2d/values", "covariance2d" );
 		verifyLength( covariance2ds, numNodes, "/nodes/props/covariance2d/values" );
 
 		// Read covariance3d from chunks
-		final FlattenedDoubles covariance3ds = GeffUtils.readAsDoubleMatrix( reader, "/nodes/props/covariance3d/values", "covariance3d" );
+		final FlattenedDoubles covariance3ds = GeffUtils.readAsDoubleMatrix( reader, path + "/nodes/props/covariance3d/values", "covariance3d" );
 		verifyLength( covariance3ds, numNodes, "/nodes/props/covariance3d/values" );
 
-		// --> begin origin/main --
-
-            // Read polygon from chunks
-            double[][] polygonsX = new double[ 0 ][];
-            double[][] polygonsY = new double[ 0 ][];
-            if ( geffVersion.startsWith( "0.4" ) )
-            {
-                try
-                {
-                    int[][] polygonSlices = ZarrUtils.readChunkedIntMatrix( serializedPropsGroup, "polygon/slices", "polygon slices" );
-                    // expected shape: [numVertices, 2]
-                    double[][] polygonValues = ZarrUtils.readChunkedDoubleMatrix( serializedPropsGroup, "polygon/values", "polygon values" );
-                    polygonsX = new double[ polygonSlices.length ][];
-                    polygonsY = new double[ polygonSlices.length ][];
-                    for ( int i = 0; i < polygonSlices.length; i++ )
-                    {
-                        int start = polygonSlices[ i ][ 0 ];
-                        int length = polygonSlices[ i ][ 1 ];
-                        if ( start >= 0 && start + length <= polygonValues.length )
-                        {
-                            double[] xPoints = new double[ length ];
-                            double[] yPoints = new double[ length ];
-                            for ( int j = 0; j < length; j++ )
-                            {
-                                xPoints[ j ] = polygonValues[ start + j ][ 0 ];
-                                yPoints[ j ] = polygonValues[ start + j ][ 1 ];
-                            }
-                            polygonsX[ i ] = xPoints;
-                            polygonsY[ i ] = yPoints;
-                        }
-                        else
-                        {
-                            System.out.println( "Warning: Invalid polygon slice at index " + i + ", skipping..." );
-                        }
-                    }
-                }
-                catch ( Exception e )
-                {
-                    System.out.println( "Warning: Could not read polygon: " + e.getMessage() + " skipping..." );
-                }
-            }
-
-			// Create node objects
-			for ( int i = 0; i < nodeIds.length; i++ )
+		// Read polygon from chunks
+		double[][] polygonsX = null;
+		double[][] polygonsY = null;
+		if ( geffVersion.startsWith( "0.4" ) )
+		{
+			try
 			{
-				GeffNode node = new Builder()
-						.id( nodeIds[ i ] )
-						.timepoint( i < timepoints.length ? timepoints[ i ] : -1 )
-						.x( i < xCoords.length ? xCoords[ i ] : Double.NaN )
-						.y( i < yCoords.length ? yCoords[ i ] : Double.NaN )
-						.z( i < zCoords.length ? zCoords[ i ] : Double.NaN )
-						.color( i < colors.length ? colors[ i ] : DEFAULT_COLOR )
-						.segmentId( i < trackIds.length ? trackIds[ i ] : -1 )
-						.radius( i < radii.length ? radii[ i ] : Double.NaN )
-						.covariance2d( i < covariance2ds.length ? covariance2ds[ i ] : DEFAULT_COVARIANCE_2D )
-						.covariance3d( i < covariance3ds.length ? covariance3ds[ i ] : DEFAULT_COVARIANCE_3D )
-						.polygonX( i < polygonsX.length ? polygonsX[ i ] : null )
-						.polygonY( i < polygonsY.length ? polygonsY[ i ] : null )
-						.build();
+				final FlattenedInts polygonSlices = GeffUtils.readAsIntMatrix( reader, path + "/nodes/serialized_props/polygon/slices", "polygon slices" );
+				verifyLength( polygonSlices, numNodes, "/nodes/serialized_props/polygon/slices" );
 
-				nodes.add( node );
+				final FlattenedDoubles polygonValues = GeffUtils.readAsDoubleMatrix( reader, path + "/nodes/serialized_props/polygon/values", "polygon values" );
+
+				polygonsX = new double[ numNodes ][];
+				polygonsY = new double[ numNodes ][];
+				for ( int i = 0; i < numNodes; i++ )
+				{
+					int start = polygonSlices.at( i, 0 );
+					int length = polygonSlices.at( i, 1 );
+					final int numVertices = polygonValues.size()[ 0 ];
+					if ( start >= 0 && start + length < numVertices )
+					{
+						final double[] xPoints = new double[ length ];
+						final double[] yPoints = new double[ length ];
+						for ( int j = 0; j < length; j++ )
+						{
+							xPoints[ j ] = polygonValues.at( start + j, 0 );
+							yPoints[ j ] = polygonValues.at( start + j, 1 );
+						}
+						polygonsX[ i ] = xPoints;
+						polygonsY[ i ] = yPoints;
+					}
+					else
+					{
+						LOG.warn( "Warning: Invalid polygon slice at index {}, skipping...", i );
+					}
+				}
 			}
-
-		// --> end origin/main --
+			catch ( Exception e )
+			{
+				LOG.warn( "Warning: Could not read polygon: {}, skipping...", e.getMessage() );
+			}
+		}
 
 		// Create node objects
 		final List< GeffNode > nodes = new ArrayList<>( numNodes );
@@ -789,7 +730,9 @@ public class GeffNode
 			final double r = radius != null ? radius[ i ] : Double.NaN;
 			final double[] covariance2d = DEFAULT_COVARIANCE_2D;
 			final double[] covariance3d = DEFAULT_COVARIANCE_2D;
-			final GeffNode node = new GeffNode( id, t, x, y, z, color, segmentId, r, covariance2d, covariance3d );
+			final double[] polygonX = polygonsX != null ? polygonsX[ i ] : null;
+			final double[] polygonY = polygonsY != null ? polygonsY[ i ] : null;
+			final GeffNode node = new GeffNode( id, t, x, y, z, color, segmentId, r, covariance2d, covariance3d, polygonX, polygonY );
 			nodes.add( node );
 		}
 		return nodes;
@@ -873,36 +816,29 @@ public class GeffNode
 		// Write covariance3d in chunks
 		GeffUtils.writeDoubleMatrix( nodes, 6, GeffNode::getCovariance3d, writer, path + "/nodes/props/covariance3d/values", chunkSize );
 
-
-		// --> begin origin/main --
-
-			if ( geffVersion.startsWith( "0.4" ) )
+		if ( geffVersion.startsWith( "0.4" ) )
+		{
+			// Write polygon slices and values if available
+			final List< GeffSerializableVertex > vertices = new ArrayList<>();
+			final List< int[] > slices = new ArrayList<>();
+			int polygonOffset = 0;
+			for ( final GeffNode node : nodes )
 			{
-				// Write polygon slices and values if available
-				List< GeffSerializableVertex > geffVertices = new ArrayList<>();
-				int polygonOffset = 0;
-				for ( GeffNode node : nodes )
-				{
-					if ( node.polygonX == null || node.polygonY == null )
-						throw new IllegalArgumentException( "Polygon coordinates cannot be null" );
-					if ( node.getPolygonX().length != node.getPolygonY().length )
-						throw new IllegalArgumentException( "Polygon X and Y coordinates must have the same length" );
-					// TODO: DO NOT DO THIS!
-				//  		 Dont store something into GeffNode as temp variables just for writing!
-					//       Instead: We know how many nodes. So make int[] polygonStartIndex locally here.
-					node.setPolygonStartIndex( polygonOffset );
-					for ( int i = 0; i < node.getPolygonX().length; i++ )
-					{
-						geffVertices.add( new GeffSerializableVertex( node.getPolygonX()[ i ],
-								node.getPolygonY()[ i ] ) );
-					}
-					polygonOffset += node.getPolygonX().length;
-				}
-				ZarrUtils.writeChunkedIntMatrix( nodes, serializedPropsGroup, "polygon/slices", chunkSize, GeffNode::getPolygonSliceAsArray, 2 );
-				ZarrUtils.writeChunkedDoubleMatrix( geffVertices, serializedPropsGroup, "polygon/values", chunkSize, GeffSerializableVertex::getCoordinates, 2 );
+				if ( node.polygonX == null || node.polygonY == null )
+					throw new IllegalArgumentException( "Polygon coordinates cannot be null" );
+				if ( node.getPolygonX().length != node.getPolygonY().length )
+					throw new IllegalArgumentException( "Polygon X and Y coordinates must have the same length" );
+				final int numVertices = node.getPolygonX().length;
+				for ( int j = 0; j < numVertices; j++ )
+					vertices.add( new GeffSerializableVertex(
+							node.getPolygonX()[ j ],
+							node.getPolygonY()[ j ] ) );
+				slices.add( new int[] { polygonOffset, numVertices } );
+				polygonOffset += numVertices;
 			}
-
-		// --> end origin/main --
+			GeffUtils.writeIntMatrix( slices, 2, Function.identity(), writer, path + "/nodes/serialized_props/polygon/slices", chunkSize );
+			GeffUtils.writeDoubleMatrix( vertices, 2, GeffSerializableVertex::getCoordinates, writer, path + "/nodes/serialized_props/polygon/values", chunkSize );
+		}
 
 		LOG.debug( "Successfully wrote nodes to Zarr format with chunked structure" );
 	}
@@ -951,16 +887,16 @@ public class GeffNode
     @Override
     public int hashCode()
     {
-        int result = id;
-        result = 31 * result + t;
-        result = 31 * result + Double.hashCode( x );
-        result = 31 * result + Double.hashCode( y );
-        result = 31 * result + Double.hashCode( z );
-        result = 31 * result + ( color != null ? java.util.Arrays.hashCode( color ) : 0 );
-        result = 31 * result + segmentId;
-        result = 31 * result + Double.hashCode( radius );
-        result = 31 * result + ( covariance2d != null ? java.util.Arrays.hashCode( covariance2d ) : 0 );
-        result = 31 * result + ( covariance3d != null ? java.util.Arrays.hashCode( covariance3d ) : 0 );
+		int result = id;
+		result = 31 * result + t;
+		result = 31 * result + Double.hashCode( x );
+		result = 31 * result + Double.hashCode( y );
+		result = 31 * result + Double.hashCode( z );
+		result = 31 * result + Arrays.hashCode( color );
+		result = 31 * result + segmentId;
+		result = 31 * result + Double.hashCode( radius );
+		result = 31 * result + Arrays.hashCode( covariance2d );
+		result = 31 * result + Arrays.hashCode( covariance3d );
         return result;
     }
 }
