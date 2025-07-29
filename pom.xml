@@ -60,7 +60,7 @@
 			<groupId>org.janelia.saalfeldlab</groupId>
 			<artifactId>n5-zarr</artifactId>
 		</dependency>
-		
+
 		<dependency>
 			<groupId>org.janelia.saalfeldlab</groupId>
 			<artifactId>n5-blosc</artifactId>
@@ -82,12 +82,6 @@
 			<artifactId>slf4j-jdk14</artifactId>
 		</dependency>
 		-->
-
-		<dependency>
-            <groupId>com.bc.zarr</groupId>
-            <artifactId>jzarr</artifactId>
-            <version>0.3.5</version>
-        </dependency>
 
         <!-- include logback-classic at test runtime -->
         <dependency>

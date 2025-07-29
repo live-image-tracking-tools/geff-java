@@ -56,549 +56,554 @@ public class GeffNode
 {
 	private static final Logger LOG = LoggerFactory.getLogger( GeffNode.class );
 
-    // Node attributes
-    private int id;
-
-    private int t;
-
-    private double x;
-
-    private double y;
-
-    private double z;
-
-    private double[] color;
-
-    private int segmentId;
-
-    private double radius;
-
-    private double[] covariance2d;
-
-    private double[] covariance3d;
-
-    private double[] polygonX;
-
-    private double[] polygonY;
-
-    private static final double[] DEFAULT_COLOR = { 1.0, 1.0, 1.0, 1.0 }; // RGBA
-
-    public static final double DEFAULT_RADIUS = 1.0;
-
-    public static final double[] DEFAULT_COVARIANCE_2D = { 1.0, 0.0, 0.0, 1.0 };
-
-    public static final double[] DEFAULT_COVARIANCE_3D = { 1.0, 0.0, 0.0, 1.0, 0.0, 1.0 };
-
-    /**
-     * Default constructor
-     */
-    public GeffNode()
-    {}
-
-    /**
-     * Constructor with basic node parameters
-     *
-     * @param id
-     *            The unique identifier for the node.
-     * @param timepoint
-     *            The timepoint of the node.
-     * @param x
-     *            The x-coordinate of the node.
-     * @param y
-     *            The y-coordinate of the node.
-     * @param z
-     *            The z-coordinate of the node.
-     * @param color
-     *            The color of the node (RGBA).
-     * @param segmentId
-     *            The segment ID the node belongs to.
-     * @param radius
-     *            The radius of the node.
-     * @param covariance2d
-     *            The 2D covariance matrix of the node.
-     * @param covariance3d
-     *            The 3D covariance matrix of the node.
-     * @param polygonX
-     *            The x-coordinates of the polygon vertices.
-     * @param polygonY
-     *            The y-coordinates of the polygon vertices.
-     */
-    public GeffNode( int id, int timepoint, double x, double y, double z, double[] color, int segmentId, double radius,
-            double[] covariance2d, double[] covariance3d, double[] polygonX, double[] polygonY )
-    {
-        this.id = id;
-        this.t = timepoint;
-        this.x = x;
-        this.y = y;
-        this.z = z;
-        this.color = color != null ? color : DEFAULT_COLOR;
-        this.segmentId = segmentId;
-        this.radius = radius;
-        this.covariance2d = covariance2d != null ? covariance2d : DEFAULT_COVARIANCE_2D;
-        this.covariance3d = covariance3d != null ? covariance3d : DEFAULT_COVARIANCE_3D;
-        this.polygonX = polygonX != null ? polygonX : new double[ 0 ];
-        this.polygonY = polygonY != null ? polygonY : new double[ 0 ];
-    }
-
-    /**
-     * Get the unique identifier of the node.
-     *
-     * @return The unique identifier of the node.
-     */
-    public int getId()
-    {
-        return id;
-    }
-
-    /**
-     * Set the unique identifier of the node.
-     *
-     * @param id
-     *            The unique identifier to set.
-     */
-    public void setId( int id )
-    {
-        this.id = id;
-    }
-
-    /**
-     * Get the timepoint of the node.
-     *
-     * @return The timepoint of the node.
-     */
-    public int getT()
-    {
-        return t;
-    }
-
-    /**
-     * Set the timepoint of the node.
-     *
-     * @param timepoint
-     *            The timepoint to set.
-     */
-    public void setT( int timepoint )
-    {
-        this.t = timepoint;
-    }
-
-    /**
-     * Get the x-coordinate of the node.
-     *
-     * @return The x-coordinate of the node.
-     */
-    public double getX()
-    {
-        return x;
-    }
-
-    /**
-     * Set the x-coordinate of the node.
-     *
-     * @param x
-     *            The x-coordinate to set.
-     */
-    public void setX( double x )
-    {
-        this.x = x;
-    }
-
-    /**
-     * Get the y-coordinate of the node.
-     *
-     * @return The y-coordinate of the node.
-     */
-    public double getY()
-    {
-        return y;
-    }
-
-    /**
-     * Set the y-coordinate of the node.
-     *
-     * @param y
-     *            The y-coordinate to set.
-     */
-    public void setY( double y )
-    {
-        this.y = y;
-    }
-
-    /**
-     * Get the z-coordinate of the node.
-     *
-     * @return The z-coordinate of the node.
-     */
-    public double getZ()
-    {
-        return z;
-    }
-
-    /**
-     * Set the z-coordinate of the node.
-     *
-     * @param z
-     *            The z-coordinate to set.
-     */
-    public void setZ( double z )
-    {
-        this.z = z;
-    }
-
-    /**
-     * Get the color of the node.
-     *
-     * @return The color of the node as an RGBA array.
-     */
-    public double[] getColor()
-    {
-        return color;
-    }
-
-    /**
-     * Set the color of the node.
-     *
-     * @param color
-     *            The color to set as an RGBA array.
-     */
-    public void setColor( double[] color )
-    {
-        if ( color != null && color.length == 4 )
-        {
-            this.color = color;
-        }
-        else
-        {
-            throw new IllegalArgumentException( "Color must be a 4-element array" );
-        }
-    }
-
-    /**
-     * Get the segment ID of the node.
-     *
-     * @return The segment ID of the node.
-     */
-    public int getSegmentId()
-    {
-        return segmentId;
-    }
-
-    /**
-     * Set the segment ID of the node.
-     *
-     * @param segmentId
-     *            The segment ID to set.
-     */
-    public void setSegmentId( int segmentId )
-    {
-        this.segmentId = segmentId;
-    }
-
-    /**
-     * Get the radius of the node.
-     *
-     * @return The radius of the node.
-     */
-    public double getRadius()
-    {
-        return radius;
-    }
-
-    /**
-     * Set the radius of the node.
-     *
-     * @param radius
-     *            The radius to set.
-     */
-    public void setRadius( double radius )
-    {
-        this.radius = radius;
-    }
-
-    /**
-     * Get the 2D covariance matrix of the node.
-     *
-     * @return The 2D covariance matrix as a 4-element array.
-     */
-    public double[] getCovariance2d()
-    {
-        return covariance2d;
-    }
-
-    /**
-     * Set the 2D covariance matrix of the node.
-     *
-     * @param covariance2d
-     *            The 2D covariance matrix to set as a 4-element array.
-     * @throws IllegalArgumentException
-     *             if the covariance2d array is not of length 4.
-     */
-    public void setCovariance2d( double[] covariance2d )
-    {
-        if ( covariance2d != null && covariance2d.length == 4 )
-        {
-            this.covariance2d = covariance2d;
-        }
-        else
-        {
-            throw new IllegalArgumentException( "Covariance2D must be a 4-element array" );
-        }
-    }
-
-    /**
-     * Get the 3D covariance matrix of the node.
-     *
-     * @return The 3D covariance matrix as a 6-element array.
-     */
-    public double[] getCovariance3d()
-    {
-        return covariance3d;
-    }
-
-    /**
-     * Set the 3D covariance matrix of the node.
-     *
-     * @param covariance3d
-     *            The 3D covariance matrix to set as a 6-element array.
-     * @throws IllegalArgumentException
-     *             if the covariance3d array is not of length 6.
-     */
-    public void setCovariance3d( double[] covariance3d )
-    {
-        if ( covariance3d != null && covariance3d.length == 6 )
-        {
-            this.covariance3d = covariance3d;
-        }
-        else
-        {
-            throw new IllegalArgumentException( "Covariance3D must be a 6-element array" );
-        }
-    }
-
-    /**
-     * Get the x-coordinates of the polygon vertices.
-     *
-     * @return The x-coordinates of the polygon vertices.
-     */
-    public double[] getPolygonX()
-    {
-        return polygonX;
-    }
-
-    /**
-     * Get the y-coordinates of the polygon vertices.
-     *
-     * @return The y-coordinates of the polygon vertices.
-     */
-    public double[] getPolygonY()
-    {
-        return polygonY;
-    }
-
-    /**
-     * Set the x-coordinates of the polygon vertices.
-     *
-     * @param polygonX
-     *            The x-coordinates to set.
-     */
-    public void setPolygonX( double[] polygonX )
-    {
-        this.polygonX = polygonX != null ? polygonX : new double[ 0 ];
-    }
-
-    /**
-     * Set the y-coordinates of the polygon vertices.
-     *
-     * @param polygonY
-     *            The y-coordinates to set.
-     */
-    public void setPolygonY( double[] polygonY )
-    {
-        this.polygonY = polygonY != null ? polygonY : new double[ 0 ];
-    }
-
-    /**
-     * Returns the position of the node as a 3D array.
-     *
-     * @deprecated Use {@link #getX()}, {@link #getY()}, {@link #getZ()}
-     *             instead.
-     * @return The position of the node as a 3D array.
-     */
-    @Deprecated
-    public double[] getPosition()
-    {
-        return new double[] { x, y, z };
-    }
-
-    /**
-     * Set the position of the node.
-     *
-     * @deprecated Use {@link #setX(double)}, {@link #setY(double)},
-     *             {@link #setZ(double)} instead.
-     * @param position
-     *            The position of the node as a 3D array.
-     */
-    @Deprecated
-    public void setPosition( double[] position )
-    {
-        if ( position != null && position.length == 2 )
-        {
-            this.x = position[ 0 ];
-            this.y = position[ 1 ];
-            this.z = 0.0; // Default Z to 0
-        }
-        else if ( position != null && position.length == 3 )
-        {
-            this.x = position[ 0 ];
-            this.y = position[ 1 ];
-            this.z = position[ 2 ];
-        }
-        else
-        {
-            throw new IllegalArgumentException( "Position must be a 2D or 3D array" );
-        }
-    }
-
-    /**
-     * Builder for creating GeffNode instance.
-     *
-     * @return A new Builder instance for GeffNode.
-     */
-    public static Builder builder()
-    {
-        return new Builder();
-    }
-
-    public static class Builder
-    {
-        private int id;
-
-        private int timepoint;
-
-        private double x;
-
-        private double y;
-
-        private double z;
-
-        private double[] color = DEFAULT_COLOR;
-
-        private int segmentId;
-
-        private double radius = DEFAULT_RADIUS;
-
-        private double[] covariance2d = DEFAULT_COVARIANCE_2D;
-
-        private double[] covariance3d = DEFAULT_COVARIANCE_3D;
-
-        private double[] polygonX;
-
-        private double[] polygonY;
-
-        public Builder id( int id )
-        {
-            this.id = id;
-            return this;
-        }
-
-        public Builder timepoint( int timepoint )
-        {
-            this.timepoint = timepoint;
-            return this;
-        }
-
-        public Builder x( double x )
-        {
-            this.x = x;
-            return this;
-        }
-
-        public Builder y( double y )
-        {
-            this.y = y;
-            return this;
-        }
-
-        public Builder z( double z )
-        {
-            this.z = z;
-            return this;
-        }
-
-        public Builder color( double[] color )
-        {
-            if ( color != null && color.length == 4 )
-            {
-                this.color = color;
-            }
-            else
-            {
-                throw new IllegalArgumentException( "Color must be a 4-element array" );
-            }
-            return this;
-        }
-
-        public Builder segmentId( int segmentId )
-        {
-            this.segmentId = segmentId;
-            return this;
-        }
-
-        public Builder radius( double radius )
-        {
-            this.radius = radius;
-            return this;
-        }
-
-        public Builder covariance2d( double[] covariance2d )
-        {
-            if ( covariance2d != null && covariance2d.length == 4 )
-            {
-                this.covariance2d = covariance2d;
-            }
-            else
-            {
-                throw new IllegalArgumentException( "Covariance2D must be a 4-element array" );
-            }
-            return this;
-        }
-
-        public Builder covariance3d( double[] covariance3d )
-        {
-            if ( covariance3d != null && covariance3d.length == 6 )
-            {
-                this.covariance3d = covariance3d;
-            }
-            else
-            {
-                throw new IllegalArgumentException( "Covariance3D must be a 6-element array" );
-            }
-            return this;
-        }
-
-        public Builder polygonX( double[] polygonX )
-        {
-            this.polygonX = polygonX;
-            return this;
-        }
-
-        public Builder polygonY( double[] polygonY )
-        {
-            this.polygonY = polygonY;
-            return this;
-        }
-
-        public GeffNode build()
-        {
-            return new GeffNode( id, timepoint, x, y, z, color, segmentId, radius, covariance2d, covariance3d, polygonX, polygonY );
-        }
-    }
+	// Node attributes
+	private int id;
+
+	private int t;
+
+	private double x;
+
+	private double y;
+
+	private double z;
+
+	private double[] color;
+
+	private int segmentId;
+
+	private double radius;
+
+	private double[] covariance2d;
+
+	private double[] covariance3d;
+
+	private double[] polygonX;
+
+	private double[] polygonY;
+
+	private static final double[] DEFAULT_COLOR = { 1.0, 1.0, 1.0, 1.0 }; // RGBA
+
+	public static final double DEFAULT_RADIUS = 1.0;
+
+	public static final double[] DEFAULT_COVARIANCE_2D = { 1.0, 0.0, 0.0, 1.0 };
+
+	public static final double[] DEFAULT_COVARIANCE_3D = { 1.0, 0.0, 0.0, 1.0, 0.0, 1.0 };
+
+	/**
+	 * Default constructor
+	 */
+	public GeffNode()
+	{}
+
+	/**
+	 * Constructor with basic node parameters
+	 *
+	 * @param id
+	 * 		The unique identifier for the node.
+	 * @param timepoint
+	 * 		The timepoint of the node.
+	 * @param x
+	 * 		The x-coordinate of the node.
+	 * @param y
+	 * 		The y-coordinate of the node.
+	 * @param z
+	 * 		The z-coordinate of the node.
+	 * @param color
+	 * 		The color of the node (RGBA).
+	 * @param segmentId
+	 * 		The segment ID the node belongs to.
+	 * @param radius
+	 * 		The radius of the node.
+	 * @param covariance2d
+	 * 		The 2D covariance matrix of the node.
+	 * @param covariance3d
+	 * 		The 3D covariance matrix of the node.
+	 * @param polygonX
+	 * 		The x-coordinates of the polygon vertices.
+	 * @param polygonY
+	 * 		The y-coordinates of the polygon vertices.
+	 */
+	public GeffNode( int id, int timepoint, double x, double y, double z, double[] color, int segmentId, double radius,
+			double[] covariance2d, double[] covariance3d, double[] polygonX, double[] polygonY )
+	{
+		this.id = id;
+		this.t = timepoint;
+		this.x = x;
+		this.y = y;
+		this.z = z;
+		this.color = color != null ? color : DEFAULT_COLOR;
+		this.segmentId = segmentId;
+		this.radius = radius;
+		this.covariance2d = covariance2d != null ? covariance2d : DEFAULT_COVARIANCE_2D;
+		this.covariance3d = covariance3d != null ? covariance3d : DEFAULT_COVARIANCE_3D;
+		this.polygonX = polygonX != null ? polygonX : new double[ 0 ];
+		this.polygonY = polygonY != null ? polygonY : new double[ 0 ];
+	}
+
+	/**
+	 * Get the unique identifier of the node.
+	 *
+	 * @return The unique identifier of the node.
+	 */
+	public int getId()
+	{
+		return id;
+	}
+
+	/**
+	 * Set the unique identifier of the node.
+	 *
+	 * @param id
+	 * 		The unique identifier to set.
+	 */
+	public void setId( int id )
+	{
+		this.id = id;
+	}
+
+	/**
+	 * Get the timepoint of the node.
+	 *
+	 * @return The timepoint of the node.
+	 */
+	public int getT()
+	{
+		return t;
+	}
+
+	/**
+	 * Set the timepoint of the node.
+	 *
+	 * @param timepoint
+	 * 		The timepoint to set.
+	 */
+	public void setT( int timepoint )
+	{
+		this.t = timepoint;
+	}
+
+	/**
+	 * Get the x-coordinate of the node.
+	 *
+	 * @return The x-coordinate of the node.
+	 */
+	public double getX()
+	{
+		return x;
+	}
+
+	/**
+	 * Set the x-coordinate of the node.
+	 *
+	 * @param x
+	 * 		The x-coordinate to set.
+	 */
+	public void setX( double x )
+	{
+		this.x = x;
+	}
+
+	/**
+	 * Get the y-coordinate of the node.
+	 *
+	 * @return The y-coordinate of the node.
+	 */
+	public double getY()
+	{
+		return y;
+	}
+
+	/**
+	 * Set the y-coordinate of the node.
+	 *
+	 * @param y
+	 * 		The y-coordinate to set.
+	 */
+	public void setY( double y )
+	{
+		this.y = y;
+	}
+
+	/**
+	 * Get the z-coordinate of the node.
+	 *
+	 * @return The z-coordinate of the node.
+	 */
+	public double getZ()
+	{
+		return z;
+	}
+
+	/**
+	 * Set the z-coordinate of the node.
+	 *
+	 * @param z
+	 * 		The z-coordinate to set.
+	 */
+	public void setZ( double z )
+	{
+		this.z = z;
+	}
+
+	/**
+	 * Get the color of the node.
+	 *
+	 * @return The color of the node as an RGBA array.
+	 */
+	public double[] getColor()
+	{
+		return color;
+	}
+
+	/**
+	 * Set the color of the node.
+	 *
+	 * @param color
+	 * 		The color to set as an RGBA array.
+	 */
+	public void setColor( double[] color )
+	{
+		if ( color != null && color.length == 4 )
+		{
+			this.color = color;
+		}
+		else
+		{
+			throw new IllegalArgumentException( "Color must be a 4-element array" );
+		}
+	}
+
+	/**
+	 * Get the segment ID of the node.
+	 *
+	 * @return The segment ID of the node.
+	 */
+	public int getSegmentId()
+	{
+		return segmentId;
+	}
+
+	/**
+	 * Set the segment ID of the node.
+	 *
+	 * @param segmentId
+	 * 		The segment ID to set.
+	 */
+	public void setSegmentId( int segmentId )
+	{
+		this.segmentId = segmentId;
+	}
+
+	/**
+	 * Get the radius of the node.
+	 *
+	 * @return The radius of the node.
+	 */
+	public double getRadius()
+	{
+		return radius;
+	}
+
+	/**
+	 * Set the radius of the node.
+	 *
+	 * @param radius
+	 * 		The radius to set.
+	 */
+	public void setRadius( double radius )
+	{
+		this.radius = radius;
+	}
+
+	/**
+	 * Get the 2D covariance matrix of the node.
+	 *
+	 * @return The 2D covariance matrix as a 4-element array.
+	 */
+	public double[] getCovariance2d()
+	{
+		return covariance2d;
+	}
+
+	/**
+	 * Set the 2D covariance matrix of the node.
+	 *
+	 * @param covariance2d
+	 * 		The 2D covariance matrix to set as a 4-element array.
+	 *
+	 * @throws IllegalArgumentException
+	 * 		if the covariance2d array is not of length 4.
+	 */
+	public void setCovariance2d( double[] covariance2d )
+	{
+		if ( covariance2d != null && covariance2d.length == 4 )
+		{
+			this.covariance2d = covariance2d;
+		}
+		else
+		{
+			throw new IllegalArgumentException( "Covariance2D must be a 4-element array" );
+		}
+	}
+
+	/**
+	 * Get the 3D covariance matrix of the node.
+	 *
+	 * @return The 3D covariance matrix as a 6-element array.
+	 */
+	public double[] getCovariance3d()
+	{
+		return covariance3d;
+	}
+
+	/**
+	 * Set the 3D covariance matrix of the node.
+	 *
+	 * @param covariance3d
+	 * 		The 3D covariance matrix to set as a 6-element array.
+	 *
+	 * @throws IllegalArgumentException
+	 * 		if the covariance3d array is not of length 6.
+	 */
+	public void setCovariance3d( double[] covariance3d )
+	{
+		if ( covariance3d != null && covariance3d.length == 6 )
+		{
+			this.covariance3d = covariance3d;
+		}
+		else
+		{
+			throw new IllegalArgumentException( "Covariance3D must be a 6-element array" );
+		}
+	}
+
+	/**
+	 * Get the x-coordinates of the polygon vertices.
+	 *
+	 * @return The x-coordinates of the polygon vertices.
+	 */
+	public double[] getPolygonX()
+	{
+		return polygonX;
+	}
+
+	/**
+	 * Get the y-coordinates of the polygon vertices.
+	 *
+	 * @return The y-coordinates of the polygon vertices.
+	 */
+	public double[] getPolygonY()
+	{
+		return polygonY;
+	}
+
+	/**
+	 * Set the x-coordinates of the polygon vertices.
+	 *
+	 * @param polygonX
+	 * 		The x-coordinates to set.
+	 */
+	public void setPolygonX( double[] polygonX )
+	{
+		this.polygonX = polygonX != null ? polygonX : new double[ 0 ];
+	}
+
+	/**
+	 * Set the y-coordinates of the polygon vertices.
+	 *
+	 * @param polygonY
+	 * 		The y-coordinates to set.
+	 */
+	public void setPolygonY( double[] polygonY )
+	{
+		this.polygonY = polygonY != null ? polygonY : new double[ 0 ];
+	}
+
+	/**
+	 * Returns the position of the node as a 3D array.
+	 *
+	 * @return The position of the node as a 3D array.
+	 *
+	 * @deprecated Use {@link #getX()}, {@link #getY()}, {@link #getZ()}
+	 * instead.
+	 */
+	@Deprecated
+	public double[] getPosition()
+	{
+		return new double[] { x, y, z };
+	}
+
+	/**
+	 * Set the position of the node.
+	 *
+	 * @param position
+	 * 		The position of the node as a 3D array.
+	 *
+	 * @deprecated Use {@link #setX(double)}, {@link #setY(double)},
+	 * {@link #setZ(double)} instead.
+	 */
+	@Deprecated
+	public void setPosition( double[] position )
+	{
+		if ( position != null && position.length == 2 )
+		{
+			this.x = position[ 0 ];
+			this.y = position[ 1 ];
+			this.z = 0.0; // Default Z to 0
+		}
+		else if ( position != null && position.length == 3 )
+		{
+			this.x = position[ 0 ];
+			this.y = position[ 1 ];
+			this.z = position[ 2 ];
+		}
+		else
+		{
+			throw new IllegalArgumentException( "Position must be a 2D or 3D array" );
+		}
+	}
+
+	/**
+	 * Builder for creating GeffNode instance.
+	 *
+	 * @return A new Builder instance for GeffNode.
+	 */
+	public static Builder builder()
+	{
+		return new Builder();
+	}
+
+	public static class Builder
+	{
+		private int id;
+
+		private int timepoint;
+
+		private double x;
+
+		private double y;
+
+		private double z;
+
+		private double[] color = DEFAULT_COLOR;
+
+		private int segmentId;
+
+		private double radius = DEFAULT_RADIUS;
+
+		private double[] covariance2d = DEFAULT_COVARIANCE_2D;
+
+		private double[] covariance3d = DEFAULT_COVARIANCE_3D;
+
+		private double[] polygonX;
+
+		private double[] polygonY;
+
+		public Builder id( int id )
+		{
+			this.id = id;
+			return this;
+		}
+
+		public Builder timepoint( int timepoint )
+		{
+			this.timepoint = timepoint;
+			return this;
+		}
+
+		public Builder x( double x )
+		{
+			this.x = x;
+			return this;
+		}
+
+		public Builder y( double y )
+		{
+			this.y = y;
+			return this;
+		}
+
+		public Builder z( double z )
+		{
+			this.z = z;
+			return this;
+		}
+
+		public Builder color( double[] color )
+		{
+			if ( color != null && color.length == 4 )
+			{
+				this.color = color;
+			}
+			else
+			{
+				throw new IllegalArgumentException( "Color must be a 4-element array" );
+			}
+			return this;
+		}
+
+		public Builder segmentId( int segmentId )
+		{
+			this.segmentId = segmentId;
+			return this;
+		}
+
+		public Builder radius( double radius )
+		{
+			this.radius = radius;
+			return this;
+		}
+
+		public Builder covariance2d( double[] covariance2d )
+		{
+			if ( covariance2d != null && covariance2d.length == 4 )
+			{
+				this.covariance2d = covariance2d;
+			}
+			else
+			{
+				throw new IllegalArgumentException( "Covariance2D must be a 4-element array" );
+			}
+			return this;
+		}
+
+		public Builder covariance3d( double[] covariance3d )
+		{
+			if ( covariance3d != null && covariance3d.length == 6 )
+			{
+				this.covariance3d = covariance3d;
+			}
+			else
+			{
+				throw new IllegalArgumentException( "Covariance3D must be a 6-element array" );
+			}
+			return this;
+		}
+
+		public Builder polygonX( double[] polygonX )
+		{
+			this.polygonX = polygonX;
+			return this;
+		}
+
+		public Builder polygonY( double[] polygonY )
+		{
+			this.polygonY = polygonY;
+			return this;
+		}
+
+		public GeffNode build()
+		{
+			return new GeffNode( id, timepoint, x, y, z, color, segmentId, radius, covariance2d, covariance3d, polygonX, polygonY );
+		}
+	}
 
 	/**
 	 * Read nodes from Zarr format with default version and chunked structure
 	 *
 	 * @param zarrPath
-	 *            The path to the Zarr directory containing nodes.
+	 * 		The path to the Zarr directory containing nodes.
+	 *
 	 * @return List of GeffNode objects read from the Zarr path.
 	 */
 	public static List< GeffNode > readFromZarr( String zarrPath ) throws IOException
@@ -610,9 +615,10 @@ public class GeffNode
 	 * Read nodes from Zarr format with specified version and chunked structure
 	 *
 	 * @param zarrPath
-	 *            The path to the Zarr directory containing nodes.
+	 * 		The path to the Zarr directory containing nodes.
 	 * @param geffVersion
-	 *            The version of the GEFF format to read.
+	 * 		The version of the GEFF format to read.
+	 *
 	 * @return List of GeffNode objects read from the Zarr path.
 	 */
 	public static List< GeffNode > readFromZarr( final String zarrPath, final String geffVersion )
@@ -720,7 +726,7 @@ public class GeffNode
 		final List< GeffNode > nodes = new ArrayList<>( numNodes );
 		for ( int i = 0; i < numNodes; i++ )
 		{
-			final int id	 = nodeIds[ i ];
+			final int id = nodeIds[ i ];
 			final int t = timepoints != null ? timepoints[ i ] : -1;
 			final double x = xCoords != null ? xCoords[ i ] : Double.NaN;
 			final double y = yCoords != null ? yCoords[ i ] : Double.NaN;
@@ -844,49 +850,49 @@ public class GeffNode
 	}
 
 	@Override
-    public String toString()
-    {
-        StringBuilder sb = new StringBuilder( "GeffNode{" )
-                .append( "id=" ).append( id )
-                .append( ", t=" ).append( t )
-                .append( ", x=" ).append( String.format( "%.2f", x ) )
-                .append( ", y=" ).append( String.format( "%.2f", y ) )
-                .append( ", z=" ).append( String.format( "%.2f", z ) )
-                .append( color != null ? ", color=" + java.util.Arrays.toString( color ) : "" )
-                .append( ", segId=" ).append( segmentId )
-                .append( "radius=" ).append( String.format( "%.2f", radius ) )
-                .append( covariance2d != null ? ", covariance2d=" + java.util.Arrays.toString( covariance2d ) : "" )
-                .append( covariance3d != null ? ", covariance3d=" + java.util.Arrays.toString( covariance3d ) : "" )
-                .append( "}" );
-        return sb.toString();
-    }
+	public String toString()
+	{
+		StringBuilder sb = new StringBuilder( "GeffNode{" )
+				.append( "id=" ).append( id )
+				.append( ", t=" ).append( t )
+				.append( ", x=" ).append( String.format( "%.2f", x ) )
+				.append( ", y=" ).append( String.format( "%.2f", y ) )
+				.append( ", z=" ).append( String.format( "%.2f", z ) )
+				.append( color != null ? ", color=" + java.util.Arrays.toString( color ) : "" )
+				.append( ", segId=" ).append( segmentId )
+				.append( "radius=" ).append( String.format( "%.2f", radius ) )
+				.append( covariance2d != null ? ", covariance2d=" + java.util.Arrays.toString( covariance2d ) : "" )
+				.append( covariance3d != null ? ", covariance3d=" + java.util.Arrays.toString( covariance3d ) : "" )
+				.append( "}" );
+		return sb.toString();
+	}
 
-    @Override
-    public boolean equals( Object obj )
-    {
-        if ( this == obj )
-            return true;
-        if ( obj == null || getClass() != obj.getClass() )
-            return false;
+	@Override
+	public boolean equals( Object obj )
+	{
+		if ( this == obj )
+			return true;
+		if ( obj == null || getClass() != obj.getClass() )
+			return false;
 
-        GeffNode geffNode = ( GeffNode ) obj;
-        return id == geffNode.id &&
-                t == geffNode.t &&
-                Double.compare( geffNode.x, x ) == 0 &&
-                Double.compare( geffNode.y, y ) == 0 &&
-                Double.compare( geffNode.z, z ) == 0 &&
-                java.util.Arrays.equals( color, geffNode.color ) &&
-                segmentId == geffNode.segmentId &&
-                Double.compare( geffNode.radius, radius ) == 0 &&
-                java.util.Arrays.equals( covariance2d, geffNode.covariance2d ) &&
-                java.util.Arrays.equals( covariance3d, geffNode.covariance3d ) &&
-                java.util.Arrays.equals( polygonX, geffNode.polygonX ) &&
-                java.util.Arrays.equals( polygonY, geffNode.polygonY );
-    }
+		GeffNode geffNode = ( GeffNode ) obj;
+		return id == geffNode.id &&
+				t == geffNode.t &&
+				Double.compare( geffNode.x, x ) == 0 &&
+				Double.compare( geffNode.y, y ) == 0 &&
+				Double.compare( geffNode.z, z ) == 0 &&
+				java.util.Arrays.equals( color, geffNode.color ) &&
+				segmentId == geffNode.segmentId &&
+				Double.compare( geffNode.radius, radius ) == 0 &&
+				java.util.Arrays.equals( covariance2d, geffNode.covariance2d ) &&
+				java.util.Arrays.equals( covariance3d, geffNode.covariance3d ) &&
+				java.util.Arrays.equals( polygonX, geffNode.polygonX ) &&
+				java.util.Arrays.equals( polygonY, geffNode.polygonY );
+	}
 
-    @Override
-    public int hashCode()
-    {
+	@Override
+	public int hashCode()
+	{
 		int result = id;
 		result = 31 * result + t;
 		result = 31 * result + Double.hashCode( x );
@@ -897,6 +903,6 @@ public class GeffNode
 		result = 31 * result + Double.hashCode( radius );
 		result = 31 * result + Arrays.hashCode( covariance2d );
 		result = 31 * result + Arrays.hashCode( covariance3d );
-        return result;
-    }
+		return result;
+	}
 }

@@ -53,150 +53,150 @@ public class GeffEdge
 {
 	private static final Logger LOG = LoggerFactory.getLogger( GeffEdge.class );
 
-    public static final int DEFAULT_EDGE_ID = -1; // Default ID for edges if not
-                                                  // specified
+	public static final int DEFAULT_EDGE_ID = -1; // Default ID for edges if not
+	                                              // specified
 
-    public static final double DEFAULT_SCORE = -1; // Default score for edges if
-                                                   // not specified
+	public static final double DEFAULT_SCORE = -1; // Default score for edges if
+	                                               // not specified
 
-    public static final double DEFAULT_DISTANCE = -1; // Default distance for
-                                                      // edges if not specified
+	public static final double DEFAULT_DISTANCE = -1; // Default distance for
+	                                                  // edges if not specified
 
-    // Edge attributes
-    private int sourceNodeId;
+	// Edge attributes
+	private int sourceNodeId;
 
-    private int targetNodeId;
+	private int targetNodeId;
 
-    private int id; // Edge ID if available
+	private int id; // Edge ID if available
 
-    private double score; // Optional score for the edge
+	private double score; // Optional score for the edge
 
-    private double distance; // Optional distance metric for the edge
+	private double distance; // Optional distance metric for the edge
 
-    /**
-     * Default constructor
-     */
-    public GeffEdge()
-    {}
+	/**
+	 * Default constructor
+	 */
+	public GeffEdge()
+	{}
 
-    /**
-     * Constructor with edge ID, source and target node IDs
-     */
-    public GeffEdge( int id, int sourceNodeId, int targetNodeId, double score, double distance )
-    {
-        this.id = id;
-        this.sourceNodeId = sourceNodeId;
-        this.targetNodeId = targetNodeId;
-        this.score = score;
-        this.distance = distance;
-    }
+	/**
+	 * Constructor with edge ID, source and target node IDs
+	 */
+	public GeffEdge( int id, int sourceNodeId, int targetNodeId, double score, double distance )
+	{
+		this.id = id;
+		this.sourceNodeId = sourceNodeId;
+		this.targetNodeId = targetNodeId;
+		this.score = score;
+		this.distance = distance;
+	}
 
-    // Getters and Setters
-    public int getId()
-    {
-        return id;
-    }
+	// Getters and Setters
+	public int getId()
+	{
+		return id;
+	}
 
-    public void setId( int id )
-    {
-        this.id = id;
-    }
+	public void setId( int id )
+	{
+		this.id = id;
+	}
 
-    public int getSourceNodeId()
-    {
-        return sourceNodeId;
-    }
+	public int getSourceNodeId()
+	{
+		return sourceNodeId;
+	}
 
-    public void setSourceNodeId( int sourceNodeId )
-    {
-        this.sourceNodeId = sourceNodeId;
-    }
+	public void setSourceNodeId( int sourceNodeId )
+	{
+		this.sourceNodeId = sourceNodeId;
+	}
 
-    public int getTargetNodeId()
-    {
-        return targetNodeId;
-    }
+	public int getTargetNodeId()
+	{
+		return targetNodeId;
+	}
 
-    public void setTargetNodeId( int targetNodeId )
-    {
-        this.targetNodeId = targetNodeId;
-    }
+	public void setTargetNodeId( int targetNodeId )
+	{
+		this.targetNodeId = targetNodeId;
+	}
 
-    public double getScore()
-    {
-        return score;
-    }
+	public double getScore()
+	{
+		return score;
+	}
 
-    public void setScore( double score )
-    {
-        this.score = score;
-    }
+	public void setScore( double score )
+	{
+		this.score = score;
+	}
 
-    public double getDistance()
-    {
-        return distance;
-    }
+	public double getDistance()
+	{
+		return distance;
+	}
 
-    public void setDistance( double distance )
-    {
-        this.distance = distance;
-    }
+	public void setDistance( double distance )
+	{
+		this.distance = distance;
+	}
 
-    /**
-     * Builder pattern for creating GeffEdge instances
-     */
-    public static Builder builder()
-    {
-        return new Builder();
-    }
+	/**
+	 * Builder pattern for creating GeffEdge instances
+	 */
+	public static Builder builder()
+	{
+		return new Builder();
+	}
 
-    public static class Builder
-    {
-        private int id = DEFAULT_EDGE_ID;
+	public static class Builder
+	{
+		private int id = DEFAULT_EDGE_ID;
 
-        private int sourceNodeId;
+		private int sourceNodeId;
 
-        private int targetNodeId;
+		private int targetNodeId;
 
-        private double score = DEFAULT_SCORE;
+		private double score = DEFAULT_SCORE;
 
-        private double distance = DEFAULT_DISTANCE;
+		private double distance = DEFAULT_DISTANCE;
 
-        public Builder setId( int id )
-        {
-            this.id = id;
-            return this;
-        }
+		public Builder setId( int id )
+		{
+			this.id = id;
+			return this;
+		}
 
-        public Builder setSourceNodeId( int sourceNodeId )
-        {
-            this.sourceNodeId = sourceNodeId;
-            return this;
-        }
+		public Builder setSourceNodeId( int sourceNodeId )
+		{
+			this.sourceNodeId = sourceNodeId;
+			return this;
+		}
 
-        public Builder setTargetNodeId( int targetNodeId )
-        {
-            this.targetNodeId = targetNodeId;
-            return this;
-        }
+		public Builder setTargetNodeId( int targetNodeId )
+		{
+			this.targetNodeId = targetNodeId;
+			return this;
+		}
 
-        public Builder setScore( double score )
-        {
-            this.score = score;
-            return this;
-        }
+		public Builder setScore( double score )
+		{
+			this.score = score;
+			return this;
+		}
 
-        public Builder setDistance( double distance )
-        {
-            this.distance = distance;
-            return this;
-        }
+		public Builder setDistance( double distance )
+		{
+			this.distance = distance;
+			return this;
+		}
 
-        public GeffEdge build()
-        {
-            return new GeffEdge( id, sourceNodeId, targetNodeId, score, distance );
-        }
-    }
+		public GeffEdge build()
+		{
+			return new GeffEdge( id, sourceNodeId, targetNodeId, score, distance );
+		}
+	}
 
 	/**
 	 * Read edges from a Zarr group
@@ -233,11 +233,11 @@ public class GeffEdge
 		final int numEdges = edgeIds.size()[ 1 ];
 
 		// Read distances from chunks
-		final double[] distances = GeffUtils.readAsDoubleArray( reader, "/edges/props/distance/values", "distances" );
+		final double[] distances = GeffUtils.readAsDoubleArray( reader, path + "/edges/props/distance/values", "distances" );
 		verifyLength( distances, numEdges, "/edges/props/distance/values" );
 
 		// Read scores from chunks
-		final double[] scores = GeffUtils.readAsDoubleArray( reader, "/edges/props/score/values", "scores" );
+		final double[] scores = GeffUtils.readAsDoubleArray( reader, path + "/edges/props/score/values", "scores" );
 		verifyLength( scores, numEdges, "/edges/props/score/values" );
 
 		// Create edge objects
@@ -311,90 +311,90 @@ public class GeffEdge
 		GeffUtils.writeDoubleArray( edges, GeffEdge::getScore, writer, path + "/edges/props/score/values", chunkSize );
 	}
 
-    private static void printEdgeIdStuff( List< GeffEdge > edges )
-    {
-        // Write edges in chunks
-        int totalEdges = edges.size();
+	private static void printEdgeIdStuff( List< GeffEdge > edges )
+	{
+		// Write edges in chunks
+		int totalEdges = edges.size();
 
-        // Analyze edge data format
-        long validEdges = edges.stream().filter( GeffEdge::isValid ).count();
-        long selfLoops = edges.stream().filter( GeffEdge::isSelfLoop ).count();
+		// Analyze edge data format
+		long validEdges = edges.stream().filter( GeffEdge::isValid ).count();
+		long selfLoops = edges.stream().filter( GeffEdge::isSelfLoop ).count();
 
-        System.out.println( "Edge analysis:" );
-        System.out.println( "- Valid edges: " + validEdges + "/" + edges.size() );
-        if ( selfLoops > 0 )
-        {
-            System.out.println( "- Self-loops detected: " + selfLoops );
-        }
-        System.out.println( "- Format: Chunked 2D arrays [[source1, target1], [source2, target2], ...]" );
+		System.out.println( "Edge analysis:" );
+		System.out.println( "- Valid edges: " + validEdges + "/" + edges.size() );
+		if ( selfLoops > 0 )
+		{
+			System.out.println( "- Self-loops detected: " + selfLoops );
+		}
+		System.out.println( "- Format: Chunked 2D arrays [[source1, target1], [source2, target2], ...]" );
 
-        // Log summary
-        int uniqueSourceNodes = ( int ) edges.stream().mapToInt( GeffEdge::getSourceNodeId ).distinct().count();
-        int uniqueTargetNodes = ( int ) edges.stream().mapToInt( GeffEdge::getTargetNodeId ).distinct().count();
+		// Log summary
+		int uniqueSourceNodes = ( int ) edges.stream().mapToInt( GeffEdge::getSourceNodeId ).distinct().count();
+		int uniqueTargetNodes = ( int ) edges.stream().mapToInt( GeffEdge::getTargetNodeId ).distinct().count();
 
-        System.out.println( "Successfully wrote edges to Zarr format:" );
-        System.out.println( "- " + totalEdges + " edges written" );
-        System.out.println( "- Source nodes: " + uniqueSourceNodes + " unique" );
-        System.out.println( "- Target nodes: " + uniqueTargetNodes + " unique" );
+		System.out.println( "Successfully wrote edges to Zarr format:" );
+		System.out.println( "- " + totalEdges + " edges written" );
+		System.out.println( "- Source nodes: " + uniqueSourceNodes + " unique" );
+		System.out.println( "- Target nodes: " + uniqueTargetNodes + " unique" );
 
-        // Sample verification
-        if ( !edges.isEmpty() )
-        {
-            System.out.println( "Sample written edge data:" );
-            for ( int i = 0; i < Math.min( 3, edges.size() ); i++ )
-            {
-                GeffEdge edge = edges.get( i );
-                System.out.println( "  [" + edge.getSourceNodeId() + ", " + edge.getTargetNodeId() + "] - " + edge );
-            }
-        }
-    }
+		// Sample verification
+		if ( !edges.isEmpty() )
+		{
+			System.out.println( "Sample written edge data:" );
+			for ( int i = 0; i < Math.min( 3, edges.size() ); i++ )
+			{
+				GeffEdge edge = edges.get( i );
+				System.out.println( "  [" + edge.getSourceNodeId() + ", " + edge.getTargetNodeId() + "] - " + edge );
+			}
+		}
+	}
 
-    /**
-     * Check if this edge is valid (has valid source and target node IDs)
-     */
-    public boolean isValid()
-    {
-        return sourceNodeId >= 0 && targetNodeId >= 0;
-    }
+	/**
+	 * Check if this edge is valid (has valid source and target node IDs)
+	 */
+	public boolean isValid()
+	{
+		return sourceNodeId >= 0 && targetNodeId >= 0;
+	}
 
-    /**
-     * Check if this edge represents a self-loop (source == target)
-     */
-    public boolean isSelfLoop()
-    {
-        return sourceNodeId == targetNodeId;
-    }
+	/**
+	 * Check if this edge represents a self-loop (source == target)
+	 */
+	public boolean isSelfLoop()
+	{
+		return sourceNodeId == targetNodeId;
+	}
 
-    @Override
-    public String toString()
-    {
-        return String.format( "GeffEdge{id=%d, source=%d, target=%d}",
-                id, sourceNodeId, targetNodeId );
-    }
+	@Override
+	public String toString()
+	{
+		return String.format( "GeffEdge{id=%d, source=%d, target=%d}",
+				id, sourceNodeId, targetNodeId );
+	}
 
-    @Override
-    public boolean equals( Object obj )
-    {
-        if ( this == obj )
-            return true;
-        if ( obj == null || getClass() != obj.getClass() )
-            return false;
+	@Override
+	public boolean equals( Object obj )
+	{
+		if ( this == obj )
+			return true;
+		if ( obj == null || getClass() != obj.getClass() )
+			return false;
 
-        GeffEdge geffEdge = ( GeffEdge ) obj;
-        return sourceNodeId == geffEdge.sourceNodeId &&
-                targetNodeId == geffEdge.targetNodeId &&
-                id == geffEdge.id &&
-                Double.compare( geffEdge.score, score ) == 0 &&
-                Double.compare( geffEdge.distance, distance ) == 0;
-    }
+		GeffEdge geffEdge = ( GeffEdge ) obj;
+		return sourceNodeId == geffEdge.sourceNodeId &&
+				targetNodeId == geffEdge.targetNodeId &&
+				id == geffEdge.id &&
+				Double.compare( geffEdge.score, score ) == 0 &&
+				Double.compare( geffEdge.distance, distance ) == 0;
+	}
 
-    @Override
-    public int hashCode()
-    {
-        int result = sourceNodeId;
-        result = 31 * result + targetNodeId;
-        result = 31 * result + id;
-        result = 31 * result + Double.hashCode( score );
-        return result;
-    }
+	@Override
+	public int hashCode()
+	{
+		int result = sourceNodeId;
+		result = 31 * result + targetNodeId;
+		result = 31 * result + id;
+		result = 31 * result + Double.hashCode( score );
+		return result;
+	}
 }
