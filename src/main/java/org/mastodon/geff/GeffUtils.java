@@ -27,7 +27,7 @@ import net.imglib2.iterator.IntervalIterator;
 import net.imglib2.util.Intervals;
 import net.imglib2.util.Util;
 
-class GeffUtils
+public class GeffUtils
 {
 	private static final Logger LOG = LoggerFactory.getLogger( GeffUtils.class );
 
