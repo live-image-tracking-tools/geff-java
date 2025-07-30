@@ -6,13 +6,13 @@
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -178,7 +178,7 @@ public class GeffTest
 
         // Test invalid metadata - create axes with invalid bounds
         GeffMetadata invalidMetadata = new GeffMetadata();
-        invalidMetadata.setGeffVersion( "0.1" );
+        invalidMetadata.setGeffVersion( "0.2" );
         invalidMetadata.setDirected( false );
 
         // Create invalid axes (min > max)
@@ -279,9 +279,9 @@ public class GeffTest
 
         // Test various valid version formats
         String[] validVersions = {
-                "0.0", "0.1", "0.2", "0.3", "0.4",
-                "0.1.1", "0.2.0", "0.3.5",
-                "0.2.2.dev20", "0.1.0-alpha.1", "0.3.0-beta.2+build.123"
+                "0.2", "0.3", "0.4",
+                "0.2.0", "0.3.5",
+                "0.2.2.dev20", "0.2.0-alpha.1", "0.3.0-beta.2+build.123"
         };
 
         for ( String version : validVersions )
@@ -293,7 +293,7 @@ public class GeffTest
         }
 
         // Test invalid versions
-        String[] invalidVersions = { "1.0", "invalid", "0.1..x" };
+        String[] invalidVersions = { "1.0", "0.6", "invalid", "0.1..x" };
 
         for ( String version : invalidVersions )
         {

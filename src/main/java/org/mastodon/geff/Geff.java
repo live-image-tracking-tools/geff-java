@@ -6,13 +6,13 @@
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -28,15 +28,10 @@
  */
 package org.mastodon.geff;
 
-import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
-import com.bc.zarr.ZarrArray;
-import com.bc.zarr.ZarrGroup;
-
-import ucar.ma2.InvalidRangeException;
+import org.janelia.saalfeldlab.n5.N5Exception.N5IOException;
 
 public class Geff
 {
@@ -63,18 +58,19 @@ public class Geff
         System.out.println( "Geff library version: " + VERSION );
 
         String zarrPath = "src/test/resources/mouse-20250719.zarr/tracks";
-        String outputZarrPath = "src/test/resources/mouse-20250719_output.zarr/tracks";
+		String outputZarrPath = "src/test/resources/mouse-20250719_output.zarr/tracks";
+		String n5OutputZarrPath = "src/test/resources/n5-mouse-20250719_output.zarr/tracks";
 
         try
         {
             // Demonstrate reading metadata
             System.out.println( "\n=== Reading Metadata ===" );
-            GeffMetadata metadata = GeffMetadata.readFromZarr( zarrPath );
+			GeffMetadata metadata = GeffMetadata.readFromZarr( zarrPath );
             System.out.println( "Metadata loaded:" + metadata );
 
             // Demonstrate reading nodes
             System.out.println( "\n=== Reading Nodes ===" );
-            List< GeffNode > nodes = GeffNode.readFromZarr( zarrPath, metadata.getGeffVersion() );
+			List< GeffNode > nodes = GeffNode.readFromZarr( zarrPath, metadata.getGeffVersion() );
             System.out.println( "Read " + nodes.size() + " nodes:" );
             for ( int i = 0; i < Math.min( 5, nodes.size() ); i++ )
             {
@@ -101,21 +97,17 @@ public class Geff
             // Try to write nodes (will show what would be written)
             try
             {
-                GeffNode.writeToZarr( nodes, outputZarrPath, ZarrUtils.getChunkSize( zarrPath ) );
+                GeffNode.writeToZarr( nodes, outputZarrPath, GeffUtils.getChunkSize( zarrPath ) );
             }
             catch ( UnsupportedOperationException e )
             {
                 System.out.println( "Note: " + e.getMessage() );
             }
-            catch ( InvalidRangeException e )
-            {
-                System.err.println( "InvalidRangeException during node writing: " + e.getMessage() );
-            }
 
             // Try to write edges (will show what would be written)
             try
             {
-                GeffEdge.writeToZarr( edges, outputZarrPath, ZarrUtils.getChunkSize( zarrPath ) );
+                GeffEdge.writeToZarr( edges, outputZarrPath, GeffUtils.getChunkSize( zarrPath ) );
             }
             catch ( UnsupportedOperationException e )
             {
@@ -139,60 +131,15 @@ public class Geff
                     + " edges" );
 
         }
-        catch ( IOException e )
+        catch ( N5IOException e )
         {
-            System.err.println( "IOException occurred: " + e.getMessage() );
-            e.printStackTrace();
-        }
-        catch ( InvalidRangeException e )
-        {
-            System.err.println( "InvalidRangeException occurred: " + e.getMessage() );
+            System.err.println( "N5IOException occurred: " + e.getMessage() );
             e.printStackTrace();
         }
         catch ( Exception e )
         {
             System.err.println( "Unexpected exception occurred: " + e.getMessage() );
-            e.printStackTrace();
-        }
-
-        // Also demonstrate the original Zarr exploration code
-        System.out.println( "\n=== Original Zarr Exploration ===" );
-        try
-        {
-            final ZarrGroup zarrTracks = ZarrGroup.open( zarrPath );
-            final Iterator< String > groupKeyIter = zarrTracks.getGroupKeys().iterator();
-            while ( groupKeyIter.hasNext() )
-            {
-                String groupKey = groupKeyIter.next();
-                System.out.println( "Found group: " + groupKey );
-            }
-            final Iterator< String > arrayKeyIter = zarrTracks.getArrayKeys().iterator();
-            while ( arrayKeyIter.hasNext() )
-            {
-                String arrayKey = arrayKeyIter.next();
-                System.out.println( "Found array: " + arrayKey );
-            }
-            final Iterator< String > attrKeyIter = zarrTracks.getAttributes().keySet().iterator();
-            while ( attrKeyIter.hasNext() )
-            {
-                String attrKey = attrKeyIter.next();
-                System.out.print( "Found attribute: " + attrKey );
-                Object attrValue = zarrTracks.getAttributes().get( attrKey );
-                System.out.println( "  Value: " + attrValue );
-            }
-            // Example of opening an array
-            System.out.println( "Opening 'nodes/ids' array..." );
-            ZarrArray nodesIds = zarrTracks.openArray( "nodes/ids" );
-            double[] nodesIdsData = ( double[] ) nodesIds.read();
-            System.out.println( "Read nodes/ids data: " + nodesIdsData.length + " elements." );
-        }
-        catch ( IOException e )
-        {
-            e.printStackTrace();
-        }
-        catch ( InvalidRangeException e )
-        {
-            e.printStackTrace();
+			e.printStackTrace();
         }
     }
 

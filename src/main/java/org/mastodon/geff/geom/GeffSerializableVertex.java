@@ -1,8 +1,6 @@
 package org.mastodon.geff.geom;
 
-import org.mastodon.geff.ZarrEntity;
-
-public class GeffSerializableVertex implements ZarrEntity
+public class GeffSerializableVertex
 {
     final double x;
 
@@ -18,5 +16,4 @@ public class GeffSerializableVertex implements ZarrEntity
     {
         return new double[] { x, y };
     }
-
 }

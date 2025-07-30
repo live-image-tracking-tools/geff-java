@@ -22,6 +22,7 @@
         <releaseProfiles>sign,deploy-to-scijava</releaseProfiles>
 
         <enforcer.skip>true</enforcer.skip>
+		<imglib2.version>7.1.5</imglib2.version>
 
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
         <sonar.java.coveragePlugin>jacoco</sonar.java.coveragePlugin>
@@ -47,11 +48,37 @@
     </licenses>
 
     <dependencies>
-        <dependency>
-            <groupId>com.bc.zarr</groupId>
-            <artifactId>jzarr</artifactId>
-            <version>0.3.5</version>
-        </dependency>
+		<dependency>
+			<groupId>org.janelia.saalfeldlab</groupId>
+			<artifactId>n5</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.janelia.saalfeldlab</groupId>
+			<artifactId>n5-zarr</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.janelia.saalfeldlab</groupId>
+			<artifactId>n5-blosc</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>net.imglib2</groupId>
+			<artifactId>imglib2</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-api</artifactId>
+		</dependency>
+
+		<!--
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-jdk14</artifactId>
+		</dependency>
+		-->
 
         <!-- include logback-classic at test runtime -->
         <dependency>

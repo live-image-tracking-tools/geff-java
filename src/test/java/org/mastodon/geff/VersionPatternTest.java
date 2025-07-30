@@ -6,13 +6,13 @@
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -44,15 +44,15 @@ public class VersionPatternTest
     {
         // Test cases for different version formats that should be accepted
         String[] validVersions = {
-                "0.1", // Basic major.minor
-                "0.1.1", // With patch version
+                "0.2", // Basic major.minor
+                "0.2.1", // With patch version
                 "0.2.2", // Another patch version
                 "0.2.2.dev20", // Development version
                 "0.2.2.dev20+g611e7a2", // With git hash
                 "0.2.2.dev20+g611e7a2.d20250719", // Full development version
                 "0.3.0-alpha.1", // Alpha version
-                "0.1.0-beta.2+build.123", // Beta with build metadata
-                "0.0.5.rc1", // Release candidate
+                "0.2.0-beta.2+build.123", // Beta with build metadata
+                "0.2.5.rc1", // Release candidate
         };
 
         for ( String version : validVersions )
