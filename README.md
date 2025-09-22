@@ -3,15 +3,15 @@
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=live-image-tracking-tools_geff-java&metric=coverage)](https://sonarcloud.io/summary/overall?id=live-image-tracking-tools_geff-java)
 [![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=live-image-tracking-tools_geff-java&metric=ncloc)](https://sonarcloud.io/summary/overall?id=live-image-tracking-tools_geff-java)
 
-# geff Java implementation
+# GEFF Java
 
-This repository contains the Java implementation of the [geff](https://github.com/live-image-tracking-tools/geff) library.
+This repository contains the Java implementation of the [geff](https://github.com/live-image-tracking-tools/geff) specification.
 
-The **Graph Exchange Format for Features (Geff)** is a standardized format for storing and exchanging biological tracking data, particularly for cell tracking and lineage analysis. This Java implementation provides comprehensive support for reading and writing Geff data using the Zarr storage format.
+The **Graph Exchange File Format (GEFF)** is a standardized format for storing and exchanging graphs, particularly for cell tracking and lineage analysis. This Java implementation provides comprehensive support for reading and writing GEFF data using the Zarr storage format.
 
 ## Features
 
-- **Full Geff specification compliance** - Supports Geff versions 0.0, 0.1, 0.2, and 0.3 (including patch versions, development versions, and metadata like 0.2.2.dev20+g611e7a2.d20250719)
+- **Full GEFF specification compliance** - Supports Geff versions 0.0, 0.1, 0.2, and 0.3 (including patch versions, development versions, and metadata like 0.2.2.dev20+g611e7a2.d20250719)
 - **Zarr-based storage** - Efficient chunked array storage for large-scale tracking data
 - **Complete data model** - Support for nodes (spatial-temporal features), edges (connections), and metadata
 - **Flexible metadata handling** - Axis-based metadata with GeffAxis objects for spatial and temporal dimensions
