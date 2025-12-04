@@ -153,6 +153,23 @@ mvn test
 mvn package
 ```
 
+## Cross-Language Tests
+
+Round-trip tests validate interoperability between geff-java and the Python reference implementation.
+
+**Requirements:**
+- [uv](https://docs.astral.sh/uv/) (Python package manager)
+- [c-blosc](https://github.com/Blosc/c-blosc) native library (`brew install c-blosc` on macOS)
+
+**Run tests:**
+```bash
+mvn package -DskipTests
+cd cross-language-tests
+uv run run_tests.py
+```
+
+The tests create GEFF files with Python, read/write them with Java, and validate the results.
+
 ## Data Format
 
 The library follows the Geff specification for biological tracking data:
