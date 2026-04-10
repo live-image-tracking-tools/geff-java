@@ -8,19 +8,19 @@ This team will attempt to address the concerns as time allows, but welcomes help
 
 ## Action Summary
 
-| #   | Issue                                                 | Action          | Priority |
-| --- | ----------------------------------------------------- | --------------- | -------- |
-| 1   | Missing `node_props_metadata` / `edge_props_metadata` | **FIX**         | Critical |
-| 2   | Axis missing `scale`/`scaled_unit`/`offset`           | Document        | Low      |
-| 3   | Hardcoded axis names (`t`,`x`,`y`,`z` only)           | **FIX**         | Critical |
-| 4   | Missing `channel` axis type                           | **FIX**         | Low      |
-| 5   | Covariance format mismatch                            | Document        | Low      |
-| 6   | Hardcoded `track_id` path                             | **FIX**         | Medium   |
-| 7   | Variable-length properties                            | **FIX**         | High     |
-| 8   | String properties                                     | **Warn & skip** | Medium   |
-| 9   | `missing` arrays                                      | **Warn & skip** | Medium   |
+| #   | Issue                                                 | Action          | Priority | Status         |
+| --- | ----------------------------------------------------- | --------------- | -------- | -------------- |
+| 1   | Missing `node_props_metadata` / `edge_props_metadata` | **FIX**         | Critical | **✓ COMPLETE** |
+| 2   | Axis missing `scale`/`scaled_unit`/`offset`           | Document        | Low      | Pending        |
+| 3   | Hardcoded axis names (`t`,`x`,`y`,`z` only)           | **FIX**         | Critical | **✓ COMPLETE** |
+| 4   | Missing `channel` axis type                           | **FIX**         | Low      | **✓ COMPLETE** |
+| 5   | Covariance format mismatch                            | Document        | Low      | Pending        |
+| 6   | Hardcoded `track_id` path                             | **FIX**         | Medium   | **✓ COMPLETE** |
+| 7   | Variable-length properties                            | **FIX**         | High     | **✓ COMPLETE** |
+| 8   | String properties                                     | **Warn & skip** | Medium   | Pending        |
+| 9   | `missing` arrays                                      | **Warn & skip** | Medium   | Pending        |
 
-**Fixes required**: #1, #3, #4, #6, #7
+**Fixes required**: #1, #3, #4, #6, #7 (all complete ✓)
 **Graceful handling**: #8, #9
 **Document only**: #2, #5
 
@@ -29,6 +29,8 @@ This team will attempt to address the concerns as time allows, but welcomes help
 ## Incompatibilities
 
 ### 1. Missing Required Metadata Fields (CRITICAL)
+
+**Status**: ✓ IMPLEMENTED
 
 **Problem**: Java does not read or write `node_props_metadata` and `edge_props_metadata`, which are **required** fields in the v1 spec. Files written by Java are invalid per spec.
 
@@ -62,6 +64,8 @@ This team will attempt to address the concerns as time allows, but welcomes help
 
 ### 3. Axis: Hardcoded Names Validation (CRITICAL)
 
+**Status**: ✓ IMPLEMENTED
+
 **Problem**: Java only allows axis names `t`, `x`, `y`, `z` and **throws an error** for any other name. The spec allows any string name (must match a node property).
 
 **Location**: `GeffMetadata.java:176-181`
@@ -74,6 +78,8 @@ This team will attempt to address the concerns as time allows, but welcomes help
 ---
 
 ### 4. Axis: Missing `channel` Type (LOW)
+
+**Status**: ✓ IMPLEMENTED
 
 **Problem**: Java only supports axis types `time` and `space`. The spec also supports `channel`. Java **throws an error** if an axis has `type: "channel"`.
 
@@ -104,6 +110,8 @@ This team will attempt to address the concerns as time allows, but welcomes help
 
 ### 6. Property Paths: `track_id` vs Dynamic (MEDIUM)
 
+**Status**: ✓ IMPLEMENTED
+
 **Problem**: Java hardcodes the path `/nodes/props/track_id/values`. The spec uses a dynamic property name from `track_node_props["tracklet"]` in metadata.
 
 **Location**: `GeffNode.java:667`
@@ -129,6 +137,8 @@ This team will attempt to address the concerns as time allows, but welcomes help
 ### Graceful Handling Needed (warn and skip, don't error)
 
 #### 7. Variable-length Properties
+
+**Status**: ✓ IMPLEMENTED (see [VARLENGTH_IMPLEMENTATION.md](VARLENGTH_IMPLEMENTATION.md) for details)
 
 **Problem**: Properties with `varlength: true` in PropMetadata use offset/length encoding. Java currently has no support for these properties.
 
@@ -200,8 +210,8 @@ This means Python will accept future versions like `2.0`, `1.5`, etc. as long as
 ## Next Steps
 
 1. **Interoperability Testing**: Create cross-language tests
-   - Python writes GEFF → Java reads
+   - Python writes GEFF → Java reads (including varlength properties like polygons)
    - Java writes GEFF → Python reads & validates
-   - Include testing of varlength properties (e.g., polygon data)
-2. **Implement Fixes**: Address issues #1, #3, #4, #6, #7 in priority order
-3. **Add Graceful Handling**: Implement warn-and-skip for #8, #9
+   - Comprehensive test coverage for all fixed issues
+2. **Add Graceful Handling**: Implement warn-and-skip for #8, #9
+3. **Documentation**: Document known shortcomings (#2, #5)

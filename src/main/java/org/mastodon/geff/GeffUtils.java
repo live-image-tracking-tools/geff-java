@@ -44,8 +44,9 @@ public class GeffUtils
 
 	/**
 	 * Check if a property should be skipped based on metadata. Returns true if
-	 * the property should be skipped due to: - Variable-length encoding -
-	 * String/bytes data type
+	 * the property should be skipped due to: - String/bytes data type
+	 * 
+	 * NOTE: Variable-length properties are now supported and are NOT skipped.
 	 * 
 	 * Logs appropriate warnings for each case.
 	 */
@@ -54,12 +55,8 @@ public class GeffUtils
 		if ( metadata == null )
 		{ return false; }
 
-		// Check for variable-length properties
-		if ( metadata.getVarlength() != null && metadata.getVarlength() )
-		{
-			LOG.warn( "Skipping property '{}' because it uses variable-length encoding which is not supported", propName );
-			return true;
-		}
+		// Variable-length properties are now supported - don't skip!
+		// They are handled by readVarlengthProperty()
 
 		// Check for string/bytes properties
 		if ( metadata.getDtype() != null )
@@ -545,6 +542,180 @@ public class GeffUtils
 			Arrays.setAll( srcPos, d -> ( int ) ( intersection.min( d ) - blockMin[ d ] ) );
 			Arrays.setAll( destPos, d -> ( int ) ( intersection.min( d ) - destInterval.min( d ) ) );
 			SubArrayCopy.copy( block.getData(), blockInterval.size(), srcPos, dest, destSize, destPos, Util.long2int( intersection.dimensionsAsLongArray() ) );
+		}
+	}
+
+	/**
+	 * Read a variable-length property from the zarr format
+	 * 
+	 * @param reader
+	 *            N5Reader to read from
+	 * @param propPath
+	 *            Path to the property (e.g., /nodes/props/polygon)
+	 * @param numNodes
+	 *            Number of nodes in the graph
+	 * @param metadata
+	 *            PropMetadata for the property (optional, for dtype info)
+	 * @return VarlengthProperty containing the varlength data, or null if
+	 *         property doesn't exist
+	 */
+	public static VarlengthProperty readVarlengthProperty(
+			final N5Reader reader,
+			final String propPath,
+			final int numNodes,
+			final PropMetadata metadata )
+	{
+		// Check if the property exists
+		final String dataPath = propPath + "/data";
+		final String valuesPath = propPath + "/values";
+
+		if ( !reader.datasetExists( dataPath ) || !reader.datasetExists( valuesPath ) )
+		{
+			LOG.debug( "Varlength property {} does not exist or missing data/values arrays", propPath );
+			return null;
+		}
+
+		try
+		{
+			// Read the data array (flattened values)
+			final Object dataArray = readFully( reader, dataPath );
+			if ( dataArray == null )
+			{
+				LOG.warn( "Failed to read data array for varlength property {}", propPath );
+				return null;
+			}
+
+			// Read the values array (offset and shape information)
+			// values shape is (numNodes, ndim+1) where first column is offset,
+			// rest are dims
+			final FlattenedInts valuesArray = readAsIntMatrix( reader, valuesPath, "varlength property values" );
+			if ( valuesArray == null )
+			{
+				LOG.warn( "Failed to read values array for varlength property {}", propPath );
+				return null;
+			}
+
+			// Convert values array to long[][] for VarlengthProperty
+			final int[] valuesDims = valuesArray.size();
+			final int numColumns = valuesDims[ 0 ]; // ndim + 1
+			final int numRowsFromValues = valuesDims[ 1 ]; // should equal
+															// numNodes
+
+			if ( numRowsFromValues != numNodes )
+			{
+				LOG.warn( "Varlength property {} values array has {} rows but expected {}", propPath, numRowsFromValues, numNodes );
+				return null;
+			}
+
+			final long[][] offsets = new long[ numNodes ][];
+			for ( int i = 0; i < numNodes; i++ )
+			{
+				offsets[ i ] = new long[ numColumns ];
+				for ( int j = 0; j < numColumns; j++ )
+				{
+					offsets[ i ][ j ] = valuesArray.at( j, i );
+				}
+			}
+
+			// Read missing array if present
+			boolean[] missing = null;
+			final String missingPath = propPath + "/missing";
+			if ( reader.datasetExists( missingPath ) )
+			{
+				try
+				{
+					final boolean[] missingArray = ( boolean[] ) readFully( reader, missingPath );
+					if ( missingArray != null && missingArray.length == numNodes )
+					{
+						missing = missingArray;
+						LOG.debug( "Varlength property {} has missing indicators", propPath );
+					}
+				}
+				catch ( final Exception e )
+				{
+					LOG.debug( "Could not read missing array for varlength property {}: {}", propPath, e.getMessage() );
+				}
+			}
+
+			// Determine dtype from metadata if available
+			final String dtype = metadata != null ? metadata.getDtype() : "unknown";
+
+			// Create and return VarlengthProperty
+			// Convert Object array to handle different data types properly
+			final Object[] convertedData = convertVarlengthData( dataArray, dtype );
+			return new VarlengthProperty( propPath, dtype, convertedData, offsets, missing );
+		}
+		catch ( final Exception e )
+		{
+			LOG.warn( "Error reading varlength property {}: {}", propPath, e.getMessage() );
+			return null;
+		}
+	}
+
+	/**
+	 * Convert raw varlength data to Object array with proper type handling
+	 */
+	private static Object[] convertVarlengthData( final Object dataArray, final String dtype )
+	{
+		if ( dataArray == null )
+		{ return null; }
+
+		if ( dataArray instanceof Object[] )
+		{
+			return ( Object[] ) dataArray;
+		}
+		else if ( dataArray instanceof double[] )
+		{
+			final double[] dArray = ( double[] ) dataArray;
+			final Object[] result = new Object[ dArray.length ];
+			for ( int i = 0; i < dArray.length; i++ )
+			{
+				result[ i ] = dArray[ i ];
+			}
+			return result;
+		}
+		else if ( dataArray instanceof int[] )
+		{
+			final int[] iArray = ( int[] ) dataArray;
+			final Object[] result = new Object[ iArray.length ];
+			for ( int i = 0; i < iArray.length; i++ )
+			{
+				result[ i ] = iArray[ i ];
+			}
+			return result;
+		}
+		else if ( dataArray instanceof long[] )
+		{
+			final long[] lArray = ( long[] ) dataArray;
+			final Object[] result = new Object[ lArray.length ];
+			for ( int i = 0; i < lArray.length; i++ )
+			{
+				result[ i ] = lArray[ i ];
+			}
+			return result;
+		}
+		else if ( dataArray instanceof float[] )
+		{
+			final float[] fArray = ( float[] ) dataArray;
+			final Object[] result = new Object[ fArray.length ];
+			for ( int i = 0; i < fArray.length; i++ )
+			{
+				result[ i ] = fArray[ i ];
+			}
+			return result;
+		}
+		else
+		{
+			// Unknown type, return as Object array if possible
+			LOG.warn( "Unknown data type for varlength data: {}", dataArray.getClass().getName() );
+			if ( dataArray instanceof Object[] )
+			{
+				return ( Object[] ) dataArray;
+			}
+			else
+			{
+				return new Object[] { dataArray };
+			}
 		}
 	}
 

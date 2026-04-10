@@ -34,7 +34,9 @@ import static org.mastodon.geff.GeffUtils.verifyLength;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 
 import org.janelia.saalfeldlab.n5.N5Reader;
@@ -81,6 +83,8 @@ public class GeffNode
 
 	private double[] polygonY;
 
+	private Map< String, VarlengthProperty > varlengthProperties;
+
 	private static final double[] DEFAULT_COLOR = { 1.0, 1.0, 1.0, 1.0 }; // RGBA
 
 	public static final double DEFAULT_RADIUS = 1.0;
@@ -93,7 +97,9 @@ public class GeffNode
 	 * Default constructor
 	 */
 	public GeffNode()
-	{}
+	{
+		this.varlengthProperties = new HashMap<>();
+	}
 
 	/**
 	 * Constructor with basic node parameters
@@ -138,6 +144,7 @@ public class GeffNode
 		this.covariance3d = covariance3d != null ? covariance3d : DEFAULT_COVARIANCE_3D;
 		this.polygonX = polygonX != null ? polygonX : new double[ 0 ];
 		this.polygonY = polygonY != null ? polygonY : new double[ 0 ];
+		this.varlengthProperties = new HashMap<>();
 	}
 
 	/**
@@ -417,6 +424,45 @@ public class GeffNode
 	public void setPolygonY( double[] polygonY )
 	{
 		this.polygonY = polygonY != null ? polygonY : new double[ 0 ];
+	}
+
+	/**
+	 * Get a varlength property by name
+	 *
+	 * @param propName
+	 *            Name of the property
+	 * @return VarlengthProperty if exists, null otherwise
+	 */
+	public VarlengthProperty getVarlengthProperty( final String propName )
+	{
+		return varlengthProperties != null ? varlengthProperties.get( propName ) : null;
+	}
+
+	/**
+	 * Add or update a varlength property
+	 *
+	 * @param propName
+	 *            Name of the property
+	 * @param property
+	 *            VarlengthProperty to store
+	 */
+	public void setVarlengthProperty( final String propName, final VarlengthProperty property )
+	{
+		if ( varlengthProperties == null )
+		{
+			varlengthProperties = new HashMap<>();
+		}
+		varlengthProperties.put( propName, property );
+	}
+
+	/**
+	 * Get all varlength properties
+	 *
+	 * @return Map of varlength properties
+	 */
+	public Map< String, VarlengthProperty > getVarlengthProperties()
+	{
+		return varlengthProperties != null ? varlengthProperties : new HashMap<>();
 	}
 
 	/**
@@ -747,6 +793,26 @@ public class GeffNode
 			}
 		}
 
+		// Read varlength properties
+		final Map< String, VarlengthProperty > varlengthPropsMap = new HashMap<>();
+		if ( metadata.getNodePropsMetadata() != null )
+		{
+			for ( final String propName : metadata.getNodePropsMetadata().keySet() )
+			{
+				final PropMetadata propMeta = metadata.getNodePropsMetadata().get( propName );
+				if ( propMeta != null && propMeta.getVarlength() != null && propMeta.getVarlength() )
+				{
+					final String propPath = path + "/nodes/props/" + propName;
+					final VarlengthProperty varlengthProp = GeffUtils.readVarlengthProperty( reader, propPath, numNodes, propMeta );
+					if ( varlengthProp != null )
+					{
+						varlengthPropsMap.put( propName, varlengthProp );
+						LOG.debug( "Successfully read varlength property: {}", propName );
+					}
+				}
+			}
+		}
+
 		// Create node objects
 		final List< GeffNode > nodes = new ArrayList<>( numNodes );
 		for ( int i = 0; i < numNodes; i++ )
@@ -764,6 +830,14 @@ public class GeffNode
 			final double[] polygonX = polygonsX != null ? polygonsX[ i ] : null;
 			final double[] polygonY = polygonsY != null ? polygonsY[ i ] : null;
 			final GeffNode node = new GeffNode( id, t, x, y, z, color, segmentId, r, covariance2d, covariance3d, polygonX, polygonY );
+
+			// Add varlength properties to the node
+			for ( final String propName : varlengthPropsMap.keySet() )
+			{
+				final VarlengthProperty varlengthProp = varlengthPropsMap.get( propName );
+				node.setVarlengthProperty( propName, varlengthProp );
+			}
+
 			nodes.add( node );
 		}
 		return nodes;
