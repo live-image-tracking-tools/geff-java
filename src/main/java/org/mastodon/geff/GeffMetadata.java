@@ -33,6 +33,7 @@ import static org.mastodon.geff.GeffUtils.checkSupportedVersion;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
@@ -46,7 +47,6 @@ import org.slf4j.LoggerFactory;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 
-
 /**
  * Represents metadata for a Geff (Graph Exchange Format for Features) dataset.
  * This class handles reading and writing metadata from/to Zarr format.
@@ -58,40 +58,46 @@ public class GeffMetadata
 {
 	private static final Logger LOG = LoggerFactory.getLogger( GeffMetadata.class );
 
-    // Supported GEFF versions
-    public static final List< String > SUPPORTED_VERSIONS = Arrays.asList( "0.2", "0.3", "0.4" );
+	// Supported GEFF versions
+	public static final List< String > SUPPORTED_VERSIONS = Arrays.asList( "0.2", "0.3", "0.4", "1.0", "1.1" );
 
-    // Pattern to match major.minor versions, allowing for patch versions and
-    // development versions
-    // Examples: 0.1.1, 0.2.2.dev20+g611e7a2.d20250719, 0.2.0-alpha.1, etc.
-    private static final Pattern SUPPORTED_VERSIONS_PATTERN = Pattern
-            .compile( "(0\\.2|0\\.3|0\\.4)(?:\\.\\d+)?(?:\\.[a-zA-Z0-9]+(?:\\d+)?)?(?:[+\\-][a-zA-Z0-9\\.]+)*" );
+	// Pattern to match major.minor versions, allowing for patch versions and
+	// development versions
+	// Examples: 0.1.1, 0.2.2.dev20+g611e7a2.d20250719, 0.2.0-alpha.1, etc.
+	private static final Pattern SUPPORTED_VERSIONS_PATTERN = Pattern
+			.compile( "^\\d+\\.\\d+(?:\\.\\d+)?(?:\\.dev\\d+)?(?:[.-][a-zA-Z0-9-]+(?:[.-][a-zA-Z0-9-]+)*)?(?:\\+[a-zA-Z0-9.-]+)?$" );
 
-    // Metadata attributes - matching the Python schema
-    private String geffVersion;
+	// Metadata attributes - matching the Python schema
+	private String geffVersion;
 
-    private boolean directed;
+	private boolean directed;
 
-    private GeffAxis[] geffAxes; // TODO make List<GeffAxis>
+	private GeffAxis[] geffAxes; // TODO make List<GeffAxis>
 
-    /**
-     * Default constructor
-     */
-    public GeffMetadata()
-    {}
+	private Map< String, PropMetadata > nodePropsMetadata;
 
-    /**
-     * Constructor with basic parameters
-     */
-    public GeffMetadata( String geffVersion, boolean directed )
-    {
-        setGeffVersion( geffVersion );
-        this.directed = directed;
-    }
+	private Map< String, PropMetadata > edgePropsMetadata;
 
-    /**
-     * Constructor with all parameters
-     */
+	private Map< String, String > trackNodeProps;
+
+	/**
+	 * Default constructor
+	 */
+	public GeffMetadata()
+	{}
+
+	/**
+	 * Constructor with basic parameters
+	 */
+	public GeffMetadata( String geffVersion, boolean directed )
+	{
+		setGeffVersion( geffVersion );
+		this.directed = directed;
+	}
+
+	/**
+	 * Constructor with all parameters
+	 */
 	public GeffMetadata( String geffVersion, boolean directed, GeffAxis[] geffAxes )
 	{
 		setGeffVersion( geffVersion );
@@ -110,31 +116,31 @@ public class GeffMetadata
 	}
 
 	// Getters and Setters
-    public String getGeffVersion()
-    {
-        return geffVersion;
-    }
+	public String getGeffVersion()
+	{
+		return geffVersion;
+	}
 
-    public void setGeffVersion( String geffVersion )
-    {
-        if ( geffVersion != null && !SUPPORTED_VERSIONS_PATTERN.matcher( geffVersion ).matches() )
-        { throw new IllegalArgumentException(
-                "Unsupported Geff version: " + geffVersion +
-                        ". Supported major.minor versions are: " + SUPPORTED_VERSIONS +
-                        " (patch versions, development versions, and metadata are also supported, " +
-                        "e.g., 0.1.1, 0.2.2.dev20+g611e7a2.d20250719)" ); }
-        this.geffVersion = geffVersion;
-    }
+	public void setGeffVersion( String geffVersion )
+	{
+		if ( geffVersion != null && !SUPPORTED_VERSIONS_PATTERN.matcher( geffVersion ).matches() )
+		{ throw new IllegalArgumentException(
+				"Unsupported Geff version: " + geffVersion +
+						". Supported major.minor versions are: " + SUPPORTED_VERSIONS +
+						" (patch versions, development versions, and metadata are also supported, " +
+						"e.g., 0.1.1, 0.2.2.dev20+g611e7a2.d20250719)" ); }
+		this.geffVersion = geffVersion;
+	}
 
-    public boolean isDirected()
-    {
-        return directed;
-    }
+	public boolean isDirected()
+	{
+		return directed;
+	}
 
-    public void setDirected( boolean directed )
-    {
-        this.directed = directed;
-    }
+	public void setDirected( boolean directed )
+	{
+		this.directed = directed;
+	}
 
 	public GeffAxis[] getGeffAxes() // TODO make List<GeffAxis>
 	{
@@ -158,45 +164,67 @@ public class GeffMetadata
 		validate();
 	}
 
+	public Map< String, PropMetadata > getNodePropsMetadata()
+	{
+		return nodePropsMetadata;
+	}
+
+	public void setNodePropsMetadata( Map< String, PropMetadata > nodePropsMetadata )
+	{
+		this.nodePropsMetadata = nodePropsMetadata;
+	}
+
+	public Map< String, PropMetadata > getEdgePropsMetadata()
+	{
+		return edgePropsMetadata;
+	}
+
+	public void setEdgePropsMetadata( Map< String, PropMetadata > edgePropsMetadata )
+	{
+		this.edgePropsMetadata = edgePropsMetadata;
+	}
+
+	public Map< String, String > getTrackNodeProps()
+	{
+		return trackNodeProps;
+	}
+
+	public void setTrackNodeProps( Map< String, String > trackNodeProps )
+	{
+		this.trackNodeProps = trackNodeProps;
+	}
+
 	/**
-     * Validates the metadata according to the GEFF schema rules
-     */
-    public void validate()
-    {
+	 * Validates the metadata according to the GEFF schema rules
+	 */
+	public void validate()
+	{
 		if ( geffVersion == null )
-		{
-			throw new IllegalArgumentException( "geff_version is missing." );
-		}
+		{ throw new IllegalArgumentException( "geff_version is missing." ); }
 
 		// Check spatial metadata consistency if position is provided
-        if ( geffAxes != null )
-        {
-            for ( GeffAxis axis : geffAxes )
-            {
-                if ( !Arrays.asList( GeffAxis.NAME_TIME, GeffAxis.NAME_SPACE_X, GeffAxis.NAME_SPACE_Y,
-                        GeffAxis.NAME_SPACE_Z ).contains( axis.getName() ) )
-                { throw new IllegalArgumentException(
-                        "Invalid axis name: " + axis.getName() + ". Supported names are: " +
-                                GeffAxis.NAME_TIME + ", " + GeffAxis.NAME_SPACE_X + ", " +
-                                GeffAxis.NAME_SPACE_Y + ", " + GeffAxis.NAME_SPACE_Z ); }
-                if ( !Arrays.asList( GeffAxis.TYPE_TIME, GeffAxis.TYPE_SPACE ).contains( axis.getType() ) )
-                { throw new IllegalArgumentException(
-                        "Invalid axis type: " + axis.getType() + ". Supported types are: " +
-                                GeffAxis.TYPE_TIME + ", " + GeffAxis.TYPE_SPACE ); }
-                if ( axis.getMin() > axis.getMax() )
-                { throw new IllegalArgumentException(
-                        "Roi min " + axis.getMin() + " is greater than " +
-                                "max " + axis.getMax() + " in dimension " + axis.getName() ); }
-            }
-        }
-    }
+		if ( geffAxes != null )
+		{
+			for ( GeffAxis axis : geffAxes )
+			{
+				if ( !Arrays.asList( GeffAxis.TYPE_TIME, GeffAxis.TYPE_SPACE, GeffAxis.TYPE_CHANNEL ).contains( axis.getType() ) )
+				{ throw new IllegalArgumentException(
+						"Invalid axis type: " + axis.getType() + ". Supported types are: " +
+								GeffAxis.TYPE_TIME + ", " + GeffAxis.TYPE_SPACE + ", " + GeffAxis.TYPE_CHANNEL ); }
+				if ( axis.getMin() != null && axis.getMax() != null && axis.getMin() > axis.getMax() )
+				{ throw new IllegalArgumentException(
+						"Roi min " + axis.getMin() + " is greater than " +
+								"max " + axis.getMax() + " in dimension " + axis.getName() ); }
+			}
+		}
+	}
 
 	/**
 	 * Read metadata from a Zarr group
 	 */
 	public static GeffMetadata readFromZarr( final String zarrPath )
 	{
-		try ( final N5ZarrReader reader = new N5ZarrReader( zarrPath, true ) )
+		try (final N5ZarrReader reader = new N5ZarrReader( zarrPath, true ))
 		{
 			return readFromN5( reader, "/" );
 		}
@@ -207,26 +235,41 @@ public class GeffMetadata
 		final String geffVersion = reader.getAttribute( group, "geff/geff_version", String.class );
 		LOG.debug( "found geff/geff_version = {}", geffVersion );
 		if ( geffVersion == null )
-		{
-			throw new IllegalArgumentException(
-					"No geff_version found in " + group + ". This may indicate the path is incorrect or " +
-							"zarr group name is not specified (e.g. /dataset.zarr/tracks/ instead of " +
-							"/dataset.zarr/)." );
-		}
+		{ throw new IllegalArgumentException(
+				"No geff_version found in " + group + ". This may indicate the path is incorrect or " +
+						"zarr group name is not specified (e.g. /dataset.zarr/tracks/ instead of " +
+						"/dataset.zarr/)." ); }
 		checkSupportedVersion( geffVersion );
 
 		final Boolean directed = reader.getAttribute( group, "geff/directed", Boolean.class );
 		LOG.debug( "found geff/directed = {}", directed );
 		if ( directed == null )
-		{
-			throw new IllegalArgumentException( "required attribute 'geff/directed' is missing." );
-		}
+		{ throw new IllegalArgumentException( "required attribute 'geff/directed' is missing." ); }
 
 		final List< GeffAxis > axes = reader.getAttribute( group, "geff/axes",
-				new TypeToken< List< GeffAxis > >() {}.getType() );
+				new TypeToken< List< GeffAxis > >()
+				{}.getType() );
 		LOG.debug( "found geff/axes = {}", axes );
 
+		final Map< String, PropMetadata > nodePropsMetadata = reader.getAttribute( group, "geff/node_props_metadata",
+				new TypeToken< Map< String, PropMetadata > >()
+				{}.getType() );
+		LOG.debug( "found geff/node_props_metadata = {}", nodePropsMetadata );
+
+		final Map< String, PropMetadata > edgePropsMetadata = reader.getAttribute( group, "geff/edge_props_metadata",
+				new TypeToken< Map< String, PropMetadata > >()
+				{}.getType() );
+		LOG.debug( "found geff/edge_props_metadata = {}", edgePropsMetadata );
+
+		final Map< String, String > trackNodeProps = reader.getAttribute( group, "geff/track_node_props",
+				new TypeToken< Map< String, String > >()
+				{}.getType() );
+		LOG.debug( "found geff/track_node_props = {}", trackNodeProps );
+
 		final GeffMetadata metadata = new GeffMetadata( geffVersion, directed, axes );
+		metadata.setNodePropsMetadata( nodePropsMetadata );
+		metadata.setEdgePropsMetadata( edgePropsMetadata );
+		metadata.setTrackNodeProps( trackNodeProps );
 		metadata.validate();
 
 		return metadata;
@@ -237,7 +280,7 @@ public class GeffMetadata
 	 */
 	public static void writeToZarr( final GeffMetadata metadata, final String zarrPath ) throws IOException
 	{
-		try ( final N5ZarrWriter writer = new N5ZarrWriter( zarrPath, new GsonBuilder().setPrettyPrinting(),true ) )
+		try (final N5ZarrWriter writer = new N5ZarrWriter( zarrPath, new GsonBuilder().setPrettyPrinting(), true ))
 		{
 			metadata.writeToN5( writer, "/" );
 		}
@@ -263,15 +306,33 @@ public class GeffMetadata
 			LOG.debug( "writing geff/axes {}", axes );
 			writer.setAttribute( group, "geff/axes", axes );
 		}
+
+		if ( nodePropsMetadata != null )
+		{
+			LOG.debug( "writing geff/node_props_metadata {}", nodePropsMetadata );
+			writer.setAttribute( group, "geff/node_props_metadata", nodePropsMetadata );
+		}
+
+		if ( edgePropsMetadata != null )
+		{
+			LOG.debug( "writing geff/edge_props_metadata {}", edgePropsMetadata );
+			writer.setAttribute( group, "geff/edge_props_metadata", edgePropsMetadata );
+		}
+
+		if ( trackNodeProps != null )
+		{
+			LOG.debug( "writing geff/track_node_props {}", trackNodeProps );
+			writer.setAttribute( group, "geff/track_node_props", trackNodeProps );
+		}
 	}
 
-    @Override
-    public String toString()
-    {
-        return String.format(
-                "GeffMetadata{geffVersion='%s', directed=%s, geffAxes=%s}",
-                geffVersion, directed, Arrays.toString( geffAxes ) );
-    }
+	@Override
+	public String toString()
+	{
+		return String.format(
+				"GeffMetadata{geffVersion='%s', directed=%s, geffAxes=%s, nodePropsMetadata=%s, edgePropsMetadata=%s, trackNodeProps=%s}",
+				geffVersion, directed, Arrays.toString( geffAxes ), nodePropsMetadata, edgePropsMetadata, trackNodeProps );
+	}
 
 	@Override
 	public boolean equals( final Object o )
@@ -279,12 +340,14 @@ public class GeffMetadata
 		if ( !( o instanceof GeffMetadata ) )
 			return false;
 		GeffMetadata that = ( GeffMetadata ) o;
-		return directed == that.directed && Objects.equals( geffVersion, that.geffVersion ) && Objects.deepEquals( geffAxes, that.geffAxes );
+		return directed == that.directed && Objects.equals( geffVersion, that.geffVersion ) && Objects.deepEquals( geffAxes, that.geffAxes )
+				&& Objects.equals( nodePropsMetadata, that.nodePropsMetadata ) && Objects.equals( edgePropsMetadata, that.edgePropsMetadata )
+				&& Objects.equals( trackNodeProps, that.trackNodeProps );
 	}
 
 	@Override
 	public int hashCode()
 	{
-		return Objects.hash( geffVersion, directed, Arrays.hashCode( geffAxes ) );
+		return Objects.hash( geffVersion, directed, Arrays.hashCode( geffAxes ), nodePropsMetadata, edgePropsMetadata, trackNodeProps );
 	}
 }

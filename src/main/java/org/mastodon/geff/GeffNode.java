@@ -99,29 +99,29 @@ public class GeffNode
 	 * Constructor with basic node parameters
 	 *
 	 * @param id
-	 * 		The unique identifier for the node.
+	 *            The unique identifier for the node.
 	 * @param timepoint
-	 * 		The timepoint of the node.
+	 *            The timepoint of the node.
 	 * @param x
-	 * 		The x-coordinate of the node.
+	 *            The x-coordinate of the node.
 	 * @param y
-	 * 		The y-coordinate of the node.
+	 *            The y-coordinate of the node.
 	 * @param z
-	 * 		The z-coordinate of the node.
+	 *            The z-coordinate of the node.
 	 * @param color
-	 * 		The color of the node (RGBA).
+	 *            The color of the node (RGBA).
 	 * @param segmentId
-	 * 		The segment ID the node belongs to.
+	 *            The segment ID the node belongs to.
 	 * @param radius
-	 * 		The radius of the node.
+	 *            The radius of the node.
 	 * @param covariance2d
-	 * 		The 2D covariance matrix of the node.
+	 *            The 2D covariance matrix of the node.
 	 * @param covariance3d
-	 * 		The 3D covariance matrix of the node.
+	 *            The 3D covariance matrix of the node.
 	 * @param polygonX
-	 * 		The x-coordinates of the polygon vertices.
+	 *            The x-coordinates of the polygon vertices.
 	 * @param polygonY
-	 * 		The y-coordinates of the polygon vertices.
+	 *            The y-coordinates of the polygon vertices.
 	 */
 	public GeffNode( int id, int timepoint, double x, double y, double z, double[] color, int segmentId, double radius,
 			double[] covariance2d, double[] covariance3d, double[] polygonX, double[] polygonY )
@@ -154,7 +154,7 @@ public class GeffNode
 	 * Set the unique identifier of the node.
 	 *
 	 * @param id
-	 * 		The unique identifier to set.
+	 *            The unique identifier to set.
 	 */
 	public void setId( int id )
 	{
@@ -175,7 +175,7 @@ public class GeffNode
 	 * Set the timepoint of the node.
 	 *
 	 * @param timepoint
-	 * 		The timepoint to set.
+	 *            The timepoint to set.
 	 */
 	public void setT( int timepoint )
 	{
@@ -196,7 +196,7 @@ public class GeffNode
 	 * Set the x-coordinate of the node.
 	 *
 	 * @param x
-	 * 		The x-coordinate to set.
+	 *            The x-coordinate to set.
 	 */
 	public void setX( double x )
 	{
@@ -217,7 +217,7 @@ public class GeffNode
 	 * Set the y-coordinate of the node.
 	 *
 	 * @param y
-	 * 		The y-coordinate to set.
+	 *            The y-coordinate to set.
 	 */
 	public void setY( double y )
 	{
@@ -238,7 +238,7 @@ public class GeffNode
 	 * Set the z-coordinate of the node.
 	 *
 	 * @param z
-	 * 		The z-coordinate to set.
+	 *            The z-coordinate to set.
 	 */
 	public void setZ( double z )
 	{
@@ -259,7 +259,7 @@ public class GeffNode
 	 * Set the color of the node.
 	 *
 	 * @param color
-	 * 		The color to set as an RGBA array.
+	 *            The color to set as an RGBA array.
 	 */
 	public void setColor( double[] color )
 	{
@@ -287,7 +287,7 @@ public class GeffNode
 	 * Set the segment ID of the node.
 	 *
 	 * @param segmentId
-	 * 		The segment ID to set.
+	 *            The segment ID to set.
 	 */
 	public void setSegmentId( int segmentId )
 	{
@@ -308,7 +308,7 @@ public class GeffNode
 	 * Set the radius of the node.
 	 *
 	 * @param radius
-	 * 		The radius to set.
+	 *            The radius to set.
 	 */
 	public void setRadius( double radius )
 	{
@@ -329,10 +329,10 @@ public class GeffNode
 	 * Set the 2D covariance matrix of the node.
 	 *
 	 * @param covariance2d
-	 * 		The 2D covariance matrix to set as a 4-element array.
+	 *            The 2D covariance matrix to set as a 4-element array.
 	 *
 	 * @throws IllegalArgumentException
-	 * 		if the covariance2d array is not of length 4.
+	 *             if the covariance2d array is not of length 4.
 	 */
 	public void setCovariance2d( double[] covariance2d )
 	{
@@ -360,10 +360,10 @@ public class GeffNode
 	 * Set the 3D covariance matrix of the node.
 	 *
 	 * @param covariance3d
-	 * 		The 3D covariance matrix to set as a 6-element array.
+	 *            The 3D covariance matrix to set as a 6-element array.
 	 *
 	 * @throws IllegalArgumentException
-	 * 		if the covariance3d array is not of length 6.
+	 *             if the covariance3d array is not of length 6.
 	 */
 	public void setCovariance3d( double[] covariance3d )
 	{
@@ -401,7 +401,7 @@ public class GeffNode
 	 * Set the x-coordinates of the polygon vertices.
 	 *
 	 * @param polygonX
-	 * 		The x-coordinates to set.
+	 *            The x-coordinates to set.
 	 */
 	public void setPolygonX( double[] polygonX )
 	{
@@ -412,7 +412,7 @@ public class GeffNode
 	 * Set the y-coordinates of the polygon vertices.
 	 *
 	 * @param polygonY
-	 * 		The y-coordinates to set.
+	 *            The y-coordinates to set.
 	 */
 	public void setPolygonY( double[] polygonY )
 	{
@@ -425,7 +425,7 @@ public class GeffNode
 	 * @return The position of the node as a 3D array.
 	 *
 	 * @deprecated Use {@link #getX()}, {@link #getY()}, {@link #getZ()}
-	 * instead.
+	 *             instead.
 	 */
 	@Deprecated
 	public double[] getPosition()
@@ -437,10 +437,10 @@ public class GeffNode
 	 * Set the position of the node.
 	 *
 	 * @param position
-	 * 		The position of the node as a 3D array.
+	 *            The position of the node as a 3D array.
 	 *
 	 * @deprecated Use {@link #setX(double)}, {@link #setY(double)},
-	 * {@link #setZ(double)} instead.
+	 *             {@link #setZ(double)} instead.
 	 */
 	@Deprecated
 	public void setPosition( double[] position )
@@ -602,45 +602,55 @@ public class GeffNode
 	 * Read nodes from Zarr format with default version and chunked structure
 	 *
 	 * @param zarrPath
-	 * 		The path to the Zarr directory containing nodes.
+	 *            The path to the Zarr directory containing nodes.
 	 *
 	 * @return List of GeffNode objects read from the Zarr path.
 	 */
 	public static List< GeffNode > readFromZarr( String zarrPath ) throws IOException
 	{
-		return readFromZarr( zarrPath, Geff.VERSION );
+		final GeffMetadata metadata = GeffMetadata.readFromZarr( zarrPath );
+		return readFromZarr( zarrPath, metadata );
 	}
 
 	/**
 	 * Read nodes from Zarr format with specified version and chunked structure
 	 *
 	 * @param zarrPath
-	 * 		The path to the Zarr directory containing nodes.
-	 * @param geffVersion
-	 * 		The version of the GEFF format to read.
+	 *            The path to the Zarr directory containing nodes.
+	 * @param metadata
+	 *            The GeffMetadata for the dataset.
 	 *
 	 * @return List of GeffNode objects read from the Zarr path.
 	 */
-	public static List< GeffNode > readFromZarr( final String zarrPath, final String geffVersion )
+	public static List< GeffNode > readFromZarr( final String zarrPath, final GeffMetadata metadata )
 	{
-		LOG.debug( "Reading nodes from Zarr path: " + zarrPath + " with Geff version: " + geffVersion );
-		try ( final N5ZarrReader reader = new N5ZarrReader( zarrPath, true ) )
+		LOG.debug( "Reading nodes from Zarr path: " + zarrPath + " with Geff version: " + metadata.getGeffVersion() );
+		try (final N5ZarrReader reader = new N5ZarrReader( zarrPath, true ))
 		{
-			return readFromN5( reader, "/", geffVersion );
+			return readFromN5( reader, "/", metadata );
 		}
 	}
 
-	public static List< GeffNode > readFromN5( final N5Reader reader, final String group, final String geffVersion )
+	public static List< GeffNode > readFromN5( final N5Reader reader, final String group, final GeffMetadata metadata )
 	{
+		final String geffVersion = metadata.getGeffVersion();
 		checkSupportedVersion( geffVersion );
 		final String path = N5URI.normalizeGroupPath( group );
+
+		// GRACEFUL HANDLING FOR v1 SPEC COMPATIBILITY:
+		// - Variable-length properties (varlength: true): Will be skipped with
+		// a warning
+		// - String properties (dtype: "str" or "bytes"): Will be skipped with a
+		// warning
+		// - Missing value arrays: Will log a warning; values are read as
+		// present (no sparse support)
+		// See GeffUtils.shouldSkipProperty() and checkForMissingValues() for
+		// implementation
 
 		// Read node IDs from chunks
 		final int[] nodeIds = GeffUtils.readAsIntArray( reader, path + "/nodes/ids", "node IDs" );
 		if ( nodeIds == null )
-		{
-			throw new IllegalArgumentException( "required property '/nodes/ids' not found" );
-		}
+		{ throw new IllegalArgumentException( "required property '/nodes/ids' not found" ); }
 		final int numNodes = nodeIds.length;
 
 		// Read time points from chunks
@@ -664,8 +674,23 @@ public class GeffNode
 		verifyLength( colors, numNodes, "/nodes/props/color/values" );
 
 		// Read track IDs from chunks
-		final int[] trackIds = GeffUtils.readAsIntArray( reader, path + "/nodes/props/track_id/values", "track IDs" );
-		verifyLength( trackIds, numNodes, "/nodes/props/track_id/values" );
+		final String trackletProp = metadata.getTrackNodeProps() != null && metadata.getTrackNodeProps().containsKey( "tracklet" )
+				? metadata.getTrackNodeProps().get( "tracklet" ) : "track_id";
+		final int[] trackIds = GeffUtils.readAsIntArray( reader, path + "/nodes/props/" + trackletProp + "/values", "track IDs" );
+		verifyLength( trackIds, numNodes, "/nodes/props/" + trackletProp + "/values" );
+
+		// Check for missing values and property metadata warnings (graceful
+		// handling)
+		GeffUtils.checkForMissingValues( reader, path + "/nodes/props/" + trackletProp + "/values" );
+		if ( metadata.getNodePropsMetadata() != null && metadata.getNodePropsMetadata().containsKey( trackletProp ) )
+		{
+			PropMetadata propMeta = metadata.getNodePropsMetadata().get( trackletProp );
+			if ( GeffUtils.shouldSkipProperty( trackletProp, propMeta ) )
+			{
+				// Log warning already done in shouldSkipProperty, continue
+				// reading with default values
+			}
+		}
 
 		// Read radius from chunks
 		double[] radius = GeffUtils.readAsDoubleArray( reader, path + "/nodes/props/radius/values", "radius" );
@@ -757,20 +782,35 @@ public class GeffNode
 	 */
 	public static void writeToZarr( List< GeffNode > nodes, String zarrPath, int chunkSize )
 	{
-		writeToZarr( nodes, zarrPath, chunkSize, Geff.VERSION );
+		// Create minimal metadata for backward compatibility
+		GeffMetadata metadata = new GeffMetadata( Geff.VERSION, true ); // Assume
+																		// directed
+																		// for
+																		// now
+		writeToZarr( nodes, zarrPath, chunkSize, metadata );
 	}
 
 	public static void writeToZarr( List< GeffNode > nodes, String zarrPath, String geffVersion )
 	{
-		writeToZarr( nodes, zarrPath, GeffUtils.DEFAULT_CHUNK_SIZE, geffVersion );
+		// Create minimal metadata for backward compatibility
+		GeffMetadata metadata = new GeffMetadata( geffVersion, true ); // Assume
+																		// directed
+																		// for
+																		// now
+		writeToZarr( nodes, zarrPath, GeffUtils.DEFAULT_CHUNK_SIZE, metadata );
 	}
 
-	public static void writeToZarr( List< GeffNode > nodes, String zarrPath, int chunkSize, String geffVersion )
+	public static void writeToZarr( List< GeffNode > nodes, String zarrPath, GeffMetadata metadata )
 	{
-		LOG.debug( "Writing {} nodes to Zarr path: {} with chunk size: {} to Geff version: {}", nodes.size(), zarrPath, chunkSize, geffVersion );
-		try ( final N5ZarrWriter writer = new N5ZarrWriter( zarrPath, true ) )
+		writeToZarr( nodes, zarrPath, GeffUtils.DEFAULT_CHUNK_SIZE, metadata );
+	}
+
+	public static void writeToZarr( List< GeffNode > nodes, String zarrPath, int chunkSize, GeffMetadata metadata )
+	{
+		LOG.debug( "Writing {} nodes to Zarr path: {} with chunk size: {} to Geff version: {}", nodes.size(), zarrPath, chunkSize, metadata.getGeffVersion() );
+		try (final N5ZarrWriter writer = new N5ZarrWriter( zarrPath, true ))
 		{
-			writeToN5( nodes, writer, "/", chunkSize, geffVersion );
+			writeToN5( nodes, writer, "/", chunkSize, metadata );
 		}
 	}
 
@@ -779,15 +819,14 @@ public class GeffNode
 			final N5Writer writer,
 			final String group,
 			final int chunkSize,
-			String geffVersion )
+			final GeffMetadata metadata )
 	{
 		if ( nodes == null )
 			throw new NullPointerException( "Nodes list cannot be null" );
 
+		final String geffVersion = metadata.getGeffVersion();
 		if ( geffVersion == null || geffVersion.isEmpty() )
-		{
-			geffVersion = Geff.VERSION; // Use default version if not specified
-		}
+		{ throw new IllegalArgumentException( "Geff version cannot be null or empty" ); }
 		GeffUtils.checkSupportedVersion( geffVersion );
 
 		final String path = N5URI.normalizeGroupPath( group );
@@ -811,7 +850,9 @@ public class GeffNode
 		GeffUtils.writeDoubleMatrix( nodes, 4, GeffNode::getColor, writer, path + "/nodes/props/color/values", chunkSize );
 
 		// Write segment IDs in chunks
-		GeffUtils.writeIntArray( nodes, GeffNode::getSegmentId, writer, path + "/nodes/props/track_id/values", chunkSize );
+		final String trackletProp = metadata.getTrackNodeProps() != null && metadata.getTrackNodeProps().containsKey( "tracklet" )
+				? metadata.getTrackNodeProps().get( "tracklet" ) : "track_id";
+		GeffUtils.writeIntArray( nodes, GeffNode::getSegmentId, writer, path + "/nodes/props/" + trackletProp + "/values", chunkSize );
 
 		// Write radius and covariance attributes if available
 		GeffUtils.writeDoubleArray( nodes, GeffNode::getRadius, writer, path + "/nodes/props/radius/values", chunkSize );

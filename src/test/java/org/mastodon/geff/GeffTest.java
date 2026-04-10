@@ -243,7 +243,7 @@ public class GeffTest
         assertDoesNotThrow( () -> {
             try
             {
-                GeffNode.writeToZarr( testNodes, tempPath, 1000 );
+                GeffNode.writeToZarr( testNodes, tempPath, 1000, testMetadata );
                 GeffEdge.writeToZarr( testEdges, tempPath, 1000 );
                 GeffMetadata.writeToZarr( testMetadata, tempPath );
             }
@@ -293,7 +293,7 @@ public class GeffTest
         }
 
         // Test invalid versions
-        String[] invalidVersions = { "1.0", "0.6", "invalid", "0.1..x" };
+        String[] invalidVersions = { "invalid", "0.1..x" };
 
         for ( String version : invalidVersions )
         {

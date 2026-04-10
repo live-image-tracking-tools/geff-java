@@ -31,9 +31,9 @@ package org.mastodon.geff;
 import java.util.List;
 
 /**
- * CLI tool for round-trip testing of GEFF files.
- * Reads a GEFF from an input path and writes it to an output path.
- * Used for cross-language interoperability testing with Python.
+ * CLI tool for round-trip testing of GEFF files. Reads a GEFF from an input
+ * path and writes it to an output path. Used for cross-language
+ * interoperability testing with Python.
  */
 public class RoundTripGeff
 {
@@ -63,7 +63,7 @@ public class RoundTripGeff
 
 			// Read nodes
 			System.out.println( "\nReading nodes..." );
-			List< GeffNode > nodes = GeffNode.readFromZarr( inputPath, metadata.getGeffVersion() );
+			List< GeffNode > nodes = GeffNode.readFromZarr( inputPath, metadata );
 			System.out.println( "  Read " + nodes.size() + " nodes" );
 
 			// Read edges
@@ -77,7 +77,7 @@ public class RoundTripGeff
 
 			// Write nodes
 			System.out.println( "Writing nodes..." );
-			GeffNode.writeToZarr( nodes, outputPath, metadata.getGeffVersion() );
+			GeffNode.writeToZarr( nodes, outputPath, metadata );
 
 			// Write edges
 			System.out.println( "Writing edges..." );

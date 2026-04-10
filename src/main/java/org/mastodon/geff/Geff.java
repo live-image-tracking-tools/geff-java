@@ -58,19 +58,19 @@ public class Geff
         System.out.println( "Geff library version: " + VERSION );
 
         String zarrPath = "src/test/resources/mouse-20250719.zarr/tracks";
-		String outputZarrPath = "src/test/resources/mouse-20250719_output.zarr/tracks";
-		String n5OutputZarrPath = "src/test/resources/n5-mouse-20250719_output.zarr/tracks";
+        String outputZarrPath = "src/test/resources/mouse-20250719_output.zarr/tracks";
+        String n5OutputZarrPath = "src/test/resources/n5-mouse-20250719_output.zarr/tracks";
 
         try
         {
             // Demonstrate reading metadata
             System.out.println( "\n=== Reading Metadata ===" );
-			GeffMetadata metadata = GeffMetadata.readFromZarr( zarrPath );
+            GeffMetadata metadata = GeffMetadata.readFromZarr( zarrPath );
             System.out.println( "Metadata loaded:" + metadata );
 
             // Demonstrate reading nodes
             System.out.println( "\n=== Reading Nodes ===" );
-			List< GeffNode > nodes = GeffNode.readFromZarr( zarrPath, metadata.getGeffVersion() );
+            List< GeffNode > nodes = GeffNode.readFromZarr( zarrPath, metadata );
             System.out.println( "Read " + nodes.size() + " nodes:" );
             for ( int i = 0; i < Math.min( 5, nodes.size() ); i++ )
             {
@@ -97,7 +97,7 @@ public class Geff
             // Try to write nodes (will show what would be written)
             try
             {
-                GeffNode.writeToZarr( nodes, outputZarrPath, GeffUtils.getChunkSize( zarrPath ) );
+                GeffNode.writeToZarr( nodes, outputZarrPath, GeffUtils.getChunkSize( zarrPath ), metadata );
             }
             catch ( UnsupportedOperationException e )
             {
@@ -107,7 +107,7 @@ public class Geff
             // Try to write edges (will show what would be written)
             try
             {
-                GeffEdge.writeToZarr( edges, outputZarrPath, GeffUtils.getChunkSize( zarrPath ) );
+                GeffEdge.writeToZarr( edges, outputZarrPath, GeffUtils.getChunkSize( zarrPath ), metadata.getGeffVersion() );
             }
             catch ( UnsupportedOperationException e )
             {
@@ -139,7 +139,7 @@ public class Geff
         catch ( Exception e )
         {
             System.err.println( "Unexpected exception occurred: " + e.getMessage() );
-			e.printStackTrace();
+            e.printStackTrace();
         }
     }
 

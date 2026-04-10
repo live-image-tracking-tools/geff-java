@@ -55,6 +55,8 @@ public class GeffAxis
 
     public static final String TYPE_SPACE = "space";
 
+    public static final String TYPE_CHANNEL = "channel";
+
     // Common units
     public static final String UNIT_SECOND = "second";
 
@@ -120,9 +122,9 @@ public class GeffAxis
 
     public void setType( String type )
     {
-        if ( type != null && !TYPE_TIME.equals( type ) && !TYPE_SPACE.equals( type ) )
+        if ( type != null && !TYPE_TIME.equals( type ) && !TYPE_SPACE.equals( type ) && !TYPE_CHANNEL.equals( type ) )
         { throw new IllegalArgumentException(
-                "Axis type must be '" + TYPE_TIME + "' or '" + TYPE_SPACE + "', got: " + type ); }
+                "Axis type must be '" + TYPE_TIME + "', '" + TYPE_SPACE + "', or '" + TYPE_CHANNEL + "', got: " + type ); }
         this.type = type;
     }
 
@@ -211,9 +213,9 @@ public class GeffAxis
         if ( type == null || type.trim().isEmpty() )
         { throw new IllegalArgumentException( "Axis type cannot be null or empty" ); }
 
-        if ( !TYPE_TIME.equals( type ) && !TYPE_SPACE.equals( type ) )
+        if ( !TYPE_TIME.equals( type ) && !TYPE_SPACE.equals( type ) && !TYPE_CHANNEL.equals( type ) )
         { throw new IllegalArgumentException(
-                "Axis type must be '" + TYPE_TIME + "' or '" + TYPE_SPACE + "', got: " + type ); }
+                "Axis type must be '" + TYPE_TIME + "', '" + TYPE_SPACE + "', or '" + TYPE_CHANNEL + "', got: " + type ); }
 
         if ( unit == null || unit.trim().isEmpty() )
         { throw new IllegalArgumentException( "Axis unit cannot be null or empty" ); }

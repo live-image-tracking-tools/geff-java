@@ -18,6 +18,8 @@ import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.regex.Pattern;
+
 import net.imglib2.FinalInterval;
 import net.imglib2.Interval;
 import net.imglib2.blocks.BlockInterval;
@@ -31,11 +33,65 @@ public class GeffUtils
 {
 	private static final Logger LOG = LoggerFactory.getLogger( GeffUtils.class );
 
+	private static final Pattern VERSION_PATTERN = Pattern
+			.compile( "^\\d+\\.\\d+(?:\\.\\d+)?(?:\\.dev\\d+)?(?:[.-][a-zA-Z0-9-]+(?:[.-][a-zA-Z0-9-]+)*)?(?:\\+[a-zA-Z0-9.-]+)?$" );
+
 	public static void checkSupportedVersion( final String version ) throws IllegalArgumentException
 	{
-		if ( !( version.startsWith( "0.2" ) || version.startsWith( "0.3" ) || version.startsWith( "0.4" ) ) )
+		if ( !VERSION_PATTERN.matcher( version ).matches() )
+		{ throw new IllegalArgumentException( "geff_version " + version + " does not match semver pattern." ); }
+	}
+
+	/**
+	 * Check if a property should be skipped based on metadata. Returns true if
+	 * the property should be skipped due to: - Variable-length encoding -
+	 * String/bytes data type
+	 * 
+	 * Logs appropriate warnings for each case.
+	 */
+	public static boolean shouldSkipProperty( final String propName, final PropMetadata metadata )
+	{
+		if ( metadata == null )
+		{ return false; }
+
+		// Check for variable-length properties
+		if ( metadata.getVarlength() != null && metadata.getVarlength() )
 		{
-			throw new IllegalArgumentException( "geff_version " + version + " not supported." );
+			LOG.warn( "Skipping property '{}' because it uses variable-length encoding which is not supported", propName );
+			return true;
+		}
+
+		// Check for string/bytes properties
+		if ( metadata.getDtype() != null )
+		{
+			final String dtype = metadata.getDtype().toLowerCase();
+			if ( dtype.equals( "str" ) || dtype.equals( "string" ) || dtype.equals( "bytes" ) )
+			{
+				LOG.warn( "Skipping property '{}' with dtype '{}' because string properties are not supported", propName, metadata.getDtype() );
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Check if a property has missing values array and log a warning. Java
+	 * doesn't support sparse/missing data, so we read all values.
+	 */
+	public static void checkForMissingValues( final N5Reader reader, final String propertyPath )
+	{
+		try
+		{
+			final String missingPath = propertyPath + "/missing";
+			if ( reader.exists( missingPath ) )
+			{
+				LOG.warn( "Property '{}' has missing value indicators, but Java does not support sparse data. All values will be read as present.", propertyPath );
+			}
+		}
+		catch ( final Exception e )
+		{
+			// Ignore errors checking for missing values
 		}
 	}
 
@@ -44,7 +100,7 @@ public class GeffUtils
 
 	public static int getChunkSize( final String zarrPath )
 	{
-		try ( final N5ZarrReader reader = new N5ZarrReader( zarrPath, true ) )
+		try (final N5ZarrReader reader = new N5ZarrReader( zarrPath, true ))
 		{
 			final int[] chunkSize = reader.getDatasetAttributes( "/nodes/ids" ).getBlockSize();
 			return chunkSize[ 0 ];
@@ -66,13 +122,13 @@ public class GeffUtils
 	{
 		final int size = elements.size();
 		final int[] data = new int[ size ];
-		Arrays.setAll(data, i -> extractor.applyAsInt(elements.get(i)));
+		Arrays.setAll( data, i -> extractor.applyAsInt( elements.get( i ) ) );
 		final DatasetAttributes attributes = new DatasetAttributes(
 				new long[] { size },
 				new int[] { chunkSize },
 				DataType.INT32,
 				new BloscCompression() );
-		writer.createDataset(dataset, attributes);
+		writer.createDataset( dataset, attributes );
 		write( data, writer, dataset, attributes );
 	}
 
@@ -90,7 +146,8 @@ public class GeffUtils
 	}
 
 	/**
-	 * @param extractor function from row index to int[] with column data
+	 * @param extractor
+	 *            function from row index to int[] with column data
 	 */
 	public static void writeIntMatrix(
 			final int numRows,
@@ -101,7 +158,8 @@ public class GeffUtils
 			final int chunkSize )
 	{
 		final int[] data = new int[ numColumns * numRows ];
-		for ( int i = 0; i < numRows; ++i ) {
+		for ( int i = 0; i < numRows; ++i )
+		{
 			final int[] row = extractor.apply( i );
 			if ( row == null || row.length < numColumns )
 				continue;
@@ -112,7 +170,7 @@ public class GeffUtils
 				new int[] { numColumns, chunkSize },
 				DataType.INT32,
 				new BloscCompression() );
-		writer.createDataset(dataset, attributes);
+		writer.createDataset( dataset, attributes );
 		write( data, writer, dataset, attributes );
 	}
 
@@ -125,13 +183,13 @@ public class GeffUtils
 	{
 		final int size = elements.size();
 		final double[] data = new double[ size ];
-		Arrays.setAll(data, i -> extractor.applyAsDouble(elements.get(i)));
+		Arrays.setAll( data, i -> extractor.applyAsDouble( elements.get( i ) ) );
 		final DatasetAttributes attributes = new DatasetAttributes(
 				new long[] { size },
 				new int[] { chunkSize },
 				DataType.FLOAT64,
 				new BloscCompression() );
-		writer.createDataset(dataset, attributes);
+		writer.createDataset( dataset, attributes );
 		write( data, writer, dataset, attributes );
 	}
 
@@ -145,7 +203,8 @@ public class GeffUtils
 	{
 		final int size = elements.size();
 		final double[] data = new double[ numColumns * size ];
-		for ( int i = 0; i < size; ++i ) {
+		for ( int i = 0; i < size; ++i )
+		{
 			final double[] row = extractor.apply( elements.get( i ) );
 			if ( row == null || row.length < numColumns )
 				continue;
@@ -156,7 +215,7 @@ public class GeffUtils
 				new int[] { numColumns, chunkSize },
 				DataType.FLOAT64,
 				new BloscCompression() );
-		writer.createDataset(dataset, attributes);
+		writer.createDataset( dataset, attributes );
 		write( data, writer, dataset, attributes );
 	}
 
@@ -168,9 +227,7 @@ public class GeffUtils
 			return null;
 		}
 		if ( reader.getDatasetAttributes( dataset ).getNumDimensions() != 1 )
-		{
-			throw new IllegalArgumentException( "Expected 1D array" );
-		}
+		{ throw new IllegalArgumentException( "Expected 1D array" ); }
 		return convertToIntArray( readFully( reader, dataset ), description );
 	}
 
@@ -182,9 +239,7 @@ public class GeffUtils
 			return null;
 		}
 		if ( reader.getDatasetAttributes( dataset ).getNumDimensions() != 1 )
-		{
-			throw new IllegalArgumentException( "Expected 1D array" );
-		}
+		{ throw new IllegalArgumentException( "Expected 1D array" ); }
 		return convertToDoubleArray( readFully( reader, dataset ), description );
 	}
 
@@ -241,9 +296,7 @@ public class GeffUtils
 		}
 		final DatasetAttributes attributes = reader.getDatasetAttributes( dataset );
 		if ( attributes.getNumDimensions() != 2 )
-		{
-			throw new IllegalArgumentException( "Expected 2D array" );
-		}
+		{ throw new IllegalArgumentException( "Expected 2D array" ); }
 		return new FlattenedDoubles( convertToDoubleArray( readFully( reader, dataset ), description ), attributes.getDimensions() );
 	}
 
@@ -293,15 +346,13 @@ public class GeffUtils
 		}
 		final DatasetAttributes attributes = reader.getDatasetAttributes( dataset );
 		if ( attributes.getNumDimensions() != 2 )
-		{
-			throw new IllegalArgumentException( "Expected 2D array" );
-		}
+		{ throw new IllegalArgumentException( "Expected 2D array" ); }
 		return new FlattenedInts( convertToIntArray( readFully( reader, dataset ), description ), attributes.getDimensions() );
 	}
 
 	public static int[] convertToIntArray( final Object array, final String fieldName )
 	{
-		if (array == null)
+		if ( array == null )
 			return null;
 		else if ( array instanceof int[] )
 			return ( int[] ) array;
@@ -332,7 +383,7 @@ public class GeffUtils
 
 	public static double[] convertToDoubleArray( final Object array, final String fieldName )
 	{
-		if (array == null)
+		if ( array == null )
 			return null;
 		else if ( array instanceof double[] )
 			return ( double[] ) array;
@@ -376,19 +427,14 @@ public class GeffUtils
 	public static void verifyLength( final FlattenedDoubles array, final int expectedLength, final String name )
 	{
 		if ( array != null && array.size()[ array.size().length - 1 ] != expectedLength )
-		{
-			throw new IllegalArgumentException( "property " + name + " does not have expected length (" + array.size()[ array.size().length - 1 ] + " vs " + expectedLength + ")" );
-		}
+		{ throw new IllegalArgumentException( "property " + name + " does not have expected length (" + array.size()[ array.size().length - 1 ] + " vs " + expectedLength + ")" ); }
 	}
 
 	public static void verifyLength( final FlattenedInts array, final int expectedLength, final String name )
 	{
 		if ( array != null && array.size()[ array.size().length - 1 ] != expectedLength )
-		{
-			throw new IllegalArgumentException( "property " + name + " does not have expected length (" + array.size()[ array.size().length - 1 ] + " vs " + expectedLength + ")" );
-		}
+		{ throw new IllegalArgumentException( "property " + name + " does not have expected length (" + array.size()[ array.size().length - 1 ] + " vs " + expectedLength + ")" ); }
 	}
-
 
 	// -- write dataset fully --
 
@@ -422,7 +468,6 @@ public class GeffUtils
 			writer.writeBlock( dataset, attributes, block );
 		}
 	}
-
 
 	// -- read dataset fully --
 

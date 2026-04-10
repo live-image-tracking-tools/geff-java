@@ -102,7 +102,7 @@ public class GeffCreateTest
                                 "src/test/resources/create_test_output.zarr/tracks" );
                 List< GeffNode > readNodes = GeffNode.readFromZarr(
                                 "src/test/resources/create_test_output.zarr/tracks",
-                                readMetadata.getGeffVersion() );
+                                readMetadata );
                 List< GeffEdge > readEdges = GeffEdge.readFromZarr(
                                 "src/test/resources/create_test_output.zarr/tracks",
                                 readMetadata.getGeffVersion() );
