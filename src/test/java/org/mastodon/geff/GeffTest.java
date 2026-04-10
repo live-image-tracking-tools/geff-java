@@ -28,6 +28,7 @@
  */
 package org.mastodon.geff;
 
+import java.io.IOException;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
@@ -253,6 +254,66 @@ public class GeffTest
                 fail( "Write operations should not throw exceptions: " + e.getMessage() );
             }
         } );
+    }
+
+    @Test
+    @DisplayName( "Test varlength node property write/read roundtrip" )
+    void testVarlengthPropertyWriteRead( @TempDir Path tempDir ) throws IOException
+    {
+        String tempPath = tempDir.toString() + "/test-varlength.zarr/tracks";
+
+        final List< GeffNode > nodes = new ArrayList<>();
+        for ( int i = 0; i < 3; i++ )
+        {
+            GeffNode node = new GeffNode();
+            node.setId( i );
+            node.setT( i );
+            node.setX( i * 1.0 );
+            node.setY( i * 2.0 );
+            node.setZ( i * 3.0 );
+            node.setSegmentId( i );
+            nodes.add( node );
+        }
+
+        final Object[] data = new Object[] { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0 };
+        final long[][] offsets = new long[][] { { 0, 2 }, { 2, 3 }, { 5, 1 } };
+        final boolean[] missing = new boolean[] { false, false, false };
+
+        final VarlengthProperty polygonProperty = new VarlengthProperty( "polygon", "float64", data, offsets, missing );
+        for ( GeffNode node : nodes )
+        {
+            node.setVarlengthProperty( "polygon", polygonProperty );
+        }
+
+        final GeffMetadata metadata = new GeffMetadata( Geff.VERSION, true );
+        GeffNode.writeToZarr( nodes, tempPath, metadata );
+        GeffMetadata.writeToZarr( metadata, tempPath );
+        GeffMetadata readMetadata = GeffMetadata.readFromZarr( tempPath );
+        List< GeffNode > readNodes = GeffNode.readFromZarr( tempPath, readMetadata );
+
+        assertNotNull( readMetadata.getNodePropsMetadata() );
+        assertTrue( readMetadata.getNodePropsMetadata().containsKey( "polygon" ) );
+        assertEquals( true, readMetadata.getNodePropsMetadata().get( "polygon" ).getVarlength() );
+
+        for ( int i = 0; i < nodes.size(); i++ )
+        {
+            final VarlengthProperty readProperty = readNodes.get( i ).getVarlengthProperty( "polygon" );
+            assertNotNull( readProperty );
+            final Object nodeData = readProperty.getNodeData( i );
+            assertNotNull( nodeData );
+            assertTrue( nodeData instanceof Object[] );
+
+            final int offset = ( int ) offsets[ i ][ 0 ];
+            final int length = ( int ) offsets[ i ][ 1 ];
+            final Object[] expected = new Object[ length ];
+            for ( int j = 0; j < length; j++ )
+            {
+                expected[ j ] = data[ offset + j ];
+            }
+
+            System.out.println( "Node " + i + " expected=" + java.util.Arrays.toString( expected ) + " actual=" + java.util.Arrays.toString( ( Object[] ) nodeData ) );
+            assertArrayEquals( expected, ( Object[] ) nodeData );
+        }
     }
 
     @Test

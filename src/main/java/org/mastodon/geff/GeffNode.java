@@ -32,11 +32,14 @@ import static org.mastodon.geff.GeffUtils.checkSupportedVersion;
 import static org.mastodon.geff.GeffUtils.verifyLength;
 
 import java.io.IOException;
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 
 import org.janelia.saalfeldlab.n5.N5Reader;
@@ -904,6 +907,7 @@ public class GeffNode
 		GeffUtils.checkSupportedVersion( geffVersion );
 
 		final String path = N5URI.normalizeGroupPath( group );
+		final int numNodes = nodes.size();
 
 		// Write node IDs in chunks
 		GeffUtils.writeIntArray( nodes, GeffNode::getId, writer, path + "/nodes/ids", chunkSize );
@@ -936,6 +940,82 @@ public class GeffNode
 
 		// Write covariance3d in chunks
 		GeffUtils.writeDoubleMatrix( nodes, 6, GeffNode::getCovariance3d, writer, path + "/nodes/props/covariance3d/values", chunkSize );
+
+		// Write variable-length node properties if available
+		final Set< String > varlengthPropertyNames = new HashSet<>();
+		for ( final GeffNode node : nodes )
+		{
+			varlengthPropertyNames.addAll( node.getVarlengthProperties().keySet() );
+		}
+		if ( !varlengthPropertyNames.isEmpty() )
+		{
+			if ( metadata.getNodePropsMetadata() == null )
+			{
+				metadata.setNodePropsMetadata( new HashMap<>() );
+			}
+			for ( final String propName : varlengthPropertyNames )
+			{
+				final Object[][] nodeDataArrays = new Object[ numNodes ][];
+				final boolean[] missing = new boolean[ numNodes ];
+				String dtype = null;
+
+				for ( int i = 0; i < numNodes; i++ )
+				{
+					final VarlengthProperty property = nodes.get( i ).getVarlengthProperty( propName );
+					if ( property == null || property.isMissing( i ) )
+					{
+						nodeDataArrays[ i ] = null;
+						missing[ i ] = true;
+						continue;
+					}
+
+					if ( dtype == null )
+					{
+						dtype = property.getDtype();
+					}
+
+					final Object nodeData = property.getNodeData( i );
+					if ( nodeData == null )
+					{
+						nodeDataArrays[ i ] = new Object[ 0 ];
+					}
+					else if ( nodeData.getClass().isArray() )
+					{
+						if ( nodeData instanceof Object[] )
+						{
+							nodeDataArrays[ i ] = ( Object[] ) nodeData;
+						}
+						else
+						{
+							final int length = Array.getLength( nodeData );
+							final Object[] converted = new Object[ length ];
+							for ( int j = 0; j < length; j++ )
+							{
+								converted[ j ] = Array.get( nodeData, j );
+							}
+							nodeDataArrays[ i ] = converted;
+						}
+					}
+					else
+					{
+						nodeDataArrays[ i ] = new Object[] { nodeData };
+					}
+				}
+
+				if ( dtype == null )
+				{
+					dtype = "float64";
+				}
+
+				GeffUtils.writeVarlengthProperty( writer, path + "/nodes/props/" + propName, nodeDataArrays, missing, chunkSize );
+
+				final Map< String, PropMetadata > nodePropsMetadata = metadata.getNodePropsMetadata();
+				if ( !nodePropsMetadata.containsKey( propName ) )
+				{
+					nodePropsMetadata.put( propName, new PropMetadata( propName, dtype, true, null, null, null ) );
+				}
+			}
+		}
 
 		if ( geffVersion.startsWith( "0.4" ) )
 		{

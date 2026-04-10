@@ -1,5 +1,6 @@
 package org.mastodon.geff;
 
+import java.lang.reflect.Array;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Function;
@@ -717,6 +718,277 @@ public class GeffUtils
 				return new Object[] { dataArray };
 			}
 		}
+	}
+
+	/**
+	 * Write a variable-length property to zarr format. The property data is
+	 * flattened with offset and shape information recorded in the values array.
+	 *
+	 * @param writer
+	 *            N5Writer to write to
+	 * @param propPath
+	 *            Path where property will be stored (e.g.,
+	 *            /nodes/props/polygon)
+	 * @param nodeDataArrays
+	 *            Array of Object[] where each element represents one node's
+	 *            data (can have varying sizes/dimensions)
+	 * @param missing
+	 *            Optional boolean array indicating missing values for each node
+	 * @param chunkSize
+	 *            Chunk size for zarr storage
+	 */
+	public static void writeVarlengthProperty(
+			final N5Writer writer,
+			final String propPath,
+			final Object[][] nodeDataArrays,
+			final boolean[] missing,
+			final int chunkSize )
+	{
+		if ( nodeDataArrays == null || nodeDataArrays.length == 0 )
+		{
+			LOG.warn( "Cannot write empty varlength property at {}", propPath );
+			return;
+		}
+
+		final int numNodes = nodeDataArrays.length;
+
+		// Step 1: Flatten all data and build offset/shape information
+		final Object[] flattenedData = new Object[ calculateTotalElements( nodeDataArrays ) ];
+		final long[][] offsetsAndShapes = new long[ numNodes ][];
+
+		long currentOffset = 0;
+		Object elementType = null;
+
+		for ( int i = 0; i < numNodes; i++ )
+		{
+			final Object[] nodeData = nodeDataArrays[ i ];
+
+			if ( nodeData != null && nodeData.length > 0 )
+			{
+				if ( elementType == null && nodeData.length > 0 )
+				{
+					elementType = nodeData[ 0 ];
+				}
+
+				// Calculate dimensions of this node's data
+				// For now, store as 1D flat offset with total length
+				final long[] shapeInfo = new long[ 2 ]; // [offset, length]
+				shapeInfo[ 0 ] = currentOffset;
+				shapeInfo[ 1 ] = nodeData.length;
+				offsetsAndShapes[ i ] = shapeInfo;
+
+				// Copy data into flattened array
+				System.arraycopy( nodeData, 0, flattenedData, ( int ) currentOffset, nodeData.length );
+				currentOffset += nodeData.length;
+			}
+			else
+			{
+				// Node has empty or null data
+				offsetsAndShapes[ i ] = new long[] { currentOffset, 0 };
+			}
+		}
+
+		try
+		{
+			// Step 2: Write data array
+			final Object dataToWrite = convertObjectArrayToNativeArray( flattenedData, elementType, ( int ) currentOffset );
+			DataType dataType = inferDataType( dataToWrite );
+			writeDataArray( writer, propPath + "/data", dataToWrite, dataType, chunkSize );
+
+			// Step 3: Write values array (offset and length information)
+			writeOffsetsArray( writer, propPath + "/values", offsetsAndShapes, chunkSize );
+
+			// Step 4: Write missing array if needed
+			if ( missing != null && missing.length == numNodes )
+			{
+				writeMissingArray( writer, propPath + "/missing", missing, chunkSize );
+			}
+
+			LOG.debug( "Successfully wrote varlength property: {}", propPath );
+		}
+		catch ( final Exception e )
+		{
+			LOG.warn( "Error writing varlength property {}: {}", propPath, e.getMessage() );
+		}
+	}
+
+	/**
+	 * Calculate total number of elements across all node data arrays
+	 */
+	private static int calculateTotalElements( final Object[][] nodeDataArrays )
+	{
+		int total = 0;
+		for ( final Object[] nodeData : nodeDataArrays )
+		{
+			if ( nodeData != null )
+			{
+				total += nodeData.length;
+			}
+		}
+		return total;
+	}
+
+	/**
+	 * Convert Object array to native array type (double[], int[], long[], etc.)
+	 */
+	private static Object convertObjectArrayToNativeArray( final Object[] objectArray, final Object elementType, final int size )
+	{
+		if ( elementType == null )
+		{ return new double[ size ]; } // Default
+
+		if ( elementType instanceof Double )
+		{
+			final double[] result = new double[ size ];
+			for ( int i = 0; i < size; i++ )
+			{
+				result[ i ] = ( Double ) objectArray[ i ];
+			}
+			return result;
+		}
+		else if ( elementType instanceof Integer )
+		{
+			final int[] result = new int[ size ];
+			for ( int i = 0; i < size; i++ )
+			{
+				result[ i ] = ( Integer ) objectArray[ i ];
+			}
+			return result;
+		}
+		else if ( elementType instanceof Long )
+		{
+			final long[] result = new long[ size ];
+			for ( int i = 0; i < size; i++ )
+			{
+				result[ i ] = ( Long ) objectArray[ i ];
+			}
+			return result;
+		}
+		else if ( elementType instanceof Float )
+		{
+			final float[] result = new float[ size ];
+			for ( int i = 0; i < size; i++ )
+			{
+				result[ i ] = ( Float ) objectArray[ i ];
+			}
+			return result;
+		}
+		else
+		{
+			// Default to double for unknown types
+			final double[] result = new double[ size ];
+			for ( int i = 0; i < size; i++ )
+			{
+				if ( objectArray[ i ] instanceof Number )
+				{
+					result[ i ] = ( ( Number ) objectArray[ i ] ).doubleValue();
+				}
+			}
+			return result;
+		}
+	}
+
+	/**
+	 * Infer data type from native array
+	 */
+	private static DataType inferDataType( final Object array )
+	{
+		if ( array instanceof double[] )
+		{
+			return DataType.FLOAT64;
+		}
+		else if ( array instanceof float[] )
+		{
+			return DataType.FLOAT32;
+		}
+		else if ( array instanceof int[] )
+		{
+			return DataType.INT32;
+		}
+		else if ( array instanceof long[] )
+		{
+			return DataType.INT64;
+		}
+		else
+		{
+			return DataType.FLOAT64;
+		} // Default
+	}
+
+	/**
+	 * Write a native data array to zarr dataset
+	 */
+	private static void writeDataArray(
+			final N5Writer writer,
+			final String dataset,
+			final Object data,
+			final DataType dataType,
+			final int chunkSize ) throws Exception
+	{
+		final long numElements = Array.getLength( data );
+		final DatasetAttributes attributes = new DatasetAttributes(
+				new long[] { numElements },
+				new int[] { Math.min( chunkSize, ( int ) numElements ) },
+				dataType,
+				new BloscCompression() );
+		writer.createDataset( dataset, attributes );
+		write( data, writer, dataset, attributes );
+	}
+
+	/**
+	 * Write offset and shape information as int64 2D array
+	 */
+	private static void writeOffsetsArray(
+			final N5Writer writer,
+			final String dataset,
+			final long[][] offsetsAndShapes,
+			final int chunkSize ) throws Exception
+	{
+		final int numNodes = offsetsAndShapes.length;
+		final int numColumns = offsetsAndShapes.length > 0 ? offsetsAndShapes[ 0 ].length : 2;
+
+		// Convert long[][] to long[] array in column-major order
+		final long[] flatOffsets = new long[ numNodes * numColumns ];
+		for ( int i = 0; i < numNodes; i++ )
+		{
+			for ( int j = 0; j < numColumns; j++ )
+			{
+				flatOffsets[ i + j * numNodes ] = offsetsAndShapes[ i ][ j ];
+			}
+		}
+
+		final DatasetAttributes attributes = new DatasetAttributes(
+				new long[] { numColumns, numNodes },
+				new int[] { numColumns, Math.min( chunkSize, numNodes ) },
+				DataType.INT64,
+				new BloscCompression() );
+		writer.createDataset( dataset, attributes );
+		write( flatOffsets, writer, dataset, attributes );
+	}
+
+	/**
+	 * Write missing value indicators as boolean array
+	 */
+	private static void writeMissingArray(
+			final N5Writer writer,
+			final String dataset,
+			final boolean[] missing,
+			final int chunkSize ) throws Exception
+	{
+		final DatasetAttributes attributes = new DatasetAttributes(
+				new long[] { missing.length },
+				new int[] { Math.min( chunkSize, missing.length ) },
+				DataType.UINT8, // N5 uses UINT8 for booleans
+				new BloscCompression() );
+		writer.createDataset( dataset, attributes );
+
+		// Convert boolean[] to byte[] for storage
+		final byte[] boolAsBytes = new byte[ missing.length ];
+		for ( int i = 0; i < missing.length; i++ )
+		{
+			boolAsBytes[ i ] = ( byte ) ( missing[ i ] ? 1 : 0 );
+		}
+
+		write( boolAsBytes, writer, dataset, attributes );
 	}
 
 	private GeffUtils()

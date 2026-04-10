@@ -138,7 +138,7 @@ This team will attempt to address the concerns as time allows, but welcomes help
 
 #### 7. Variable-length Properties
 
-**Status**: ✓ READING IMPLEMENTED | WRITING IN PROGRESS (see [VARLENGTH_IMPLEMENTATION.md](VARLENGTH_IMPLEMENTATION.md) for details)
+**Status**: ✓ READING & WRITING FULLY IMPLEMENTED (see [VARLENGTH_IMPLEMENTATION.md](VARLENGTH_IMPLEMENTATION.md) for details)
 
 **Problem**: Properties with `varlength: true` in PropMetadata use offset/length encoding. Java initially had no support for these properties.
 
@@ -201,7 +201,7 @@ This team will attempt to address the concerns as time allows, but welcomes help
 
 **Implementation Phases**:
 - Phase 1 (✓ DONE): Reading varlength properties from zarr
-- Phase 2 (CURRENT): Writing varlength properties to zarr
+- Phase 2 (✓ DONE): Writing varlength properties to zarr
 - Phase 3 (FUTURE): Optimization for large datasets, edge property support
 
 #### 8. String Properties
