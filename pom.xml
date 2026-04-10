@@ -23,6 +23,7 @@
 
         <enforcer.skip>true</enforcer.skip>
 		<imglib2.version>7.1.5</imglib2.version>
+        <logback.version>1.5.25</logback.version>
 
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
         <sonar.java.coveragePlugin>jacoco</sonar.java.coveragePlugin>
@@ -84,12 +85,14 @@
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
+            <version>${logback.version}</version>
             <scope>test</scope>
         </dependency>
         <!-- include logback-core at test runtime -->
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-core</artifactId>
+            <version>${logback.version}</version>
             <scope>test</scope>
         </dependency>
 
