@@ -8,20 +8,20 @@ This team will attempt to address the concerns as time allows, but welcomes help
 
 ## Action Summary
 
-| # | Issue | Action | Priority |
-|---|-------|--------|----------|
-| 1 | Missing `node_props_metadata` / `edge_props_metadata` | **FIX** | Critical |
-| 2 | Axis missing `scale`/`scaled_unit`/`offset` | Document | Low |
-| 3 | Hardcoded axis names (`t`,`x`,`y`,`z` only) | **FIX** | Critical |
-| 4 | Missing `channel` axis type | **FIX** | Low |
-| 5 | Covariance format mismatch | Document | Low |
-| 6 | Hardcoded `track_id` path | **FIX** | Medium |
-| 7 | Variable-length properties | **Warn & skip** | Medium |
-| 8 | String properties | **Warn & skip** | Medium |
-| 9 | `missing` arrays | **Warn & skip** | Medium |
+| #   | Issue                                                 | Action          | Priority |
+| --- | ----------------------------------------------------- | --------------- | -------- |
+| 1   | Missing `node_props_metadata` / `edge_props_metadata` | **FIX**         | Critical |
+| 2   | Axis missing `scale`/`scaled_unit`/`offset`           | Document        | Low      |
+| 3   | Hardcoded axis names (`t`,`x`,`y`,`z` only)           | **FIX**         | Critical |
+| 4   | Missing `channel` axis type                           | **FIX**         | Low      |
+| 5   | Covariance format mismatch                            | Document        | Low      |
+| 6   | Hardcoded `track_id` path                             | **FIX**         | Medium   |
+| 7   | Variable-length properties                            | **FIX**         | High     |
+| 8   | String properties                                     | **Warn & skip** | Medium   |
+| 9   | `missing` arrays                                      | **Warn & skip** | Medium   |
 
-**Fixes required**: #1, #3, #4, #6
-**Graceful handling**: #7, #8, #9
+**Fixes required**: #1, #3, #4, #6, #7
+**Graceful handling**: #8, #9
 **Document only**: #2, #5
 
 ---
@@ -130,9 +130,36 @@ This team will attempt to address the concerns as time allows, but welcomes help
 
 #### 7. Variable-length Properties
 
-**Problem**: Properties with `varlength: true` in PropMetadata use offset/length encoding. Java may error on unexpected array structure.
+**Problem**: Properties with `varlength: true` in PropMetadata use offset/length encoding. Java currently has no support for these properties.
 
-**Plan**: When reading, check `varlength` in PropMetadata; if true, log warning and skip property instead of erroring.
+**Encoding Format** (from spec):
+- For each node, the property can have a different shape/length
+- A `data` array contains all flattened values concatenated (shape: `(V,)` where V is total number of elements across all nodes)
+- A `values` array contains offset and shape information (shape: `(N, ndim+1)` where N is number of nodes, ndim is dimensionality)
+  - First column: offset into the data array for that node's data
+  - Remaining columns: shape of that node's data (e.g., for 2D polygon: `[offset, rows, cols]`)
+
+**Examples from Spec**:
+- Polygon property: `polygon/data`, `polygon/values` (shape: N x 3 for 2D coords, containing offset, height, width)
+
+**Plan**:
+1. When reading a property, check `varlength` in PropMetadata
+2. If `varlength: true`:
+   - Read both the `data` array and `values` array from zarr
+   - For each node index, extract the offset and shape from `values[i]`
+   - Use these to slice the appropriate section from `data` array
+   - Reconstruct the variable-length array for that node
+   - Handle optional `missing` array to skip nodes with missing values
+3. For Java representation:
+   - Store as `List<Object>` or `List<byte[]>` depending on dtype (for flexibility)
+   - Or use a wrapper class `VarlengthProperty` containing `Object[] data` indexed by node position
+4. When **writing** varlength properties:
+   - Flatten all node data into a single `data` array
+   - Record offset and shape for each node in `values` array
+   - Write to zarr with proper dtype encoding
+5. **Initially**: Add support for **reading** varlength properties with graceful error handling
+6. **Future**: If writing varlength properties is needed, implement full encoding logic
+7. Add unit tests using the polygon property from test data
 
 #### 8. String Properties
 
@@ -175,5 +202,6 @@ This means Python will accept future versions like `2.0`, `1.5`, etc. as long as
 1. **Interoperability Testing**: Create cross-language tests
    - Python writes GEFF → Java reads
    - Java writes GEFF → Python reads & validates
-2. **Implement Fixes**: Address issues #1, #3, #4, #6 in priority order
-3. **Add Graceful Handling**: Implement warn-and-skip for #7, #8, #9
+   - Include testing of varlength properties (e.g., polygon data)
+2. **Implement Fixes**: Address issues #1, #3, #4, #6, #7 in priority order
+3. **Add Graceful Handling**: Implement warn-and-skip for #8, #9
