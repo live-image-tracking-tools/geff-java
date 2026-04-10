@@ -138,9 +138,9 @@ This team will attempt to address the concerns as time allows, but welcomes help
 
 #### 7. Variable-length Properties
 
-**Status**: ✓ IMPLEMENTED (see [VARLENGTH_IMPLEMENTATION.md](VARLENGTH_IMPLEMENTATION.md) for details)
+**Status**: ✓ READING IMPLEMENTED | WRITING IN PROGRESS (see [VARLENGTH_IMPLEMENTATION.md](VARLENGTH_IMPLEMENTATION.md) for details)
 
-**Problem**: Properties with `varlength: true` in PropMetadata use offset/length encoding. Java currently has no support for these properties.
+**Problem**: Properties with `varlength: true` in PropMetadata use offset/length encoding. Java initially had no support for these properties.
 
 **Encoding Format** (from spec):
 - For each node, the property can have a different shape/length
@@ -152,7 +152,7 @@ This team will attempt to address the concerns as time allows, but welcomes help
 **Examples from Spec**:
 - Polygon property: `polygon/data`, `polygon/values` (shape: N x 3 for 2D coords, containing offset, height, width)
 
-**Plan**:
+**Reading Implementation** (✓ COMPLETE):
 1. When reading a property, check `varlength` in PropMetadata
 2. If `varlength: true`:
    - Read both the `data` array and `values` array from zarr
@@ -161,15 +161,48 @@ This team will attempt to address the concerns as time allows, but welcomes help
    - Reconstruct the variable-length array for that node
    - Handle optional `missing` array to skip nodes with missing values
 3. For Java representation:
-   - Store as `List<Object>` or `List<byte[]>` depending on dtype (for flexibility)
-   - Or use a wrapper class `VarlengthProperty` containing `Object[] data` indexed by node position
-4. When **writing** varlength properties:
-   - Flatten all node data into a single `data` array
-   - Record offset and shape for each node in `values` array
-   - Write to zarr with proper dtype encoding
-5. **Initially**: Add support for **reading** varlength properties with graceful error handling
-6. **Future**: If writing varlength properties is needed, implement full encoding logic
-7. Add unit tests using the polygon property from test data
+   - Store as wrapper class `VarlengthProperty` containing `Object[] data` indexed by node position
+4. Graceful error handling and validation
+
+**Writing Implementation** (PLANNED):
+1. Flatten all node data:
+   - For each node i with varlength property data, extract the array
+   - Concatenate all data into single flattened array
+   - Track cumulative offset for each node's data
+   
+2. Build offset and shape metadata:
+   - For each node i, calculate the starting offset
+   - Extract dimensionality from node's array shape
+   - Create `values` array: shape (numNodes, ndim+1) where values[i][0]=offset, values[i][1:]=dims
+   - Example: Node with 2x3 array starting at offset 5 → [5, 2, 3]
+
+3. Handle data type encoding:
+   - Infer dtype from actual data type (double[] → "float64", int[] → "int32", etc.)
+   - Store dtype in PropMetadata for each varlength property
+   - Convert data to appropriate N5/zarr compatible format
+
+4. Write to zarr:
+   - Create `/nodes/props/{propName}/data` dataset with flattened data
+   - Create `/nodes/props/{propName}/values` dataset with offset/shape info (int64)
+   - If any node has missing value, create `/nodes/props/{propName}/missing` boolean array
+   - Update PropMetadata with `varlength: true` and correct dtype
+
+5. Integration with writeToZarr():
+   - Iterate through all node properties
+   - Identify which are varlength (check if property contains arrays of varying sizes)
+   - Apply flattening and encoding logic before writing
+   - Ensure PropMetadata is properly serialized with varlength indicators
+
+6. Unit tests:
+   - Write varlength property for simple case (single node with 2D array)
+   - Write varlength property with multiple nodes of different shapes
+   - Write varlength property with missing value indicators
+   - Round-trip test: Write → Read → Verify data integrity
+
+**Implementation Phases**:
+- Phase 1 (✓ DONE): Reading varlength properties from zarr
+- Phase 2 (CURRENT): Writing varlength properties to zarr
+- Phase 3 (FUTURE): Optimization for large datasets, edge property support
 
 #### 8. String Properties
 
