@@ -36,125 +36,125 @@ import java.util.Objects;
  */
 public class PropMetadata
 {
-    private String identifier;
+	private String identifier;
 
-    private String dtype;
+	private String dtype;
 
-    private Boolean varlength;
+	private Boolean varlength;
 
-    private String unit;
+	private String unit;
 
-    private String name;
+	private String name;
 
-    private String description;
+	private String description;
 
-    /**
-     * Default constructor
-     */
-    public PropMetadata()
-    {}
+	/**
+	 * Default constructor
+	 */
+	public PropMetadata()
+	{}
 
-    /**
-     * Constructor with all fields
-     */
-    public PropMetadata( String identifier, String dtype, Boolean varlength, String unit, String name, String description )
-    {
-        this.identifier = identifier;
-        this.dtype = dtype;
-        this.varlength = varlength;
-        this.unit = unit;
-        this.name = name;
-        this.description = description;
-    }
+	/**
+	 * Constructor with all fields
+	 */
+	public PropMetadata( String identifier, String dtype, Boolean varlength, String unit, String name, String description )
+	{
+		this.identifier = identifier;
+		this.dtype = dtype;
+		this.varlength = varlength;
+		this.unit = unit;
+		this.name = name;
+		this.description = description;
+	}
 
-    // Getters and Setters
-    public String getIdentifier()
-    {
-        return identifier;
-    }
+	// Getters and Setters
+	public String getIdentifier()
+	{
+		return identifier;
+	}
 
-    public void setIdentifier( String identifier )
-    {
-        this.identifier = identifier;
-    }
+	public void setIdentifier( String identifier )
+	{
+		this.identifier = identifier;
+	}
 
-    public String getDtype()
-    {
-        return dtype;
-    }
+	public String getDtype()
+	{
+		return dtype;
+	}
 
-    public void setDtype( String dtype )
-    {
-        this.dtype = dtype;
-    }
+	public void setDtype( String dtype )
+	{
+		this.dtype = dtype;
+	}
 
-    public Boolean getVarlength()
-    {
-        return varlength;
-    }
+	public Boolean getVarlength()
+	{
+		return varlength;
+	}
 
-    public void setVarlength( Boolean varlength )
-    {
-        this.varlength = varlength;
-    }
+	public void setVarlength( Boolean varlength )
+	{
+		this.varlength = varlength;
+	}
 
-    public String getUnit()
-    {
-        return unit;
-    }
+	public String getUnit()
+	{
+		return unit;
+	}
 
-    public void setUnit( String unit )
-    {
-        this.unit = unit;
-    }
+	public void setUnit( String unit )
+	{
+		this.unit = unit;
+	}
 
-    public String getName()
-    {
-        return name;
-    }
+	public String getName()
+	{
+		return name;
+	}
 
-    public void setName( String name )
-    {
-        this.name = name;
-    }
+	public void setName( String name )
+	{
+		this.name = name;
+	}
 
-    public String getDescription()
-    {
-        return description;
-    }
+	public String getDescription()
+	{
+		return description;
+	}
 
-    public void setDescription( String description )
-    {
-        this.description = description;
-    }
+	public void setDescription( String description )
+	{
+		this.description = description;
+	}
 
-    @Override
-    public String toString()
-    {
-        return String.format(
-                "PropMetadata{identifier='%s', dtype='%s', varlength=%s, unit='%s', name='%s', description='%s'}",
-                identifier, dtype, varlength, unit, name, description );
-    }
+	@Override
+	public String toString()
+	{
+		return String.format(
+				"PropMetadata{identifier='%s', dtype='%s', varlength=%s, unit='%s', name='%s', description='%s'}",
+				identifier, dtype, varlength, unit, name, description );
+	}
 
-    @Override
-    public boolean equals( Object o )
-    {
-        if ( this == o )
-            return true;
-        if ( o == null || getClass() != o.getClass() )
-            return false;
-        PropMetadata that = ( PropMetadata ) o;
-        return Objects.equals( identifier, that.identifier ) &&
-                Objects.equals( dtype, that.dtype ) &&
-                Objects.equals( varlength, that.varlength ) &&
-                Objects.equals( unit, that.unit ) &&
-                Objects.equals( name, that.name ) &&
-                Objects.equals( description, that.description );
-    }
+	@Override
+	public boolean equals( Object o )
+	{
+		if ( this == o )
+			return true;
+		if ( o == null || getClass() != o.getClass() )
+			return false;
+		PropMetadata that = ( PropMetadata ) o;
+		return Objects.equals( identifier, that.identifier ) &&
+				Objects.equals( dtype, that.dtype ) &&
+				Objects.equals( varlength, that.varlength ) &&
+				Objects.equals( unit, that.unit ) &&
+				Objects.equals( name, that.name ) &&
+				Objects.equals( description, that.description );
+	}
 
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash( identifier, dtype, varlength, unit, name, description );
-    }
+	@Override
+	public int hashCode()
+	{
+		return Objects.hash( identifier, dtype, varlength, unit, name, description );
+	}
 }

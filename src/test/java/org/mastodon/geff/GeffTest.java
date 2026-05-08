@@ -45,398 +45,398 @@ import java.util.ArrayList;
 public class GeffTest
 {
 
-    private GeffMetadata testMetadata;
+	private GeffMetadata testMetadata;
 
-    private List< GeffNode > testNodes;
+	private List< GeffNode > testNodes;
 
-    private List< GeffEdge > testEdges;
+	private List< GeffEdge > testEdges;
 
-    @BeforeEach
-    void setUp()
-    {
-        // Create test metadata with GeffAxis
-        testMetadata = new GeffMetadata( "0.2.2", true );
+	@BeforeEach
+	void setUp()
+	{
+		// Create test metadata with GeffAxis
+		testMetadata = new GeffMetadata( "0.2.2", true );
 
-        // Create axes using GeffAxis
-        GeffAxis[] axes = {
-                GeffAxis.createSpaceAxis( "x", GeffAxis.UNIT_MICROMETER, 0.0, 100.0 ),
-                GeffAxis.createSpaceAxis( "y", GeffAxis.UNIT_MICROMETER, 0.0, 100.0 ),
-                GeffAxis.createSpaceAxis( "z", GeffAxis.UNIT_MICROMETER, 0.0, 50.0 )
-        };
-        testMetadata.setGeffAxes( axes );
+		// Create axes using GeffAxis
+		GeffAxis[] axes = {
+				GeffAxis.createSpaceAxis( "x", GeffAxis.UNIT_MICROMETER, 0.0, 100.0 ),
+				GeffAxis.createSpaceAxis( "y", GeffAxis.UNIT_MICROMETER, 0.0, 100.0 ),
+				GeffAxis.createSpaceAxis( "z", GeffAxis.UNIT_MICROMETER, 0.0, 50.0 )
+		};
+		testMetadata.setGeffAxes( axes );
 
-        // Create test nodes
-        testNodes = new ArrayList<>();
-        for ( int i = 0; i < 5; i++ )
-        {
-            GeffNode node = new GeffNode();
-            node.setT( i ); // Use setT instead of setTimepoint
-            node.setX( i * 10.0 );
-            node.setY( i * 15.0 );
-            node.setSegmentId( i + 100 );
-            // Note: setPosition is deprecated, using individual coordinates
-            // instead
-            testNodes.add( node );
-        }
+		// Create test nodes
+		testNodes = new ArrayList<>();
+		for ( int i = 0; i < 5; i++ )
+		{
+			GeffNode node = new GeffNode();
+			node.setT( i ); // Use setT instead of setTimepoint
+			node.setX( i * 10.0 );
+			node.setY( i * 15.0 );
+			node.setSegmentId( i + 100 );
+			// Note: setPosition is deprecated, using individual coordinates
+			// instead
+			testNodes.add( node );
+		}
 
-        // Create test edges
-        testEdges = new ArrayList<>();
-        for ( int i = 0; i < 4; i++ )
-        {
-            GeffEdge edge = new GeffEdge( i, i, i + 1, 0.5, 10.0 ); // id,
-                                                                    // source,
-                                                                    // target,
-                                                                    // score,
-                                                                    // distance
-            testEdges.add( edge );
-        }
-    }
+		// Create test edges
+		testEdges = new ArrayList<>();
+		for ( int i = 0; i < 4; i++ )
+		{
+			GeffEdge edge = new GeffEdge( i, i, i + 1, 0.5, 10.0 ); // id,
+				// source,
+				// target,
+				// score,
+				// distance
+			testEdges.add( edge );
+		}
+	}
 
-    @Test
-    @DisplayName( "Test Geff version constant" )
-    void testVersionConstant()
-    {
-        assertNotNull( Geff.VERSION );
-        assertFalse( Geff.VERSION.isEmpty() );
-        assertEquals( "0.3.0", Geff.VERSION );
-    }
+	@Test
+	@DisplayName( "Test Geff version constant" )
+	void testVersionConstant()
+	{
+		assertNotNull( Geff.VERSION );
+		assertFalse( Geff.VERSION.isEmpty() );
+		assertEquals( "0.3.0", Geff.VERSION );
+	}
 
-    @Test
-    @DisplayName( "Test Geff object creation and getters" )
-    void testGeffObjectCreation()
-    {
-        // Create Geff object using reflection since constructor is private
-        // We'll test the functionality through the main method behavior
-        assertDoesNotThrow( () -> {
-            // Test that we can create the components that would go into a Geff
-            // object
-            assertNotNull( testMetadata );
-            assertNotNull( testNodes );
-            assertNotNull( testEdges );
+	@Test
+	@DisplayName( "Test Geff object creation and getters" )
+	void testGeffObjectCreation()
+	{
+		// Create Geff object using reflection since constructor is private
+		// We'll test the functionality through the main method behavior
+		assertDoesNotThrow( () -> {
+			// Test that we can create the components that would go into a Geff
+			// object
+			assertNotNull( testMetadata );
+			assertNotNull( testNodes );
+			assertNotNull( testEdges );
 
-            // Verify the test data is properly set up
-            assertEquals( 5, testNodes.size() );
-            assertEquals( 4, testEdges.size() );
-            assertEquals( "0.2.2", testMetadata.getGeffVersion() );
-        } );
-    }
+			// Verify the test data is properly set up
+			assertEquals( 5, testNodes.size() );
+			assertEquals( 4, testEdges.size() );
+			assertEquals( "0.2.2", testMetadata.getGeffVersion() );
+		} );
+	}
 
-    @Test
-    @DisplayName( "Test node data structure" )
-    void testNodeDataStructure()
-    {
-        GeffNode node = testNodes.get( 0 );
+	@Test
+	@DisplayName( "Test node data structure" )
+	void testNodeDataStructure()
+	{
+		GeffNode node = testNodes.get( 0 );
 
-        assertEquals( 0, node.getT() ); // Use getT instead of getTimepoint
-        assertEquals( 0.0, node.getX(), 0.001 );
-        assertEquals( 0.0, node.getY(), 0.001 );
-        assertEquals( 100, node.getSegmentId() );
-        // Note: getPosition is deprecated, testing individual coordinates
-        // instead
-    }
+		assertEquals( 0, node.getT() ); // Use getT instead of getTimepoint
+		assertEquals( 0.0, node.getX(), 0.001 );
+		assertEquals( 0.0, node.getY(), 0.001 );
+		assertEquals( 100, node.getSegmentId() );
+		// Note: getPosition is deprecated, testing individual coordinates
+		// instead
+	}
 
-    @Test
-    @DisplayName( "Test edge data structure" )
-    void testEdgeDataStructure()
-    {
-        GeffEdge edge = testEdges.get( 0 );
+	@Test
+	@DisplayName( "Test edge data structure" )
+	void testEdgeDataStructure()
+	{
+		GeffEdge edge = testEdges.get( 0 );
 
-        assertEquals( 0, edge.getId() ); // Use getId for edge ID
-        assertEquals( 0, edge.getSourceNodeId() ); // Use getSourceNodeId
-        assertEquals( 1, edge.getTargetNodeId() ); // Use getTargetNodeId
-        assertEquals( 0.5, edge.getScore(), 0.001 );
-        assertEquals( 10.0, edge.getDistance(), 0.001 );
-    }
+		assertEquals( 0, edge.getId() ); // Use getId for edge ID
+		assertEquals( 0, edge.getSourceNodeId() ); // Use getSourceNodeId
+		assertEquals( 1, edge.getTargetNodeId() ); // Use getTargetNodeId
+		assertEquals( 0.5, edge.getScore(), 0.001 );
+		assertEquals( 10.0, edge.getDistance(), 0.001 );
+	}
 
-    @Test
-    @DisplayName( "Test metadata data structure" )
-    void testMetadataDataStructure()
-    {
-        assertEquals( "0.2.2", testMetadata.getGeffVersion() );
-        assertTrue( testMetadata.isDirected() );
+	@Test
+	@DisplayName( "Test metadata data structure" )
+	void testMetadataDataStructure()
+	{
+		assertEquals( "0.2.2", testMetadata.getGeffVersion() );
+		assertTrue( testMetadata.isDirected() );
 
-        // Test GeffAxis array
-        GeffAxis[] axes = testMetadata.getGeffAxes();
-        assertNotNull( axes );
-        assertEquals( 3, axes.length );
+		// Test GeffAxis array
+		GeffAxis[] axes = testMetadata.getGeffAxes();
+		assertNotNull( axes );
+		assertEquals( 3, axes.length );
 
-        // Test individual axes
-        assertEquals( "x", axes[ 0 ].getName() );
-        assertEquals( GeffAxis.TYPE_SPACE, axes[ 0 ].getType() );
-        assertEquals( GeffAxis.UNIT_MICROMETER, axes[ 0 ].getUnit() );
-        assertEquals( 0.0, axes[ 0 ].getMin(), 0.001 );
-        assertEquals( 100.0, axes[ 0 ].getMax(), 0.001 );
+		// Test individual axes
+		assertEquals( "x", axes[ 0 ].getName() );
+		assertEquals( GeffAxis.TYPE_SPACE, axes[ 0 ].getType() );
+		assertEquals( GeffAxis.UNIT_MICROMETER, axes[ 0 ].getUnit() );
+		assertEquals( 0.0, axes[ 0 ].getMin(), 0.001 );
+		assertEquals( 100.0, axes[ 0 ].getMax(), 0.001 );
 
-        assertEquals( "y", axes[ 1 ].getName() );
-        assertEquals( "z", axes[ 2 ].getName() );
-    }
+		assertEquals( "y", axes[ 1 ].getName() );
+		assertEquals( "z", axes[ 2 ].getName() );
+	}
 
-    @Test
-    @DisplayName( "Test metadata validation" )
-    void testMetadataValidation()
-    {
-        assertDoesNotThrow( () -> testMetadata.validate() );
+	@Test
+	@DisplayName( "Test metadata validation" )
+	void testMetadataValidation()
+	{
+		assertDoesNotThrow( () -> testMetadata.validate() );
 
-        // Test invalid metadata - create axes with invalid bounds
-        GeffMetadata invalidMetadata = new GeffMetadata();
-        invalidMetadata.setGeffVersion( "0.2" );
-        invalidMetadata.setDirected( false );
+		// Test invalid metadata - create axes with invalid bounds
+		GeffMetadata invalidMetadata = new GeffMetadata();
+		invalidMetadata.setGeffVersion( "0.2" );
+		invalidMetadata.setDirected( false );
 
-        // Create invalid axes (min > max)
-        GeffAxis[] invalidAxes = {
-                new GeffAxis( "x", GeffAxis.TYPE_SPACE, GeffAxis.UNIT_MICROMETER, 100.0, 50.0 ) // min
-                                                                                                // >
-                                                                                                // max
-        };
+		// Create invalid axes (min > max)
+		GeffAxis[] invalidAxes = {
+				new GeffAxis( "x", GeffAxis.TYPE_SPACE, GeffAxis.UNIT_MICROMETER, 100.0, 50.0 ) // min
+					// >
+					// max
+		};
 
-        assertThrows( IllegalArgumentException.class, () -> {
-            invalidMetadata.setGeffAxes( invalidAxes );
-        } );
-    }
+		assertThrows( IllegalArgumentException.class, () -> {
+			invalidMetadata.setGeffAxes( invalidAxes );
+		} );
+	}
 
-    @Test
-    @DisplayName( "Test node list operations" )
-    void testNodeListOperations()
-    {
-        assertFalse( testNodes.isEmpty() );
-        assertEquals( 5, testNodes.size() );
+	@Test
+	@DisplayName( "Test node list operations" )
+	void testNodeListOperations()
+	{
+		assertFalse( testNodes.isEmpty() );
+		assertEquals( 5, testNodes.size() );
 
-        // Test that nodes can be accessed and modified
-        GeffNode firstNode = testNodes.get( 0 );
-        assertNotNull( firstNode );
+		// Test that nodes can be accessed and modified
+		GeffNode firstNode = testNodes.get( 0 );
+		assertNotNull( firstNode );
 
-        // Test adding a new node
-        GeffNode newNode = new GeffNode();
-        newNode.setT( 10 ); // Use setT instead of setTimepoint
-        newNode.setSegmentId( 200 );
-        testNodes.add( newNode );
-        assertEquals( 6, testNodes.size() );
-    }
+		// Test adding a new node
+		GeffNode newNode = new GeffNode();
+		newNode.setT( 10 ); // Use setT instead of setTimepoint
+		newNode.setSegmentId( 200 );
+		testNodes.add( newNode );
+		assertEquals( 6, testNodes.size() );
+	}
 
-    @Test
-    @DisplayName( "Test edge list operations" )
-    void testEdgeListOperations()
-    {
-        assertFalse( testEdges.isEmpty() );
-        assertEquals( 4, testEdges.size() );
+	@Test
+	@DisplayName( "Test edge list operations" )
+	void testEdgeListOperations()
+	{
+		assertFalse( testEdges.isEmpty() );
+		assertEquals( 4, testEdges.size() );
 
-        // Test that edges can be accessed and modified
-        GeffEdge firstEdge = testEdges.get( 0 );
-        assertNotNull( firstEdge );
+		// Test that edges can be accessed and modified
+		GeffEdge firstEdge = testEdges.get( 0 );
+		assertNotNull( firstEdge );
 
-        // Test adding a new edge
-        GeffEdge newEdge = new GeffEdge( 10, 100, 101, 0.8, 15.0 ); // id,
-                                                                    // source,
-                                                                    // target,
-                                                                    // score,
-                                                                    // distance
-        testEdges.add( newEdge );
-        assertEquals( 5, testEdges.size() );
-    }
+		// Test adding a new edge
+		GeffEdge newEdge = new GeffEdge( 10, 100, 101, 0.8, 15.0 ); // id,
+			// source,
+			// target,
+			// score,
+			// distance
+		testEdges.add( newEdge );
+		assertEquals( 5, testEdges.size() );
+	}
 
-    @Test
-    @DisplayName( "Test write operations work correctly" )
-    void testWriteOperations( @TempDir Path tempDir )
-    {
-        String tempPath = tempDir.toString() + "/test.zarr/tracks";
+	@Test
+	@DisplayName( "Test write operations work correctly" )
+	void testWriteOperations( @TempDir Path tempDir )
+	{
+		String tempPath = tempDir.toString() + "/test.zarr/tracks";
 
-        // Test that write operations complete without throwing exceptions
-        assertDoesNotThrow( () -> {
-            try
-            {
-                GeffNode.writeToZarr( testNodes, tempPath, 1000, testMetadata );
-                GeffEdge.writeToZarr( testEdges, tempPath, 1000 );
-                GeffMetadata.writeToZarr( testMetadata, tempPath );
-            }
-            catch ( Exception e )
-            {
-                // If any exception occurs, fail with details
-                fail( "Write operations should not throw exceptions: " + e.getMessage() );
-            }
-        } );
-    }
+		// Test that write operations complete without throwing exceptions
+		assertDoesNotThrow( () -> {
+			try
+			{
+				GeffNode.writeToZarr( testNodes, tempPath, 1000, testMetadata );
+				GeffEdge.writeToZarr( testEdges, tempPath, 1000 );
+				GeffMetadata.writeToZarr( testMetadata, tempPath );
+			}
+			catch ( Exception e )
+			{
+				// If any exception occurs, fail with details
+				fail( "Write operations should not throw exceptions: " + e.getMessage() );
+			}
+		} );
+	}
 
-    @Test
-    @DisplayName( "Test varlength node property write/read roundtrip" )
-    void testVarlengthPropertyWriteRead( @TempDir Path tempDir ) throws IOException
-    {
-        String tempPath = tempDir.toString() + "/test-varlength.zarr/tracks";
+	@Test
+	@DisplayName( "Test varlength node property write/read roundtrip" )
+	void testVarlengthPropertyWriteRead( @TempDir Path tempDir ) throws IOException
+	{
+		String tempPath = tempDir.toString() + "/test-varlength.zarr/tracks";
 
-        final List< GeffNode > nodes = new ArrayList<>();
-        for ( int i = 0; i < 3; i++ )
-        {
-            GeffNode node = new GeffNode();
-            node.setId( i );
-            node.setT( i );
-            node.setX( i * 1.0 );
-            node.setY( i * 2.0 );
-            node.setZ( i * 3.0 );
-            node.setSegmentId( i );
-            nodes.add( node );
-        }
+		final List< GeffNode > nodes = new ArrayList<>();
+		for ( int i = 0; i < 3; i++ )
+		{
+			GeffNode node = new GeffNode();
+			node.setId( i );
+			node.setT( i );
+			node.setX( i * 1.0 );
+			node.setY( i * 2.0 );
+			node.setZ( i * 3.0 );
+			node.setSegmentId( i );
+			nodes.add( node );
+		}
 
-        final Object[] data = new Object[] { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0 };
-        final long[][] offsets = new long[][] { { 0, 2 }, { 2, 3 }, { 5, 1 } };
-        final boolean[] missing = new boolean[] { false, false, false };
+		final Object[] data = new Object[] { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0 };
+		final long[][] offsets = new long[][] { { 0, 2 }, { 2, 3 }, { 5, 1 } };
+		final boolean[] missing = new boolean[] { false, false, false };
 
-        final VarlengthProperty polygonProperty = new VarlengthProperty( "polygon", "float64", data, offsets, missing );
-        for ( GeffNode node : nodes )
-        {
-            node.setVarlengthProperty( "polygon", polygonProperty );
-        }
+		final VarlengthProperty polygonProperty = new VarlengthProperty( "polygon", "float64", data, offsets, missing );
+		for ( GeffNode node : nodes )
+		{
+			node.setVarlengthProperty( "polygon", polygonProperty );
+		}
 
-        final GeffMetadata metadata = new GeffMetadata( Geff.VERSION, true );
-        GeffNode.writeToZarr( nodes, tempPath, metadata );
-        GeffMetadata.writeToZarr( metadata, tempPath );
-        GeffMetadata readMetadata = GeffMetadata.readFromZarr( tempPath );
-        List< GeffNode > readNodes = GeffNode.readFromZarr( tempPath, readMetadata );
+		final GeffMetadata metadata = new GeffMetadata( Geff.VERSION, true );
+		GeffNode.writeToZarr( nodes, tempPath, metadata );
+		GeffMetadata.writeToZarr( metadata, tempPath );
+		GeffMetadata readMetadata = GeffMetadata.readFromZarr( tempPath );
+		List< GeffNode > readNodes = GeffNode.readFromZarr( tempPath, readMetadata );
 
-        assertNotNull( readMetadata.getNodePropsMetadata() );
-        assertTrue( readMetadata.getNodePropsMetadata().containsKey( "polygon" ) );
-        assertEquals( true, readMetadata.getNodePropsMetadata().get( "polygon" ).getVarlength() );
+		assertNotNull( readMetadata.getNodePropsMetadata() );
+		assertTrue( readMetadata.getNodePropsMetadata().containsKey( "polygon" ) );
+		assertEquals( true, readMetadata.getNodePropsMetadata().get( "polygon" ).getVarlength() );
 
-        for ( int i = 0; i < nodes.size(); i++ )
-        {
-            final VarlengthProperty readProperty = readNodes.get( i ).getVarlengthProperty( "polygon" );
-            assertNotNull( readProperty );
-            final Object nodeData = readProperty.getNodeData( i );
-            assertNotNull( nodeData );
-            assertTrue( nodeData instanceof Object[] );
+		for ( int i = 0; i < nodes.size(); i++ )
+		{
+			final VarlengthProperty readProperty = readNodes.get( i ).getVarlengthProperty( "polygon" );
+			assertNotNull( readProperty );
+			final Object nodeData = readProperty.getNodeData( i );
+			assertNotNull( nodeData );
+			assertTrue( nodeData instanceof Object[] );
 
-            final int offset = ( int ) offsets[ i ][ 0 ];
-            final int length = ( int ) offsets[ i ][ 1 ];
-            final Object[] expected = new Object[ length ];
-            for ( int j = 0; j < length; j++ )
-            {
-                expected[ j ] = data[ offset + j ];
-            }
+			final int offset = ( int ) offsets[ i ][ 0 ];
+			final int length = ( int ) offsets[ i ][ 1 ];
+			final Object[] expected = new Object[ length ];
+			for ( int j = 0; j < length; j++ )
+			{
+				expected[ j ] = data[ offset + j ];
+			}
 
-            System.out.println( "Node " + i + " expected=" + java.util.Arrays.toString( expected ) + " actual=" + java.util.Arrays.toString( ( Object[] ) nodeData ) );
-            assertArrayEquals( expected, ( Object[] ) nodeData );
-        }
-    }
+			System.out.println( "Node " + i + " expected=" + java.util.Arrays.toString( expected ) + " actual=" + java.util.Arrays.toString( ( Object[] ) nodeData ) );
+			assertArrayEquals( expected, ( Object[] ) nodeData );
+		}
+	}
 
-    @Test
-    @DisplayName( "Test covariance2d write/read roundtrip" )
-    void testCovariance2dRoundTrip( @TempDir Path tempDir ) throws IOException
-    {
-        final String tempPath = tempDir.toString() + "/test-cov2d.zarr/tracks";
+	@Test
+	@DisplayName( "Test covariance2d write/read roundtrip" )
+	void testCovariance2dRoundTrip( @TempDir Path tempDir ) throws IOException
+	{
+		final String tempPath = tempDir.toString() + "/test-cov2d.zarr/tracks";
 
-        final double[][] cov2dValues = {
-                { 2.0, 0.5, 0.5, 3.0 },
-                { 1.5, -0.3, -0.3, 1.8 },
-                { 4.0, 0.0, 0.0, 4.0 },
-        };
+		final double[][] cov2dValues = {
+				{ 2.0, 0.5, 0.5, 3.0 },
+				{ 1.5, -0.3, -0.3, 1.8 },
+				{ 4.0, 0.0, 0.0, 4.0 },
+		};
 
-        final List< GeffNode > nodes = new ArrayList<>();
-        for ( int i = 0; i < cov2dValues.length; i++ )
-        {
-            final GeffNode node = new GeffNode();
-            node.setId( i );
-            node.setT( i );
-            node.setX( i * 1.0 );
-            node.setY( i * 2.0 );
-            node.setCovariance2d( cov2dValues[ i ] );
-            nodes.add( node );
-        }
+		final List< GeffNode > nodes = new ArrayList<>();
+		for ( int i = 0; i < cov2dValues.length; i++ )
+		{
+			final GeffNode node = new GeffNode();
+			node.setId( i );
+			node.setT( i );
+			node.setX( i * 1.0 );
+			node.setY( i * 2.0 );
+			node.setCovariance2d( cov2dValues[ i ] );
+			nodes.add( node );
+		}
 
-        final GeffMetadata metadata = new GeffMetadata( Geff.VERSION, true );
-        GeffNode.writeToZarr( nodes, tempPath, metadata );
-        GeffMetadata.writeToZarr( metadata, tempPath );
-        final List< GeffNode > readNodes = GeffNode.readFromZarr( tempPath, GeffMetadata.readFromZarr( tempPath ) );
+		final GeffMetadata metadata = new GeffMetadata( Geff.VERSION, true );
+		GeffNode.writeToZarr( nodes, tempPath, metadata );
+		GeffMetadata.writeToZarr( metadata, tempPath );
+		final List< GeffNode > readNodes = GeffNode.readFromZarr( tempPath, GeffMetadata.readFromZarr( tempPath ) );
 
-        assertEquals( nodes.size(), readNodes.size() );
-        for ( int i = 0; i < nodes.size(); i++ )
-        {
-            assertArrayEquals( cov2dValues[ i ], readNodes.get( i ).getCovariance2d(), 1e-9,
-                    "covariance2d mismatch at node " + i );
-        }
-    }
+		assertEquals( nodes.size(), readNodes.size() );
+		for ( int i = 0; i < nodes.size(); i++ )
+		{
+			assertArrayEquals( cov2dValues[ i ], readNodes.get( i ).getCovariance2d(), 1e-9,
+					"covariance2d mismatch at node " + i );
+		}
+	}
 
-    @Test
-    @DisplayName( "Test covariance3d write/read roundtrip" )
-    void testCovariance3dRoundTrip( @TempDir Path tempDir ) throws IOException
-    {
-        final String tempPath = tempDir.toString() + "/test-cov3d.zarr/tracks";
+	@Test
+	@DisplayName( "Test covariance3d write/read roundtrip" )
+	void testCovariance3dRoundTrip( @TempDir Path tempDir ) throws IOException
+	{
+		final String tempPath = tempDir.toString() + "/test-cov3d.zarr/tracks";
 
-        final double[][] cov3dValues = {
-                { 2.0, 0.5, 0.1, 3.0, 0.2, 1.5 },
-                { 1.0, 0.0, 0.0, 1.0, 0.0, 1.0 },
-                { 5.0, -0.2, 0.3, 4.0, -0.1, 3.0 },
-        };
+		final double[][] cov3dValues = {
+				{ 2.0, 0.5, 0.1, 3.0, 0.2, 1.5 },
+				{ 1.0, 0.0, 0.0, 1.0, 0.0, 1.0 },
+				{ 5.0, -0.2, 0.3, 4.0, -0.1, 3.0 },
+		};
 
-        final List< GeffNode > nodes = new ArrayList<>();
-        for ( int i = 0; i < cov3dValues.length; i++ )
-        {
-            final GeffNode node = new GeffNode();
-            node.setId( i );
-            node.setT( i );
-            node.setX( i * 1.0 );
-            node.setY( i * 2.0 );
-            node.setZ( i * 3.0 );
-            node.setCovariance3d( cov3dValues[ i ] );
-            nodes.add( node );
-        }
+		final List< GeffNode > nodes = new ArrayList<>();
+		for ( int i = 0; i < cov3dValues.length; i++ )
+		{
+			final GeffNode node = new GeffNode();
+			node.setId( i );
+			node.setT( i );
+			node.setX( i * 1.0 );
+			node.setY( i * 2.0 );
+			node.setZ( i * 3.0 );
+			node.setCovariance3d( cov3dValues[ i ] );
+			nodes.add( node );
+		}
 
-        final GeffMetadata metadata = new GeffMetadata( Geff.VERSION, true );
-        GeffNode.writeToZarr( nodes, tempPath, metadata );
-        GeffMetadata.writeToZarr( metadata, tempPath );
-        final List< GeffNode > readNodes = GeffNode.readFromZarr( tempPath, GeffMetadata.readFromZarr( tempPath ) );
+		final GeffMetadata metadata = new GeffMetadata( Geff.VERSION, true );
+		GeffNode.writeToZarr( nodes, tempPath, metadata );
+		GeffMetadata.writeToZarr( metadata, tempPath );
+		final List< GeffNode > readNodes = GeffNode.readFromZarr( tempPath, GeffMetadata.readFromZarr( tempPath ) );
 
-        assertEquals( nodes.size(), readNodes.size() );
-        for ( int i = 0; i < nodes.size(); i++ )
-        {
-            assertArrayEquals( cov3dValues[ i ], readNodes.get( i ).getCovariance3d(), 1e-9,
-                    "covariance3d mismatch at node " + i );
-        }
-    }
+		assertEquals( nodes.size(), readNodes.size() );
+		for ( int i = 0; i < nodes.size(); i++ )
+		{
+			assertArrayEquals( cov3dValues[ i ], readNodes.get( i ).getCovariance3d(), 1e-9,
+					"covariance3d mismatch at node " + i );
+		}
+	}
 
-    @Test
-    @DisplayName( "Test development version format support" )
-    void testDevelopmentVersionSupport()
-    {
-        assertDoesNotThrow( () -> {
-            GeffMetadata devMetadata = new GeffMetadata();
-            devMetadata.setGeffVersion( "0.2.2.dev20+g611e7a2.d20250719" );
-            devMetadata.setDirected( true );
-            devMetadata.validate();
-        } );
-    }
+	@Test
+	@DisplayName( "Test development version format support" )
+	void testDevelopmentVersionSupport()
+	{
+		assertDoesNotThrow( () -> {
+			GeffMetadata devMetadata = new GeffMetadata();
+			devMetadata.setGeffVersion( "0.2.2.dev20+g611e7a2.d20250719" );
+			devMetadata.setDirected( true );
+			devMetadata.validate();
+		} );
+	}
 
-    @Test
-    @DisplayName( "Test version validation edge cases" )
-    void testVersionValidationEdgeCases()
-    {
-        // Test null version (should be allowed)
-        assertDoesNotThrow( () -> {
-            GeffMetadata metadata = new GeffMetadata();
-            metadata.setGeffVersion( null );
-        } );
+	@Test
+	@DisplayName( "Test version validation edge cases" )
+	void testVersionValidationEdgeCases()
+	{
+		// Test null version (should be allowed)
+		assertDoesNotThrow( () -> {
+			GeffMetadata metadata = new GeffMetadata();
+			metadata.setGeffVersion( null );
+		} );
 
-        // Test various valid version formats
-        String[] validVersions = {
-                "0.2", "0.3", "0.4",
-                "0.2.0", "0.3.5",
-                "0.2.2.dev20", "0.2.0-alpha.1", "0.3.0-beta.2+build.123"
-        };
+		// Test various valid version formats
+		String[] validVersions = {
+				"0.2", "0.3", "0.4",
+				"0.2.0", "0.3.5",
+				"0.2.2.dev20", "0.2.0-alpha.1", "0.3.0-beta.2+build.123"
+		};
 
-        for ( String version : validVersions )
-        {
-            assertDoesNotThrow( () -> {
-                GeffMetadata metadata = new GeffMetadata();
-                metadata.setGeffVersion( version );
-            }, "Version " + version + " should be valid" );
-        }
+		for ( String version : validVersions )
+		{
+			assertDoesNotThrow( () -> {
+				GeffMetadata metadata = new GeffMetadata();
+				metadata.setGeffVersion( version );
+			}, "Version " + version + " should be valid" );
+		}
 
-        // Test invalid versions
-        String[] invalidVersions = { "invalid", "0.1..x" };
+		// Test invalid versions
+		String[] invalidVersions = { "invalid", "0.1..x" };
 
-        for ( String version : invalidVersions )
-        {
-            assertThrows( IllegalArgumentException.class, () -> {
-                GeffMetadata metadata = new GeffMetadata();
-                metadata.setGeffVersion( version );
-            }, "Version " + version + " should be invalid" );
-        }
-    }
+		for ( String version : invalidVersions )
+		{
+			assertThrows( IllegalArgumentException.class, () -> {
+				GeffMetadata metadata = new GeffMetadata();
+				metadata.setGeffVersion( version );
+			}, "Version " + version + " should be invalid" );
+		}
+	}
 }
