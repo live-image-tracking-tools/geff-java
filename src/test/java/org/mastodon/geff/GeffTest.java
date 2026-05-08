@@ -317,6 +317,81 @@ public class GeffTest
     }
 
     @Test
+    @DisplayName( "Test covariance2d write/read roundtrip" )
+    void testCovariance2dRoundTrip( @TempDir Path tempDir ) throws IOException
+    {
+        final String tempPath = tempDir.toString() + "/test-cov2d.zarr/tracks";
+
+        final double[][] cov2dValues = {
+                { 2.0, 0.5, 0.5, 3.0 },
+                { 1.5, -0.3, -0.3, 1.8 },
+                { 4.0, 0.0, 0.0, 4.0 },
+        };
+
+        final List< GeffNode > nodes = new ArrayList<>();
+        for ( int i = 0; i < cov2dValues.length; i++ )
+        {
+            final GeffNode node = new GeffNode();
+            node.setId( i );
+            node.setT( i );
+            node.setX( i * 1.0 );
+            node.setY( i * 2.0 );
+            node.setCovariance2d( cov2dValues[ i ] );
+            nodes.add( node );
+        }
+
+        final GeffMetadata metadata = new GeffMetadata( Geff.VERSION, true );
+        GeffNode.writeToZarr( nodes, tempPath, metadata );
+        GeffMetadata.writeToZarr( metadata, tempPath );
+        final List< GeffNode > readNodes = GeffNode.readFromZarr( tempPath, GeffMetadata.readFromZarr( tempPath ) );
+
+        assertEquals( nodes.size(), readNodes.size() );
+        for ( int i = 0; i < nodes.size(); i++ )
+        {
+            assertArrayEquals( cov2dValues[ i ], readNodes.get( i ).getCovariance2d(), 1e-9,
+                    "covariance2d mismatch at node " + i );
+        }
+    }
+
+    @Test
+    @DisplayName( "Test covariance3d write/read roundtrip" )
+    void testCovariance3dRoundTrip( @TempDir Path tempDir ) throws IOException
+    {
+        final String tempPath = tempDir.toString() + "/test-cov3d.zarr/tracks";
+
+        final double[][] cov3dValues = {
+                { 2.0, 0.5, 0.1, 3.0, 0.2, 1.5 },
+                { 1.0, 0.0, 0.0, 1.0, 0.0, 1.0 },
+                { 5.0, -0.2, 0.3, 4.0, -0.1, 3.0 },
+        };
+
+        final List< GeffNode > nodes = new ArrayList<>();
+        for ( int i = 0; i < cov3dValues.length; i++ )
+        {
+            final GeffNode node = new GeffNode();
+            node.setId( i );
+            node.setT( i );
+            node.setX( i * 1.0 );
+            node.setY( i * 2.0 );
+            node.setZ( i * 3.0 );
+            node.setCovariance3d( cov3dValues[ i ] );
+            nodes.add( node );
+        }
+
+        final GeffMetadata metadata = new GeffMetadata( Geff.VERSION, true );
+        GeffNode.writeToZarr( nodes, tempPath, metadata );
+        GeffMetadata.writeToZarr( metadata, tempPath );
+        final List< GeffNode > readNodes = GeffNode.readFromZarr( tempPath, GeffMetadata.readFromZarr( tempPath ) );
+
+        assertEquals( nodes.size(), readNodes.size() );
+        for ( int i = 0; i < nodes.size(); i++ )
+        {
+            assertArrayEquals( cov3dValues[ i ], readNodes.get( i ).getCovariance3d(), 1e-9,
+                    "covariance3d mismatch at node " + i );
+        }
+    }
+
+    @Test
     @DisplayName( "Test development version format support" )
     void testDevelopmentVersionSupport()
     {

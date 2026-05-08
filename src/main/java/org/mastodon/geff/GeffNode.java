@@ -828,8 +828,8 @@ public class GeffNode
 			final double[] color = colors != null ? colors.rowAt( i ) : DEFAULT_COLOR;
 			final int segmentId = trackIds != null ? trackIds[ i ] : -1;
 			final double r = radius != null ? radius[ i ] : Double.NaN;
-			final double[] covariance2d = DEFAULT_COVARIANCE_2D;
-			final double[] covariance3d = DEFAULT_COVARIANCE_3D;
+			final double[] covariance2d = covariance2ds != null ? covariance2ds.rowAt( i ) : DEFAULT_COVARIANCE_2D;
+			final double[] covariance3d = covariance3ds != null ? covariance3ds.rowAt( i ) : DEFAULT_COVARIANCE_3D;
 			final double[] polygonX = polygonsX != null ? polygonsX[ i ] : null;
 			final double[] polygonY = polygonsY != null ? polygonsY[ i ] : null;
 			final GeffNode node = new GeffNode( id, t, x, y, z, color, segmentId, r, covariance2d, covariance3d, polygonX, polygonY );
