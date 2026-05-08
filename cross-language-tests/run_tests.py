@@ -382,6 +382,100 @@ def test_with_string_props():
         return True
 
 
+def test_with_covariance():
+    """Test round-trip of GEFF with covariance2d and covariance3d node properties."""
+    import numpy as np
+    import zarr
+    from geff.testing.data import create_dummy_in_mem_geff
+    from geff.core_io import write_arrays
+
+    print("\n" + "=" * 60)
+    print("TEST: GEFF with covariance2d and covariance3d properties")
+    print("=" * 60)
+
+    original_path = DATA_DIR / "covariance_original.zarr"
+    roundtrip_path = DATA_DIR / "covariance_roundtrip.zarr"
+
+    if original_path.exists():
+        shutil.rmtree(original_path)
+    if roundtrip_path.exists():
+        shutil.rmtree(roundtrip_path)
+
+    print("\n1. Creating mock GEFF with Python...")
+    num_nodes = 5
+    memory_geff = create_dummy_in_mem_geff(
+        node_id_dtype="uint",
+        node_axis_dtypes={"position": "float64", "time": "float64"},
+        directed=False,
+        num_nodes=num_nodes,
+        num_edges=4,
+    )
+    write_arrays(str(original_path), **memory_geff)
+
+    # Add covariance2d and covariance3d arrays.
+    # Java stores these as zarr shape [N, cols] (C-order), which matches
+    # a numpy array of shape (N, cols) directly.
+    rng = np.random.default_rng(42)
+    cov2d = rng.random((num_nodes, 4)).astype(np.float64)  # (N, 4)
+    cov3d = rng.random((num_nodes, 6)).astype(np.float64)  # (N, 6)
+
+    store = zarr.open(str(original_path), mode="a")
+    store["nodes/props/covariance2d/values"] = cov2d
+    store["nodes/props/covariance3d/values"] = cov3d
+
+    # Register covariance props in node_props_metadata so Java writes them back.
+    import json
+
+    zattrs_path = original_path / ".zattrs"
+    with open(zattrs_path) as f:
+        attrs = json.load(f)
+    for prop, dtype in [("covariance2d", "float64"), ("covariance3d", "float64")]:
+        attrs["geff"]["node_props_metadata"][prop] = {
+            "identifier": prop,
+            "dtype": dtype,
+            "varlength": False,
+            "unit": None,
+            "name": None,
+            "description": None,
+        }
+    with open(zattrs_path, "w") as f:
+        json.dump(attrs, f)
+
+    print(f"   Added covariance2d {cov2d.shape} and covariance3d {cov3d.shape}")
+
+    print("\n2. Running Java round-trip...")
+    result = run_java_roundtrip(original_path, roundtrip_path)
+
+    if result.returncode != 0:
+        print(f"\n   JAVA FAILED (exit code {result.returncode})")
+        print("   STDOUT:", result.stdout)
+        print("   STDERR:", result.stderr)
+        return False
+
+    print("   Java completed successfully")
+
+    print("\n3. Comparing covariance values...")
+    rt_store = zarr.open(str(roundtrip_path), mode="r")
+
+    try:
+        rt_cov2d = rt_store["nodes/props/covariance2d/values"][:]
+        rt_cov3d = rt_store["nodes/props/covariance3d/values"][:]
+    except Exception as e:
+        print(f"   FAILED: could not read covariance arrays: {e}")
+        return False
+
+    if not np.allclose(cov2d, rt_cov2d, atol=1e-9):
+        print(f"   FAILED: covariance2d mismatch\n  orig={cov2d}\n  rt={rt_cov2d}")
+        return False
+
+    if not np.allclose(cov3d, rt_cov3d, atol=1e-9):
+        print(f"   FAILED: covariance3d mismatch\n  orig={cov3d}\n  rt={rt_cov3d}")
+        return False
+
+    print("   PASSED: covariance2d and covariance3d preserved after round-trip!")
+    return True
+
+
 def main():
     """Run all tests."""
     print("=" * 60)
@@ -409,6 +503,7 @@ def main():
     # Skip missing test - has a bug in geff test data generator (edge prop length mismatch)
     # results["missing"] = test_with_missing()
     results["string_props"] = test_with_string_props()
+    results["covariance"] = test_with_covariance()
 
     # Summary
     print("\n" + "=" * 60)
@@ -426,7 +521,7 @@ def main():
 
     # Return non-zero if any critical tests failed
     # Non-critical cases are allowed to differ in known unsupported areas.
-    critical_tests = ["basic_3d", "basic_2d"]
+    critical_tests = ["basic_3d", "basic_2d", "covariance"]
     critical_passed = all(results.get(t, False) for t in critical_tests)
 
     sys.exit(0 if critical_passed else 1)
