@@ -334,6 +334,10 @@ public class GeffEdge
 
 		GeffUtils.writeIntMatrix( edges, 2, e -> new int[] { e.getSourceNodeId(), e.getTargetNodeId() }, writer, path + "/edges/ids", chunkSize );
 
+		// Always create edges/props group so the zarr structure is valid even when
+		// there are no edge properties (mirrors what Python geff writes).
+		writer.createGroup( path + "/edges/props" );
+
 		// Write distances
 		if ( writeAllProps || edgePropsMetadata.containsKey( "distance" ) )
 			GeffUtils.writeDoubleArray( edges, GeffEdge::getDistance, writer, path + "/edges/props/distance/values", chunkSize );
@@ -352,6 +356,8 @@ public class GeffEdge
 			edgePropsMap.put( "score", new PropMetadata( "score", "float64", false, null, null, null ) );
 			metadata.setEdgePropsMetadata( edgePropsMap );
 		}
+
+		GeffUtils.patchZarrLittleEndian( writer, path + "/edges" );
 	}
 
 	private static void printEdgeIdStuff( List< GeffEdge > edges )

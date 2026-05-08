@@ -1084,6 +1084,8 @@ public class GeffNode
 			GeffUtils.writeDoubleMatrix( vertices, 2, GeffSerializableVertex::getCoordinates, writer, path + "/nodes/serialized_props/polygon/values", chunkSize );
 		}
 
+		GeffUtils.patchZarrLittleEndian( writer, path + "/nodes" );
+
 		LOG.debug( "Successfully wrote nodes to Zarr format with chunked structure" );
 	}
 

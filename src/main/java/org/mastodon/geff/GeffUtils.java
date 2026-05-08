@@ -1103,6 +1103,87 @@ public class GeffUtils
 		}
 	}
 
+	/**
+	 * Recursively patches all .zarray files under the given group path to use
+	 * little-endian byte order ("<") instead of the big-endian byte order (">")
+	 * that N5ZarrWriter produces by default. Also byte-swaps the actual chunk
+	 * data so that the data matches the new dtype. Required so Python/pandas can
+	 * read the arrays on little-endian systems without a "Big-endian buffer not
+	 * supported" error. Only processes uncompressed arrays (compressor: null).
+	 */
+	static void patchZarrLittleEndian( final N5Writer writer, final String groupPath )
+	{
+		try
+		{
+			if ( !( writer instanceof ZarrKeyValueReader ) )
+			{ return; }
+			final java.net.URI baseUri = ( ( ZarrKeyValueReader ) writer ).getURI();
+			if ( baseUri == null || !"file".equals( baseUri.getScheme() ) )
+			{ return; }
+			final java.nio.file.Path baseDir = java.nio.file.Paths.get( new java.io.File( baseUri ).getAbsolutePath() );
+			final String normalized = groupPath.replaceAll( "^/+", "" ).replaceAll( "/+$", "" );
+			final java.nio.file.Path searchDir = normalized.isEmpty() ? baseDir : baseDir.resolve( normalized );
+			if ( !java.nio.file.Files.exists( searchDir ) )
+			{ return; }
+			final java.util.regex.Pattern bigEndianDtype = java.util.regex.Pattern.compile( "(\"dtype\"\\s*:\\s*\")>([iIuUfF])(\\d+)" );
+			java.nio.file.Files.walk( searchDir )
+					.filter( p -> p.getFileName().toString().equals( ".zarray" ) )
+					.forEach( zarrayPath -> {
+						try
+						{
+							final String content = new String( java.nio.file.Files.readAllBytes( zarrayPath ) );
+							final java.util.regex.Matcher dtypeMatcher = bigEndianDtype.matcher( content );
+							if ( !dtypeMatcher.find() )
+							{ return; }
+							final int elementSize = Integer.parseInt( dtypeMatcher.group( 3 ) );
+							if ( elementSize <= 1 )
+							{ return; }
+							// Only process uncompressed (null compressor) arrays
+							if ( !content.contains( "\"compressor\":null" ) && !content.contains( "\"compressor\": null" ) )
+							{
+								LOG.warn( "Skipping byte-order patch for compressed array at {}: manual re-compress would be needed", zarrayPath.getParent() );
+								return;
+							}
+							// Byte-swap all chunk files in the same directory
+							final java.nio.file.Path chunkDir = zarrayPath.getParent();
+							java.nio.file.Files.list( chunkDir )
+									.filter( p -> !p.getFileName().toString().startsWith( "." ) )
+									.forEach( chunkPath -> {
+										try
+										{
+											final byte[] bytes = java.nio.file.Files.readAllBytes( chunkPath );
+											for ( int i = 0; i + elementSize <= bytes.length; i += elementSize )
+											{
+												for ( int j = 0; j < elementSize / 2; j++ )
+												{
+													final byte tmp = bytes[ i + j ];
+													bytes[ i + j ] = bytes[ i + elementSize - 1 - j ];
+													bytes[ i + elementSize - 1 - j ] = tmp;
+												}
+											}
+											java.nio.file.Files.write( chunkPath, bytes );
+										}
+										catch ( final Exception e )
+										{
+											LOG.warn( "Could not byte-swap chunk {}: {}", chunkPath, e.getMessage() );
+										}
+									} );
+							// Patch dtype in .zarray: > -> <
+							final String patched = dtypeMatcher.replaceFirst( "$1<$2$3" );
+							java.nio.file.Files.write( zarrayPath, patched.getBytes() );
+						}
+						catch ( final Exception e )
+						{
+							LOG.warn( "Could not patch byte order for {}: {}", zarrayPath, e.getMessage() );
+						}
+					} );
+		}
+		catch ( final Exception e )
+		{
+			LOG.warn( "Could not patch zarr byte order for {}: {}", groupPath, e.getMessage() );
+		}
+	}
+
 	private GeffUtils()
 	{
 		// static utility methods. don't instantiate.
