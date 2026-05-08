@@ -71,17 +71,18 @@ public class RoundTripGeff
 			List< GeffEdge > edges = GeffEdge.readFromZarr( inputPath, metadata.getGeffVersion() );
 			System.out.println( "  Read " + edges.size() + " edges" );
 
-			// Write metadata
-			System.out.println( "\nWriting metadata..." );
-			GeffMetadata.writeToZarr( metadata, outputPath );
-
-			// Write nodes
-			System.out.println( "Writing nodes..." );
+			// Write nodes first so that metadata can be updated (e.g. varlength
+			// props added, unsupported props removed) before writing metadata.
+			System.out.println( "\nWriting nodes..." );
 			GeffNode.writeToZarr( nodes, outputPath, metadata );
 
 			// Write edges
 			System.out.println( "Writing edges..." );
 			GeffEdge.writeToZarr( edges, outputPath, metadata );
+
+			// Write metadata last so all modifications are captured.
+			System.out.println( "Writing metadata..." );
+			GeffMetadata.writeToZarr( metadata, outputPath );
 
 			System.out.println( "\nRound-trip complete!" );
 			System.exit( 0 );

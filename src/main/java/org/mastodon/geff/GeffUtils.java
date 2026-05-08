@@ -18,6 +18,7 @@ import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.RawCompression;
 import org.janelia.saalfeldlab.n5.blosc.BloscCompression;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
+import org.janelia.saalfeldlab.n5.zarr.ZarrKeyValueReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -771,6 +772,17 @@ public class GeffUtils
 			final boolean[] missing,
 			final int chunkSize )
 	{
+		writeVarlengthProperty( writer, propPath, nodeDataArrays, missing, chunkSize, null );
+	}
+
+	public static void writeVarlengthProperty(
+			final N5Writer writer,
+			final String propPath,
+			final Object[][] nodeDataArrays,
+			final boolean[] missing,
+			final int chunkSize,
+			final String declaredDtype )
+	{
 		if ( nodeDataArrays == null || nodeDataArrays.length == 0 )
 		{
 			LOG.warn( "Cannot write empty varlength property at {}", propPath );
@@ -817,9 +829,12 @@ public class GeffUtils
 
 		try
 		{
-			// Step 2: Write data array
+			// Step 2: Write data array using declared dtype when available so the
+			// on-disk type matches the metadata (e.g. uint64 stays uint64).
 			final Object dataToWrite = convertObjectArrayToNativeArray( flattenedData, elementType, ( int ) currentOffset );
-			DataType dataType = inferDataType( dataToWrite );
+			DataType dataType = declaredDtype != null
+					? dtypeStringToDataType( declaredDtype )
+					: inferDataType( dataToWrite );
 			writeDataArray( writer, propPath + "/data", dataToWrite, dataType, chunkSize );
 
 			// Step 3: Write values array (offset and length information)
@@ -914,6 +929,37 @@ public class GeffUtils
 		}
 	}
 
+	private static DataType dtypeStringToDataType( final String dtype )
+	{
+		if ( dtype == null )
+			return DataType.FLOAT64;
+		switch ( dtype.toLowerCase() )
+		{
+		case "float64":
+			return DataType.FLOAT64;
+		case "float32":
+			return DataType.FLOAT32;
+		case "int8":
+			return DataType.INT8;
+		case "uint8":
+			return DataType.UINT8;
+		case "int16":
+			return DataType.INT16;
+		case "uint16":
+			return DataType.UINT16;
+		case "int32":
+			return DataType.INT32;
+		case "uint32":
+			return DataType.UINT32;
+		case "int64":
+			return DataType.INT64;
+		case "uint64":
+			return DataType.UINT64;
+		default:
+			return DataType.FLOAT64;
+		}
+	}
+
 	/**
 	 * Infer data type from native array
 	 */
@@ -986,14 +1032,16 @@ public class GeffUtils
 			final DatasetAttributes attributes = new DatasetAttributes(
 					new long[] { numColumns, numNodes },
 					new int[] { numColumns, Math.min( chunkSize, numNodes ) },
-					DataType.INT64,
+					DataType.UINT64,
 					DEFAULT_COMPRESSION );
 		writer.createDataset( dataset, attributes );
 		write( flatOffsets, writer, dataset, attributes );
 	}
 
 	/**
-	 * Write missing value indicators as boolean array
+	 * Write missing value indicators as boolean array. N5 has no native bool
+	 * DataType, so we write as UINT8 then patch the .zarray dtype to "|b1" so
+	 * that zarr/Python readers see it as a proper boolean array.
 	 */
 	private static void writeMissingArray(
 			final N5Writer writer,
@@ -1004,11 +1052,10 @@ public class GeffUtils
 			final DatasetAttributes attributes = new DatasetAttributes(
 					new long[] { missing.length },
 					new int[] { Math.min( chunkSize, missing.length ) },
-					DataType.UINT8, // N5 uses UINT8 for booleans
+					DataType.UINT8,
 					DEFAULT_COMPRESSION );
 		writer.createDataset( dataset, attributes );
 
-		// Convert boolean[] to byte[] for storage
 		final byte[] boolAsBytes = new byte[ missing.length ];
 		for ( int i = 0; i < missing.length; i++ )
 		{
@@ -1016,6 +1063,44 @@ public class GeffUtils
 		}
 
 		write( boolAsBytes, writer, dataset, attributes );
+		// Patch .zarray to report bool dtype ("|b1") instead of uint8 ("|u1").
+		// The stored bytes are identical; only the type annotation changes.
+		patchZarrDtypeToBool( writer, dataset );
+	}
+
+	/**
+	 * Patch a zarr array's .zarray metadata so that its dtype is "|b1" (bool)
+	 * instead of "|u1" (uint8). This is needed because N5 has no native bool
+	 * DataType, so we write UINT8 and fix up the metadata afterwards. Only
+	 * works for local (file://) zarr stores.
+	 */
+	private static void patchZarrDtypeToBool( final N5Writer writer, final String dataset )
+	{
+		try
+		{
+			if ( !( writer instanceof ZarrKeyValueReader ) )
+			{ return; }
+			final java.net.URI baseUri = ( ( ZarrKeyValueReader ) writer ).getURI();
+			if ( baseUri == null || !"file".equals( baseUri.getScheme() ) )
+			{ return; }
+			final String normalized = dataset.replaceAll( "^/+", "" ).replaceAll( "/+$", "" );
+			final java.nio.file.Path zarrayPath = java.nio.file.Paths.get(
+					new java.io.File( baseUri ).getAbsolutePath(), normalized, ".zarray" );
+			if ( !java.nio.file.Files.exists( zarrayPath ) )
+			{ return; }
+			final String content = new String( java.nio.file.Files.readAllBytes( zarrayPath ) );
+			final String patched = content
+					.replace( "\"dtype\":\"|u1\"", "\"dtype\":\"|b1\"" )
+					.replace( "\"dtype\": \"|u1\"", "\"dtype\": \"|b1\"" );
+			if ( !patched.equals( content ) )
+			{
+				java.nio.file.Files.write( zarrayPath, patched.getBytes() );
+			}
+		}
+		catch ( final Exception e )
+		{
+			LOG.warn( "Could not patch zarr bool dtype for {}: {}", dataset, e.getMessage() );
+		}
 	}
 
 	private GeffUtils()

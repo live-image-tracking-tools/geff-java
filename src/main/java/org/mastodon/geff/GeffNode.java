@@ -1025,7 +1025,7 @@ public class GeffNode
 					dtype = "float64";
 				}
 
-				GeffUtils.writeVarlengthProperty( writer, path + "/nodes/props/" + propName, nodeDataArrays, missing, chunkSize );
+				GeffUtils.writeVarlengthProperty( writer, path + "/nodes/props/" + propName, nodeDataArrays, missing, chunkSize, dtype );
 
 				final Map< String, PropMetadata > nodePropsMetadata = metadata.getNodePropsMetadata();
 				if ( !nodePropsMetadata.containsKey( propName ) )
@@ -1033,6 +1033,13 @@ public class GeffNode
 					nodePropsMetadata.put( propName, new PropMetadata( propName, dtype, true, null, null, null ) );
 				}
 			}
+		}
+
+		// Remove unsupported properties (e.g. string dtype) from metadata so
+		// the output zarr passes structural validation.
+		if ( metadataNodeProps != null )
+		{
+			metadataNodeProps.entrySet().removeIf( e -> GeffUtils.shouldSkipProperty( e.getKey(), e.getValue() ) );
 		}
 
 		if ( geffVersion.startsWith( "0.4" ) )
