@@ -1106,10 +1106,13 @@ public class GeffUtils
 	/**
 	 * Recursively patches all .zarray files under the given group path to use
 	 * little-endian byte order ("<") instead of the big-endian byte order (">")
-	 * that N5ZarrWriter produces by default. Also byte-swaps the actual chunk
-	 * data so that the data matches the new dtype. Required so Python/pandas can
-	 * read the arrays on little-endian systems without a "Big-endian buffer not
-	 * supported" error. Only processes uncompressed arrays (compressor: null).
+	 * that N5ZarrWriter produces by default. Also byte-swaps the actual chunk data
+	 * so that the data matches the new dtype. Required so Python/pandas can read the
+	 * arrays on little-endian systems without a "Big-endian buffer not supported"
+	 * error.
+	 * <p>
+	 * For compressed arrays, the data is first read back via the N5 reader
+	 * (which decompresses), re-written with RawCompression, and then byte-swapped.
 	 */
 	static void patchZarrLittleEndian( final N5Writer writer, final String groupPath )
 	{
@@ -1131,21 +1134,58 @@ public class GeffUtils
 					.forEach( zarrayPath -> {
 						try
 						{
-							final String content = new String( java.nio.file.Files.readAllBytes( zarrayPath ) );
-							final java.util.regex.Matcher dtypeMatcher = bigEndianDtype.matcher( content );
+							String content = new String( java.nio.file.Files.readAllBytes( zarrayPath ) );
+							java.util.regex.Matcher dtypeMatcher = bigEndianDtype.matcher( content );
 							if ( !dtypeMatcher.find() )
 							{ return; }
 							final int elementSize = Integer.parseInt( dtypeMatcher.group( 3 ) );
 							if ( elementSize <= 1 )
 							{ return; }
-							// Only process uncompressed (null compressor) arrays
-							if ( !content.contains( "\"compressor\":null" ) && !content.contains( "\"compressor\": null" ) )
-							{
-								LOG.warn( "Skipping byte-order patch for compressed array at {}: manual re-compress would be needed", zarrayPath.getParent() );
-								return;
-							}
-							// Byte-swap all chunk files in the same directory
+
 							final java.nio.file.Path chunkDir = zarrayPath.getParent();
+							final boolean isUncompressed = content.contains( "\"compressor\":null" ) || content.contains( "\"compressor\": null" );
+
+							// For compressed arrays: decompress by reading with a fresh N5
+							// writer and re-writing with RawCompression. Using a fresh writer
+							// avoids any attribute-cache state from the still-open outer writer
+							// that could cause readFully to return zeros.
+							if ( !isUncompressed )
+							{
+								final String relPath = baseDir.relativize( chunkDir ).toString();
+								final String n5Path = "/" + relPath.replace( java.io.File.separator, "/" );
+								final String zarrRootStr = baseDir.toString();
+								// Step 1: read decompressed data via a fresh writer (blosc still on disk).
+								final Object data;
+								final DatasetAttributes attrs;
+								try ( final org.janelia.saalfeldlab.n5.zarr.N5ZarrWriter freshWriter =
+										new org.janelia.saalfeldlab.n5.zarr.N5ZarrWriter( zarrRootStr, true ) )
+								{
+									data = readFully( freshWriter, n5Path );
+									attrs = freshWriter.getDatasetAttributes( n5Path );
+								}
+								// Step 2: remove the compressor from .zarray so the next writer
+								// will use RawCompression when writing chunks.
+								final String decompressed = content
+										.replaceAll( "\"compressor\"\\s*:\\s*\\{[^}]*\\}", "\"compressor\":null" );
+								java.nio.file.Files.write( zarrayPath, decompressed.getBytes() );
+								// Step 3: open another fresh writer (picks up the updated .zarray
+								// with compressor:null) and rewrite the chunk data as raw bytes.
+								final DatasetAttributes rawAttrs = new DatasetAttributes(
+										attrs.getDimensions(), attrs.getBlockSize(),
+										attrs.getDataType(), new RawCompression() );
+								try ( final org.janelia.saalfeldlab.n5.zarr.N5ZarrWriter rawWriter =
+										new org.janelia.saalfeldlab.n5.zarr.N5ZarrWriter( zarrRootStr, true ) )
+								{
+									write( data, rawWriter, n5Path, rawAttrs );
+								}
+								// Re-read .zarray after rewrite
+								content = new String( java.nio.file.Files.readAllBytes( zarrayPath ) );
+								dtypeMatcher = bigEndianDtype.matcher( content );
+								if ( !dtypeMatcher.find() )
+								{ return; }
+							}
+
+							// Byte-swap all chunk files in the same directory
 							java.nio.file.Files.list( chunkDir )
 									.filter( p -> !p.getFileName().toString().startsWith( "." ) )
 									.forEach( chunkPath -> {
