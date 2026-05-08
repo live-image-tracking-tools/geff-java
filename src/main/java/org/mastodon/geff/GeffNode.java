@@ -772,7 +772,7 @@ public class GeffNode
 					int start = polygonSlices.at( i, 0 );
 					int length = polygonSlices.at( i, 1 );
 					final int numVertices = polygonValues.size()[ 0 ];
-					if ( start >= 0 && start + length < numVertices )
+					if ( start >= 0 && start + length <= numVertices )
 					{
 						final double[] xPoints = new double[ length ];
 						final double[] yPoints = new double[ length ];
@@ -829,7 +829,7 @@ public class GeffNode
 			final int segmentId = trackIds != null ? trackIds[ i ] : -1;
 			final double r = radius != null ? radius[ i ] : Double.NaN;
 			final double[] covariance2d = DEFAULT_COVARIANCE_2D;
-			final double[] covariance3d = DEFAULT_COVARIANCE_2D;
+			final double[] covariance3d = DEFAULT_COVARIANCE_3D;
 			final double[] polygonX = polygonsX != null ? polygonsX[ i ] : null;
 			final double[] polygonY = polygonsY != null ? polygonsY[ i ] : null;
 			final GeffNode node = new GeffNode( id, t, x, y, z, color, segmentId, r, covariance2d, covariance3d, polygonX, polygonY );

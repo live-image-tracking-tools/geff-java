@@ -645,10 +645,12 @@ public class GeffUtils
 			{
 				try
 				{
-					final boolean[] missingArray = ( boolean[] ) readFully( reader, missingPath );
-					if ( missingArray != null && missingArray.length == numNodes )
+					final byte[] missingBytes = ( byte[] ) readFully( reader, missingPath );
+					if ( missingBytes != null && missingBytes.length == numNodes )
 					{
-						missing = missingArray;
+						missing = new boolean[ numNodes ];
+						for ( int i = 0; i < numNodes; i++ )
+							missing[ i ] = missingBytes[ i ] != 0;
 						LOG.debug( "Varlength property {} has missing indicators", propPath );
 					}
 				}
@@ -661,10 +663,15 @@ public class GeffUtils
 			// Determine dtype from metadata if available
 			final String dtype = metadata != null ? metadata.getDtype() : "unknown";
 
+			// Use the property name from metadata; fall back to the last path segment
+			final String propName = ( metadata != null && metadata.getIdentifier() != null )
+					? metadata.getIdentifier()
+					: propPath.substring( propPath.lastIndexOf( '/' ) + 1 );
+
 			// Create and return VarlengthProperty
 			// Convert Object array to handle different data types properly
 			final Object[] convertedData = convertVarlengthData( dataArray, dtype );
-			return new VarlengthProperty( propPath, dtype, convertedData, offsets, missing );
+			return new VarlengthProperty( propName, dtype, convertedData, offsets, missing );
 		}
 		catch ( final Exception e )
 		{
@@ -966,13 +973,13 @@ public class GeffUtils
 		final int numNodes = offsetsAndShapes.length;
 		final int numColumns = offsetsAndShapes.length > 0 ? offsetsAndShapes[ 0 ].length : 2;
 
-		// Convert long[][] to long[] array in column-major order
+		// Convert long[][] to long[] array in column-major order (j varies fastest)
 		final long[] flatOffsets = new long[ numNodes * numColumns ];
 		for ( int i = 0; i < numNodes; i++ )
 		{
 			for ( int j = 0; j < numColumns; j++ )
 			{
-				flatOffsets[ i + j * numNodes ] = offsetsAndShapes[ i ][ j ];
+				flatOffsets[ j + numColumns * i ] = offsetsAndShapes[ i ][ j ];
 			}
 		}
 
