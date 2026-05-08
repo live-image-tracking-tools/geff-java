@@ -908,38 +908,56 @@ public class GeffNode
 
 		final String path = N5URI.normalizeGroupPath( group );
 		final int numNodes = nodes.size();
+		final Map< String, PropMetadata > metadataNodeProps = metadata.getNodePropsMetadata();
+		final boolean writeAllProps = metadataNodeProps == null;
 
 		// Write node IDs in chunks
 		GeffUtils.writeIntArray( nodes, GeffNode::getId, writer, path + "/nodes/ids", chunkSize );
 
 		// Write timepoints in chunks
-		GeffUtils.writeIntArray( nodes, GeffNode::getT, writer, path + "/nodes/props/t/values", chunkSize );
+		if ( writeAllProps || metadataNodeProps.containsKey( "t" ) )
+		{
+			final PropMetadata timeMetadata = metadataNodeProps != null ? metadataNodeProps.get( "t" ) : null;
+			final String timeDtype = timeMetadata != null ? timeMetadata.getDtype() : null;
+			if ( timeDtype != null && timeDtype.toLowerCase().startsWith( "float" ) )
+				GeffUtils.writeDoubleArray( nodes, node -> node.getT(), writer, path + "/nodes/props/t/values", chunkSize );
+			else
+				GeffUtils.writeIntArray( nodes, GeffNode::getT, writer, path + "/nodes/props/t/values", chunkSize );
+		}
 
 		// Write X coordinates in chunks
-		GeffUtils.writeDoubleArray( nodes, GeffNode::getX, writer, path + "/nodes/props/x/values", chunkSize );
+		if ( writeAllProps || metadataNodeProps.containsKey( "x" ) )
+			GeffUtils.writeDoubleArray( nodes, GeffNode::getX, writer, path + "/nodes/props/x/values", chunkSize );
 
 		// Write Y coordinates in chunks
-		GeffUtils.writeDoubleArray( nodes, GeffNode::getY, writer, path + "/nodes/props/y/values", chunkSize );
+		if ( writeAllProps || metadataNodeProps.containsKey( "y" ) )
+			GeffUtils.writeDoubleArray( nodes, GeffNode::getY, writer, path + "/nodes/props/y/values", chunkSize );
 
 		// Write Z coordinates in chunks
-		GeffUtils.writeDoubleArray( nodes, GeffNode::getZ, writer, path + "/nodes/props/z/values", chunkSize );
+		if ( writeAllProps || metadataNodeProps.containsKey( "z" ) )
+			GeffUtils.writeDoubleArray( nodes, GeffNode::getZ, writer, path + "/nodes/props/z/values", chunkSize );
 
 		// Write color in chunks
-		GeffUtils.writeDoubleMatrix( nodes, 4, GeffNode::getColor, writer, path + "/nodes/props/color/values", chunkSize );
+		if ( writeAllProps || metadataNodeProps.containsKey( "color" ) )
+			GeffUtils.writeDoubleMatrix( nodes, 4, GeffNode::getColor, writer, path + "/nodes/props/color/values", chunkSize );
 
 		// Write segment IDs in chunks
 		final String trackletProp = metadata.getTrackNodeProps() != null && metadata.getTrackNodeProps().containsKey( "tracklet" )
 				? metadata.getTrackNodeProps().get( "tracklet" ) : "track_id";
-		GeffUtils.writeIntArray( nodes, GeffNode::getSegmentId, writer, path + "/nodes/props/" + trackletProp + "/values", chunkSize );
+		if ( writeAllProps || metadataNodeProps.containsKey( trackletProp ) )
+			GeffUtils.writeIntArray( nodes, GeffNode::getSegmentId, writer, path + "/nodes/props/" + trackletProp + "/values", chunkSize );
 
 		// Write radius and covariance attributes if available
-		GeffUtils.writeDoubleArray( nodes, GeffNode::getRadius, writer, path + "/nodes/props/radius/values", chunkSize );
+		if ( writeAllProps || metadataNodeProps.containsKey( "radius" ) )
+			GeffUtils.writeDoubleArray( nodes, GeffNode::getRadius, writer, path + "/nodes/props/radius/values", chunkSize );
 
 		// Write covariance2d in chunks
-		GeffUtils.writeDoubleMatrix( nodes, 4, GeffNode::getCovariance2d, writer, path + "/nodes/props/covariance2d/values", chunkSize );
+		if ( writeAllProps || metadataNodeProps.containsKey( "covariance2d" ) )
+			GeffUtils.writeDoubleMatrix( nodes, 4, GeffNode::getCovariance2d, writer, path + "/nodes/props/covariance2d/values", chunkSize );
 
 		// Write covariance3d in chunks
-		GeffUtils.writeDoubleMatrix( nodes, 6, GeffNode::getCovariance3d, writer, path + "/nodes/props/covariance3d/values", chunkSize );
+		if ( writeAllProps || metadataNodeProps.containsKey( "covariance3d" ) )
+			GeffUtils.writeDoubleMatrix( nodes, 6, GeffNode::getCovariance3d, writer, path + "/nodes/props/covariance3d/values", chunkSize );
 
 		// Write variable-length node properties if available
 		final Set< String > varlengthPropertyNames = new HashSet<>();

@@ -81,7 +81,7 @@ public class RoundTripGeff
 
 			// Write edges
 			System.out.println( "Writing edges..." );
-			GeffEdge.writeToZarr( edges, outputPath, metadata.getGeffVersion() );
+			GeffEdge.writeToZarr( edges, outputPath, metadata );
 
 			System.out.println( "\nRound-trip complete!" );
 			System.exit( 0 );

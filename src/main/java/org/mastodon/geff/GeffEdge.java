@@ -33,6 +33,7 @@ import static org.mastodon.geff.GeffUtils.verifyLength;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5URI;
@@ -280,7 +281,22 @@ public class GeffEdge
 		LOG.debug( "Writing {} edges to Zarr path: {} with chunk size: {} to Geff version: {}", edges.size(), zarrPath, chunkSize, geffVersion );
 		try ( final N5ZarrWriter writer = new N5ZarrWriter( zarrPath, true ) )
 		{
-			writeToN5( edges, writer, "/", chunkSize, geffVersion );
+			writeToN5( edges, writer, "/", chunkSize, geffVersion, null );
+		}
+	}
+
+	public static void writeToZarr( final List< GeffEdge > edges, final String zarrPath, final GeffMetadata metadata )
+	{
+		writeToZarr( edges, zarrPath, GeffUtils.DEFAULT_CHUNK_SIZE, metadata );
+	}
+
+	public static void writeToZarr( final List< GeffEdge > edges, final String zarrPath, final int chunkSize, final GeffMetadata metadata )
+	{
+		final String geffVersion = metadata != null ? metadata.getGeffVersion() : Geff.VERSION;
+		LOG.debug( "Writing {} edges to Zarr path: {} with chunk size: {} to Geff version: {}", edges.size(), zarrPath, chunkSize, geffVersion );
+		try ( final N5ZarrWriter writer = new N5ZarrWriter( zarrPath, true ) )
+		{
+			writeToN5( edges, writer, "/", chunkSize, geffVersion, metadata );
 		}
 	}
 
@@ -290,6 +306,17 @@ public class GeffEdge
 			final String group,
 			final int chunkSize,
 			String geffVersion )
+	{
+		writeToN5( edges, writer, group, chunkSize, geffVersion, null );
+	}
+
+	public static void writeToN5(
+			final List< GeffEdge > edges,
+			final N5Writer writer,
+			final String group,
+			final int chunkSize,
+			String geffVersion,
+			final GeffMetadata metadata )
 	{
 		if ( edges == null )
 			throw new NullPointerException( "Edges list cannot be null" );
@@ -301,14 +328,18 @@ public class GeffEdge
 		GeffUtils.checkSupportedVersion( geffVersion );
 
 		final String path = N5URI.normalizeGroupPath( group );
+		final Map< String, PropMetadata > edgePropsMetadata = metadata != null ? metadata.getEdgePropsMetadata() : null;
+		final boolean writeAllProps = edgePropsMetadata == null;
 
 		GeffUtils.writeIntMatrix( edges, 2, e -> new int[] { e.getSourceNodeId(), e.getTargetNodeId() }, writer, path + "/edges/ids", chunkSize );
 
 		// Write distances
-		GeffUtils.writeDoubleArray( edges, GeffEdge::getDistance, writer, path + "/edges/props/distance/values", chunkSize );
+		if ( writeAllProps || edgePropsMetadata.containsKey( "distance" ) )
+			GeffUtils.writeDoubleArray( edges, GeffEdge::getDistance, writer, path + "/edges/props/distance/values", chunkSize );
 
 		// Write scores
-		GeffUtils.writeDoubleArray( edges, GeffEdge::getScore, writer, path + "/edges/props/score/values", chunkSize );
+		if ( writeAllProps || edgePropsMetadata.containsKey( "score" ) )
+			GeffUtils.writeDoubleArray( edges, GeffEdge::getScore, writer, path + "/edges/props/score/values", chunkSize );
 	}
 
 	private static void printEdgeIdStuff( List< GeffEdge > edges )

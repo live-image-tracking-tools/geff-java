@@ -261,9 +261,21 @@ public class GeffMetadata
 				{}.getType() );
 		LOG.debug( "found geff/edge_props_metadata = {}", edgePropsMetadata );
 
-		final Map< String, String > trackNodeProps = reader.getAttribute( group, "geff/track_node_props",
-				new TypeToken< Map< String, String > >()
-				{}.getType() );
+		// trackNodeProps may be null, so safe-read it
+		Map< String, String > trackNodeProps = null;
+		try
+		{
+			trackNodeProps = reader.getAttribute( group, "geff/track_node_props",
+					new TypeToken< Map< String, String > >()
+					{}.getType() );
+		}
+		catch ( final Exception e )
+		{
+			// If the attribute cannot be parsed as Map<String, String> (e.g.,
+			// if it's null in JSON),
+			// just leave it as null
+			LOG.debug( "Could not parse geff/track_node_props as Map<String,String>, setting to null: {}", e.getMessage() );
+		}
 		LOG.debug( "found geff/track_node_props = {}", trackNodeProps );
 
 		final GeffMetadata metadata = new GeffMetadata( geffVersion, directed, axes );
