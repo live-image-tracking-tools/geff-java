@@ -9,11 +9,13 @@ import java.util.function.ToDoubleFunction;
 import java.util.function.ToIntFunction;
 
 import org.janelia.saalfeldlab.n5.DataBlock;
+import org.janelia.saalfeldlab.n5.Compression;
 import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.N5Exception;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
+import org.janelia.saalfeldlab.n5.RawCompression;
 import org.janelia.saalfeldlab.n5.blosc.BloscCompression;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
 import org.slf4j.Logger;
@@ -33,6 +35,24 @@ import net.imglib2.util.Util;
 public class GeffUtils
 {
 	private static final Logger LOG = LoggerFactory.getLogger( GeffUtils.class );
+
+	private static final Compression DEFAULT_COMPRESSION = createDefaultCompression();
+
+	private static Compression createDefaultCompression()
+	{
+		try
+		{
+			return new BloscCompression();
+		}
+		catch ( final Throwable t )
+		{
+			final String message = "Blosc compression is unavailable; falling back to RawCompression. " +
+					"Install c-blosc to enable compressed output.";
+			LOG.warn( message, t );
+			System.err.println( "WARNING: " + message );
+			return new RawCompression();
+		}
+	}
 
 	private static final Pattern VERSION_PATTERN = Pattern
 			.compile( "^\\d+\\.\\d+(?:\\.\\d+)?(?:\\.dev\\d+)?(?:[.-][a-zA-Z0-9-]+(?:[.-][a-zA-Z0-9-]+)*)?(?:\\+[a-zA-Z0-9.-]+)?$" );
@@ -121,11 +141,11 @@ public class GeffUtils
 		final int size = elements.size();
 		final int[] data = new int[ size ];
 		Arrays.setAll( data, i -> extractor.applyAsInt( elements.get( i ) ) );
-		final DatasetAttributes attributes = new DatasetAttributes(
-				new long[] { size },
-				new int[] { chunkSize },
-				DataType.INT32,
-				new BloscCompression() );
+			final DatasetAttributes attributes = new DatasetAttributes(
+					new long[] { size },
+					new int[] { chunkSize },
+					DataType.INT32,
+					DEFAULT_COMPRESSION );
 		writer.createDataset( dataset, attributes );
 		write( data, writer, dataset, attributes );
 	}
@@ -163,11 +183,11 @@ public class GeffUtils
 				continue;
 			System.arraycopy( row, 0, data, numColumns * i, numColumns );
 		}
-		final DatasetAttributes attributes = new DatasetAttributes(
-				new long[] { numColumns, numRows },
-				new int[] { numColumns, chunkSize },
-				DataType.INT32,
-				new BloscCompression() );
+			final DatasetAttributes attributes = new DatasetAttributes(
+					new long[] { numColumns, numRows },
+					new int[] { numColumns, chunkSize },
+					DataType.INT32,
+					DEFAULT_COMPRESSION );
 		writer.createDataset( dataset, attributes );
 		write( data, writer, dataset, attributes );
 	}
@@ -182,11 +202,11 @@ public class GeffUtils
 		final int size = elements.size();
 		final double[] data = new double[ size ];
 		Arrays.setAll( data, i -> extractor.applyAsDouble( elements.get( i ) ) );
-		final DatasetAttributes attributes = new DatasetAttributes(
-				new long[] { size },
-				new int[] { chunkSize },
-				DataType.FLOAT64,
-				new BloscCompression() );
+			final DatasetAttributes attributes = new DatasetAttributes(
+					new long[] { size },
+					new int[] { chunkSize },
+					DataType.FLOAT64,
+					DEFAULT_COMPRESSION );
 		writer.createDataset( dataset, attributes );
 		write( data, writer, dataset, attributes );
 	}
@@ -208,11 +228,11 @@ public class GeffUtils
 				continue;
 			System.arraycopy( row, 0, data, numColumns * i, numColumns );
 		}
-		final DatasetAttributes attributes = new DatasetAttributes(
-				new long[] { numColumns, size },
-				new int[] { numColumns, chunkSize },
-				DataType.FLOAT64,
-				new BloscCompression() );
+			final DatasetAttributes attributes = new DatasetAttributes(
+					new long[] { numColumns, size },
+					new int[] { numColumns, chunkSize },
+					DataType.FLOAT64,
+					DEFAULT_COMPRESSION );
 		writer.createDataset( dataset, attributes );
 		write( data, writer, dataset, attributes );
 	}
@@ -925,11 +945,11 @@ public class GeffUtils
 			final int chunkSize ) throws Exception
 	{
 		final long numElements = Array.getLength( data );
-		final DatasetAttributes attributes = new DatasetAttributes(
-				new long[] { numElements },
-				new int[] { Math.min( chunkSize, ( int ) numElements ) },
-				dataType,
-				new BloscCompression() );
+			final DatasetAttributes attributes = new DatasetAttributes(
+					new long[] { numElements },
+					new int[] { Math.min( chunkSize, ( int ) numElements ) },
+					dataType,
+					DEFAULT_COMPRESSION );
 		writer.createDataset( dataset, attributes );
 		write( data, writer, dataset, attributes );
 	}
@@ -956,11 +976,11 @@ public class GeffUtils
 			}
 		}
 
-		final DatasetAttributes attributes = new DatasetAttributes(
-				new long[] { numColumns, numNodes },
-				new int[] { numColumns, Math.min( chunkSize, numNodes ) },
-				DataType.INT64,
-				new BloscCompression() );
+			final DatasetAttributes attributes = new DatasetAttributes(
+					new long[] { numColumns, numNodes },
+					new int[] { numColumns, Math.min( chunkSize, numNodes ) },
+					DataType.INT64,
+					DEFAULT_COMPRESSION );
 		writer.createDataset( dataset, attributes );
 		write( flatOffsets, writer, dataset, attributes );
 	}
@@ -974,11 +994,11 @@ public class GeffUtils
 			final boolean[] missing,
 			final int chunkSize ) throws Exception
 	{
-		final DatasetAttributes attributes = new DatasetAttributes(
-				new long[] { missing.length },
-				new int[] { Math.min( chunkSize, missing.length ) },
-				DataType.UINT8, // N5 uses UINT8 for booleans
-				new BloscCompression() );
+			final DatasetAttributes attributes = new DatasetAttributes(
+					new long[] { missing.length },
+					new int[] { Math.min( chunkSize, missing.length ) },
+					DataType.UINT8, // N5 uses UINT8 for booleans
+					DEFAULT_COMPRESSION );
 		writer.createDataset( dataset, attributes );
 
 		// Convert boolean[] to byte[] for storage

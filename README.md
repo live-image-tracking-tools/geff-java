@@ -147,6 +147,8 @@ GeffMetadata.writeToZarr(metadata, "/path/to/output.zarr/tracks");
 
 ## Building
 
+geff-java prefers `BloscCompression` for writing datasets when [c-blosc](https://github.com/Blosc/c-blosc) is available. If Blosc is not installed, it will print a warning and automatically fall back to `RawCompression`.
+
 ```bash
 mvn clean compile
 mvn test
@@ -159,7 +161,11 @@ Round-trip tests validate interoperability between geff-java and the Python refe
 
 **Requirements:**
 - [uv](https://docs.astral.sh/uv/) (Python package manager)
-- [c-blosc](https://github.com/Blosc/c-blosc) native library (`brew install c-blosc` on macOS)
+
+**Optional compression support:**
+- If [c-blosc](https://github.com/Blosc/c-blosc) is installed, geff-java will use `BloscCompression` for output datasets.
+- If Blosc is not available, geff-java prints a warning and automatically falls back to `RawCompression`, so end users can still run the library and the cross-language tests without extra native setup.
+- On macOS, Blosc can be installed with `brew install c-blosc`.
 
 **Run tests:**
 ```bash
