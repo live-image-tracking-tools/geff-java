@@ -32,6 +32,7 @@ import static org.mastodon.geff.GeffUtils.checkSupportedVersion;
 import static org.mastodon.geff.GeffUtils.verifyLength;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -340,6 +341,17 @@ public class GeffEdge
 		// Write scores
 		if ( writeAllProps || edgePropsMetadata.containsKey( "score" ) )
 			GeffUtils.writeDoubleArray( edges, GeffEdge::getScore, writer, path + "/edges/props/score/values", chunkSize );
+
+		// When writeAllProps=true (no edgePropsMetadata provided), populate metadata
+		// with the standard props so the output zarr passes Python structural
+		// validation (edge_props_metadata is a required field in the Python spec).
+		if ( writeAllProps && metadata != null )
+		{
+			final Map< String, PropMetadata > edgePropsMap = new HashMap<>();
+			edgePropsMap.put( "distance", new PropMetadata( "distance", "float64", false, null, null, null ) );
+			edgePropsMap.put( "score", new PropMetadata( "score", "float64", false, null, null, null ) );
+			metadata.setEdgePropsMetadata( edgePropsMap );
+		}
 	}
 
 	private static void printEdgeIdStuff( List< GeffEdge > edges )

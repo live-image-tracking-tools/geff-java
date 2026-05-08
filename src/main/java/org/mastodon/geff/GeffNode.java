@@ -959,6 +959,24 @@ public class GeffNode
 		if ( writeAllProps || metadataNodeProps.containsKey( "covariance3d" ) )
 			GeffUtils.writeDoubleMatrix( nodes, 6, GeffNode::getCovariance3d, writer, path + "/nodes/props/covariance3d/values", chunkSize );
 
+		// When writeAllProps=true (no nodePropsMetadata provided), populate metadata
+		// with the standard props so the output zarr passes Python structural
+		// validation (node_props_metadata is a required field in the Python spec).
+		if ( writeAllProps )
+		{
+			final Map< String, PropMetadata > nodePropsMap = new HashMap<>();
+			nodePropsMap.put( "t", new PropMetadata( "t", "int32", false, null, null, null ) );
+			nodePropsMap.put( "x", new PropMetadata( "x", "float64", false, null, null, null ) );
+			nodePropsMap.put( "y", new PropMetadata( "y", "float64", false, null, null, null ) );
+			nodePropsMap.put( "z", new PropMetadata( "z", "float64", false, null, null, null ) );
+			nodePropsMap.put( "color", new PropMetadata( "color", "float64", false, null, null, null ) );
+			nodePropsMap.put( trackletProp, new PropMetadata( trackletProp, "int32", false, null, null, null ) );
+			nodePropsMap.put( "radius", new PropMetadata( "radius", "float64", false, null, null, null ) );
+			nodePropsMap.put( "covariance2d", new PropMetadata( "covariance2d", "float64", false, null, null, null ) );
+			nodePropsMap.put( "covariance3d", new PropMetadata( "covariance3d", "float64", false, null, null, null ) );
+			metadata.setNodePropsMetadata( nodePropsMap );
+		}
+
 		// Write variable-length node properties if available
 		final Set< String > varlengthPropertyNames = new HashSet<>();
 		for ( final GeffNode node : nodes )

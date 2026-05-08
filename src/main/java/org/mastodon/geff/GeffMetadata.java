@@ -319,17 +319,13 @@ public class GeffMetadata
 			writer.setAttribute( group, "geff/axes", axes );
 		}
 
-		if ( nodePropsMetadata != null )
-		{
-			LOG.debug( "writing geff/node_props_metadata {}", nodePropsMetadata );
-			writer.setAttribute( group, "geff/node_props_metadata", nodePropsMetadata );
-		}
+		final Map< String, PropMetadata > nodeMeta = nodePropsMetadata != null ? nodePropsMetadata : new java.util.HashMap<>();
+		LOG.debug( "writing geff/node_props_metadata {}", nodeMeta );
+		writer.setAttribute( group, "geff/node_props_metadata", nodeMeta );
 
-		if ( edgePropsMetadata != null )
-		{
-			LOG.debug( "writing geff/edge_props_metadata {}", edgePropsMetadata );
-			writer.setAttribute( group, "geff/edge_props_metadata", edgePropsMetadata );
-		}
+		final Map< String, PropMetadata > edgeMeta = edgePropsMetadata != null ? edgePropsMetadata : new java.util.HashMap<>();
+		LOG.debug( "writing geff/edge_props_metadata {}", edgeMeta );
+		writer.setAttribute( group, "geff/edge_props_metadata", edgeMeta );
 
 		if ( trackNodeProps != null )
 		{
