@@ -360,44 +360,6 @@ public class GeffEdge
 		GeffUtils.patchZarrLittleEndian( writer, path + "/edges" );
 	}
 
-	private static void printEdgeIdStuff( List< GeffEdge > edges )
-	{
-		// Write edges in chunks
-		int totalEdges = edges.size();
-
-		// Analyze edge data format
-		long validEdges = edges.stream().filter( GeffEdge::isValid ).count();
-		long selfLoops = edges.stream().filter( GeffEdge::isSelfLoop ).count();
-
-		System.out.println( "Edge analysis:" );
-		System.out.println( "- Valid edges: " + validEdges + "/" + edges.size() );
-		if ( selfLoops > 0 )
-		{
-			System.out.println( "- Self-loops detected: " + selfLoops );
-		}
-		System.out.println( "- Format: Chunked 2D arrays [[source1, target1], [source2, target2], ...]" );
-
-		// Log summary
-		int uniqueSourceNodes = ( int ) edges.stream().mapToInt( GeffEdge::getSourceNodeId ).distinct().count();
-		int uniqueTargetNodes = ( int ) edges.stream().mapToInt( GeffEdge::getTargetNodeId ).distinct().count();
-
-		System.out.println( "Successfully wrote edges to Zarr format:" );
-		System.out.println( "- " + totalEdges + " edges written" );
-		System.out.println( "- Source nodes: " + uniqueSourceNodes + " unique" );
-		System.out.println( "- Target nodes: " + uniqueTargetNodes + " unique" );
-
-		// Sample verification
-		if ( !edges.isEmpty() )
-		{
-			System.out.println( "Sample written edge data:" );
-			for ( int i = 0; i < Math.min( 3, edges.size() ); i++ )
-			{
-				GeffEdge edge = edges.get( i );
-				System.out.println( "  [" + edge.getSourceNodeId() + ", " + edge.getTargetNodeId() + "] - " + edge );
-			}
-		}
-	}
-
 	/**
 	 * Check if this edge is valid (has valid source and target node IDs)
 	 */

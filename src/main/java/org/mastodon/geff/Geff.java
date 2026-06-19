@@ -59,7 +59,6 @@ public class Geff
 
 		String zarrPath = "src/test/resources/mouse-20250719.zarr/tracks";
 		String outputZarrPath = "src/test/resources/mouse-20250719_output.zarr/tracks";
-		String n5OutputZarrPath = "src/test/resources/n5-mouse-20250719_output.zarr/tracks";
 
 		try
 		{
