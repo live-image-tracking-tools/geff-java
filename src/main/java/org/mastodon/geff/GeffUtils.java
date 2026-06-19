@@ -114,22 +114,22 @@ public class GeffUtils
 		}
 	}
 
-	// Default chunk size if not specified
-	public static final int DEFAULT_CHUNK_SIZE = 1000;
+	private static final long TARGET_CHUNK_BYTES = 8 * 1024 * 1024; // 8 MiB
 
-	public static int getChunkSize( final String zarrPath )
+	/**
+	 * Returns a power-of-two first-dimension chunk size targeting ~8 MiB per chunk.
+	 * Trailing dimensions are kept whole so only the first dimension is chunked.
+	 */
+	public static int computeFirstDimChunk( final long[] shape, final int itemsize )
 	{
-		try (final N5ZarrReader reader = new N5ZarrReader( zarrPath, true ))
-		{
-			final int[] chunkSize = reader.getDatasetAttributes( "/nodes/ids" ).getBlockSize();
-			return chunkSize[ 0 ];
-		}
-		catch ( final N5Exception.N5IOException e )
-		{
-			// If the path doesn't exist, return a default chunk size
-			System.out.println( "Path doesn't exist, using default chunk size: " + e.getMessage() );
-			return DEFAULT_CHUNK_SIZE; // Default chunk size
-		}
+		final long firstDim = shape.length > 0 ? shape[ 0 ] : 1;
+		long rowBytes = itemsize;
+		for ( int i = 1; i < shape.length; i++ )
+			rowBytes *= shape[ i ];
+		long nRows = TARGET_CHUNK_BYTES / Math.max( rowBytes, 1 );
+		if ( nRows >= 1 )
+			nRows = Long.highestOneBit( nRows );
+		return ( int ) Math.max( 1, Math.min( firstDim, nRows ) );
 	}
 
 	public static < T > void writeIntArray(

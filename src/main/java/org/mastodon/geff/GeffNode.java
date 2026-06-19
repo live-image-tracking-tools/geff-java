@@ -851,7 +851,7 @@ public class GeffNode
 	 */
 	public static void writeToZarr( List< GeffNode > nodes, String zarrPath )
 	{
-		writeToZarr( nodes, zarrPath, GeffUtils.DEFAULT_CHUNK_SIZE );
+		writeToZarr( nodes, zarrPath, GeffUtils.computeFirstDimChunk( new long[]{ nodes.size() }, Integer.BYTES ) );
 	}
 
 	/**
@@ -874,12 +874,12 @@ public class GeffNode
 																		// directed
 																		// for
 																		// now
-		writeToZarr( nodes, zarrPath, GeffUtils.DEFAULT_CHUNK_SIZE, metadata );
+		writeToZarr( nodes, zarrPath, GeffUtils.computeFirstDimChunk( new long[]{ nodes.size() }, Integer.BYTES ), metadata );
 	}
 
 	public static void writeToZarr( List< GeffNode > nodes, String zarrPath, GeffMetadata metadata )
 	{
-		writeToZarr( nodes, zarrPath, GeffUtils.DEFAULT_CHUNK_SIZE, metadata );
+		writeToZarr( nodes, zarrPath, GeffUtils.computeFirstDimChunk( new long[]{ nodes.size() }, Integer.BYTES ), metadata );
 	}
 
 	public static void writeToZarr( List< GeffNode > nodes, String zarrPath, int chunkSize, GeffMetadata metadata )

@@ -97,7 +97,7 @@ public class Geff
 			// Try to write nodes (will show what would be written)
 			try
 			{
-				GeffNode.writeToZarr( nodes, outputZarrPath, GeffUtils.getChunkSize( zarrPath ), metadata );
+				GeffNode.writeToZarr( nodes, outputZarrPath, GeffUtils.computeFirstDimChunk( new long[]{ nodes.size() }, Integer.BYTES ), metadata );
 			}
 			catch ( UnsupportedOperationException e )
 			{
@@ -107,7 +107,7 @@ public class Geff
 			// Try to write edges (will show what would be written)
 			try
 			{
-				GeffEdge.writeToZarr( edges, outputZarrPath, GeffUtils.getChunkSize( zarrPath ), metadata.getGeffVersion() );
+				GeffEdge.writeToZarr( edges, outputZarrPath, GeffUtils.computeFirstDimChunk( new long[]{ edges.size(), 2 }, Integer.BYTES ), metadata.getGeffVersion() );
 			}
 			catch ( UnsupportedOperationException e )
 			{

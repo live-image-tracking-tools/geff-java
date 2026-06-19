@@ -261,12 +261,12 @@ public class GeffEdge
 	 */
 	public static void writeToZarr( List< GeffEdge > edges, String zarrPath )
 	{
-		writeToZarr( edges, zarrPath, GeffUtils.DEFAULT_CHUNK_SIZE );
+		writeToZarr( edges, zarrPath, GeffUtils.computeFirstDimChunk( new long[]{ edges.size(), 2 }, Integer.BYTES ) );
 	}
 
 	public static void writeToZarr( List< GeffEdge > edges, String zarrPath, String geffVersion )
 	{
-		writeToZarr( edges, zarrPath, GeffUtils.DEFAULT_CHUNK_SIZE, geffVersion );
+		writeToZarr( edges, zarrPath, GeffUtils.computeFirstDimChunk( new long[]{ edges.size(), 2 }, Integer.BYTES ), geffVersion );
 	}
 
 	/**
@@ -288,7 +288,7 @@ public class GeffEdge
 
 	public static void writeToZarr( final List< GeffEdge > edges, final String zarrPath, final GeffMetadata metadata )
 	{
-		writeToZarr( edges, zarrPath, GeffUtils.DEFAULT_CHUNK_SIZE, metadata );
+		writeToZarr( edges, zarrPath, GeffUtils.computeFirstDimChunk( new long[]{ edges.size(), 2 }, Integer.BYTES ), metadata );
 	}
 
 	public static void writeToZarr( final List< GeffEdge > edges, final String zarrPath, final int chunkSize, final GeffMetadata metadata )
