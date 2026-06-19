@@ -1,7 +1,7 @@
 # Variable-Length Properties Implementation Summary
 
 ## Overview
-Successfully implemented support for reading variable-length properties in geff-java according to the GEFF v1 specification. Variable-length properties enable each node to have arrays of different shapes/sizes, useful for polygons, meshes, and other complex data types.
+Successfully implemented support for reading and writing variable-length properties in geff-java according to the GEFF v1 specification. Variable-length properties enable each node to have arrays of different shapes/sizes, useful for polygons, meshes, and other complex data types.
 
 ## Files Created
 
@@ -128,7 +128,7 @@ The implementation follows the GEFF v1 specification encoding:
 - [x] Offset and shape parsing
 - [x] Missing value support
 - [x] Integration with GeffNode.writeToZarr()
-- [x] Comprehensive unit tests (14 total: 8 read + 6 write)
+- [x] Comprehensive unit tests (13 total: 8 read + 5 write)
 - [x] Updated property skipping logic
 - [x] Automatic dtype inference from array types
 - [x] PropMetadata updates with varlength flags
@@ -143,7 +143,7 @@ The implementation follows the GEFF v1 specification encoding:
 - Maintains backward compatibility with non-varlength properties
 - Gracefully handles missing varlength data (logs debug message)
 - No breaking changes to existing API
-- All existing unit tests pass
+- All existing unit tests pass (42/42)
 
 ## Writing Implementation Details (Phase 2)
 
@@ -177,10 +177,10 @@ Comprehensive write tests covering:
 - ✓ Missing value indicators
 - ✓ Integer array support
 - ✓ Round-trip write → read consistency
-- ✓ All 6 tests passing
+- ✓ All 5 tests passing
 
 ## Next Steps Completed ✅
 
-- [x] Updated V1_SPEC_COMPATIBILITY_PLAN.md to mark as ✓ COMPLETE
-- [x] Added 6 comprehensive write tests
-- [x] All project tests passing (43/43 for GEFF functionality)
+- [x] Updated [V1_SPEC_COMPATIBILITY_PLAN.md](V1_SPEC_COMPATIBILITY_PLAN.md) to mark as ✓ COMPLETE
+- [x] Added comprehensive write tests
+- [x] All project tests passing (42/42)

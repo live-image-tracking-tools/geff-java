@@ -27,20 +27,22 @@
 
 ### Medium Priority - Graceful Handling (COMPLETED)
 - **#7**: Variable-length properties (`varlength: true`)
-  - ✅ Implemented in `GeffUtils.shouldSkipProperty()`
-  - Logs warning and skips if `varlength: true` in metadata
-  - Location: `GeffUtils.java:57-62`
+  - ✅ Read and write fully implemented
+  - See [VARLENGTH_IMPLEMENTATION.md](VARLENGTH_IMPLEMENTATION.md) for details
 
 - **#8**: String properties (`dtype: "str" or "bytes"`)
   - ✅ Implemented in `GeffUtils.shouldSkipProperty()`
   - Logs warning and skips if dtype is string type
-  - Location: `GeffUtils.java:65-73`
 
 - **#9**: Missing arrays
   - ✅ Implemented in `GeffUtils.checkForMissingValues()`
   - Logs warning that Java doesn't support sparse data
   - All values are read as present (no special handling needed)
-  - Location: `GeffUtils.java:76-90`
+
+### Utility Improvements
+- **Chunk size**: Replaced fixed `DEFAULT_CHUNK_SIZE = 1000` with `GeffUtils.computeFirstDimChunk(shape, itemsize)`
+  - Targets ~8 MiB per chunk, rounded down to nearest power of two on the first dimension
+  - Trailing dimensions kept whole
 
 ## Known Limitations (Documentation Only)
 
@@ -49,7 +51,7 @@
 - Round-trip through Java will lose these fields
 - Future enhancement: Add these fields to `GeffAxis` if needed
 
-### Issue #5: Covariance format mismatch  
+### Issue #5: Covariance format mismatch
 - Java uses flattened arrays (4 elements for 2D, 6 for 3D upper triangular)
 - Spec uses full 2x2 or 3x3 matrices
 - Existing bug: Java reads covariance but ignores it (uses defaults instead)
@@ -58,15 +60,18 @@
 ## Key Changes Made
 1. Created `PropMetadata.java` class with full property metadata support
 2. Updated `GeffMetadata.java` with `nodePropsMetadata`, `edgePropsMetadata`, `trackNodeProps` fields
-3. Modified `GeffAxis.java` to support `TYPE_CHANNEL` 
+3. Modified `GeffAxis.java` to support `TYPE_CHANNEL`
 4. Updated `GeffNode.java` to:
    - Use dynamic tracklet property name from metadata
    - Pass `GeffMetadata` to read/write methods
    - Add graceful handling checks for property metadata
+   - Read and write variable-length properties
 5. Updated `GeffUtils.java` with:
    - Semver pattern validation for versions
    - `shouldSkipProperty()` method for graceful handling
    - `checkForMissingValues()` method for sparse data warnings
+   - `readVarlengthProperty()` / `writeVarlengthProperty()` for varlength support
+   - `computeFirstDimChunk()` for ~8 MiB power-of-two chunk sizing
 6. Updated all callers of modified methods in:
    - `Geff.java`
    - `RoundTripGeff.java`
@@ -80,10 +85,12 @@ All changes maintain backward compatibility:
 - Fallback to `track_id` if `track_node_props` not present
 
 ## Test Status
-✅ All 26 unit tests passing
+✅ All 42 unit tests passing
+- VarlengthPropertyTest: 8/8 passing (read functionality)
+- VarlengthPropertyWriteTest: 5/5 passing (write functionality)
 - VersionPatternTest: 4/4 passing
-- GeffAxisTest: 11/11 passing  
-- GeffTest: 11/11 passing
+- GeffAxisTest: 11/11 passing
+- GeffTest: 14/14 passing
 
 ## Next Steps (Out of Scope)
 1. **Interoperability Testing**: Create cross-language tests with Python implementation

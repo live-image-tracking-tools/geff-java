@@ -2,7 +2,7 @@
 
 ## Summary
 
-This implementation addresses the GEFF v1 specification compatibility issues identified in `V1_SPEC_COMPATIBILITY_PLAN.md`. All critical fixes and graceful handling features have been successfully implemented and tested.
+This implementation addresses the GEFF v1 specification compatibility issues identified in [V1_SPEC_COMPATIBILITY_PLAN.md](V1_SPEC_COMPATIBILITY_PLAN.md). All critical fixes and graceful handling features have been successfully implemented and tested.
 
 ## Implementation Overview
 
@@ -32,7 +32,7 @@ This implementation addresses the GEFF v1 specification compatibility issues ide
 **Files Modified**:
 - `GeffMetadata.java` (validation method)
 
-#### 3. Missing Channel Axis Type - FIXED  
+#### 3. Missing Channel Axis Type - FIXED
 **Issue**: Java did not support `channel` axis type
 
 **Solution**:
@@ -65,7 +65,7 @@ This implementation addresses the GEFF v1 specification compatibility issues ide
 - Now accepts any semver-formatted version (including future versions like 2.0)
 
 **Files Modified**:
-- `GeffUtils.java`  
+- `GeffUtils.java`
 - `GeffMetadata.java`
 
 ### Graceful Handling Features (Priority: MEDIUM) ✅
@@ -89,7 +89,7 @@ This implementation addresses the GEFF v1 specification compatibility issues ide
 
 *Testing*:
 - 8 comprehensive read tests (VarlengthPropertyTest)
-- 6 comprehensive write tests (VarlengthPropertyWriteTest)
+- 5 comprehensive write tests (VarlengthPropertyWriteTest)
 - Round-trip validation: Write → Read → Verify
 
 #### 7. String/Bytes Properties - IMPLEMENTED
@@ -131,23 +131,18 @@ This implementation addresses the GEFF v1 specification compatibility issues ide
 
 ### Test Results
 ```
-Total Tests: 43+
-Passed: 43+ (100%)
+Total Tests: 42
+Passed: 42 (100%)
 Failed: 0
 Errors: 0
 
 Breakdown:
 - VarlengthPropertyTest: 8/8 passing (read functionality)
-- VarlengthPropertyWriteTest: 6/6 passing (write functionality)
+- VarlengthPropertyWriteTest: 5/5 passing (write functionality)
 - VersionPatternTest: 4/4 passing (version validation)
 - GeffAxisTest: 11/11 passing (axis functionality)
-- GeffTest: 11/11 passing (overall GEFF operations)
+- GeffTest: 14/14 passing (overall GEFF operations)
 ```
-
-### Test Coverage
-- VersionPatternTest: 4/4 passing (version validation)
-- GeffAxisTest: 11/11 passing (axis functionality)
-- GeffTest: 11/11 passing (overall GEFF operations)
 
 ### Backward Compatibility
 ✅ All changes maintain backward compatibility:
@@ -161,13 +156,15 @@ Breakdown:
 
 ### New Files
 - `src/main/java/org/mastodon/geff/PropMetadata.java` - Property metadata class
-- `IMPLEMENTATION_PROGRESS.md` - Implementation tracking document
+- `src/main/java/org/mastodon/geff/VarlengthProperty.java` - Variable-length property wrapper
+- `doc/IMPLEMENTATION_PROGRESS.md` - Implementation tracking document
 
-### Modified Files  
+### Modified Files
 - `src/main/java/org/mastodon/geff/GeffMetadata.java` - Added metadata fields, updated validation
 - `src/main/java/org/mastodon/geff/GeffAxis.java` - Added channel type support
-- `src/main/java/org/mastodon/geff/GeffNode.java` - Dynamic property names, graceful checks
-- `src/main/java/org/mastodon/geff/GeffUtils.java` - Version pattern, property validation
+- `src/main/java/org/mastodon/geff/GeffNode.java` - Dynamic property names, graceful checks, varlength support
+- `src/main/java/org/mastodon/geff/GeffUtils.java` - Version pattern, property validation, varlength I/O, `computeFirstDimChunk()`
+- `src/main/java/org/mastodon/geff/GeffEdge.java` - Updated chunk size computation
 - `src/main/java/org/mastodon/geff/Geff.java` - Updated method calls
 - `src/main/java/org/mastodon/geff/RoundTripGeff.java` - Updated method calls
 - `src/test/java/org/mastodon/geff/GeffTest.java` - Test updates for new signatures
@@ -194,6 +191,7 @@ Breakdown:
 2. **Backward Compatible**: All changes designed to work with existing Java code
 3. **Graceful Degradation**: Instead of errors, gracefully skip unsupported features with warnings
 4. **Future-Proof**: Semver pattern instead of version allowlist allows supporting future versions
+5. **Adaptive Chunking**: `computeFirstDimChunk()` targets ~8 MiB chunks (power-of-two) instead of a fixed default
 
 ### Code Patterns Used
 - GSON automatic serialization for metadata objects

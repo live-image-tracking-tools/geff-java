@@ -17,11 +17,12 @@ This team will attempt to address the concerns as time allows, but welcomes help
 | 5   | Covariance format mismatch                            | Document        | Low      | Pending        |
 | 6   | Hardcoded `track_id` path                             | **FIX**         | Medium   | **✓ COMPLETE** |
 | 7   | Variable-length properties                            | **FIX**         | High     | **✓ COMPLETE** |
-| 8   | String properties                                     | **Warn & skip** | Medium   | Pending        |
-| 9   | `missing` arrays                                      | **Warn & skip** | Medium   | Pending        |
+| 8   | String properties                                     | **Warn & skip** | Medium   | **✓ COMPLETE** |
+| 9   | `missing` arrays                                      | **Warn & skip** | Medium   | **✓ COMPLETE** |
+| 10  | Version checking: allowlist vs pattern                | **FIX**         | Low      | **✓ COMPLETE** |
 
-**Fixes required**: #1, #3, #4, #6, #7 (all complete ✓)
-**Graceful handling**: #8, #9
+**Fixes required**: #1, #3, #4, #6, #7, #10 (all complete ✓)
+**Graceful handling**: #8, #9 (all complete ✓)
 **Document only**: #2, #5
 
 ---
@@ -32,7 +33,7 @@ This team will attempt to address the concerns as time allows, but welcomes help
 
 **Status**: ✓ IMPLEMENTED
 
-**Problem**: Java does not read or write `node_props_metadata` and `edge_props_metadata`, which are **required** fields in the v1 spec. Files written by Java are invalid per spec.
+**Problem**: Java did not read or write `node_props_metadata` and `edge_props_metadata`, which are **required** fields in the v1 spec. Files written by Java are invalid per spec.
 
 **Locations**:
 - `GeffMetadata.java:70-75`
@@ -164,12 +165,12 @@ This team will attempt to address the concerns as time allows, but welcomes help
    - Store as wrapper class `VarlengthProperty` containing `Object[] data` indexed by node position
 4. Graceful error handling and validation
 
-**Writing Implementation** (PLANNED):
+**Writing Implementation** (✓ COMPLETE):
 1. Flatten all node data:
    - For each node i with varlength property data, extract the array
    - Concatenate all data into single flattened array
    - Track cumulative offset for each node's data
-   
+
 2. Build offset and shape metadata:
    - For each node i, calculate the starting offset
    - Extract dimensionality from node's array shape
@@ -187,18 +188,6 @@ This team will attempt to address the concerns as time allows, but welcomes help
    - If any node has missing value, create `/nodes/props/{propName}/missing` boolean array
    - Update PropMetadata with `varlength: true` and correct dtype
 
-5. Integration with writeToZarr():
-   - Iterate through all node properties
-   - Identify which are varlength (check if property contains arrays of varying sizes)
-   - Apply flattening and encoding logic before writing
-   - Ensure PropMetadata is properly serialized with varlength indicators
-
-6. Unit tests:
-   - Write varlength property for simple case (single node with 2D array)
-   - Write varlength property with multiple nodes of different shapes
-   - Write varlength property with missing value indicators
-   - Round-trip test: Write → Read → Verify data integrity
-
 **Implementation Phases**:
 - Phase 1 (✓ DONE): Reading varlength properties from zarr
 - Phase 2 (✓ DONE): Writing varlength properties to zarr
@@ -206,11 +195,15 @@ This team will attempt to address the concerns as time allows, but welcomes help
 
 #### 8. String Properties
 
+**Status**: ✓ IMPLEMENTED
+
 **Problem**: Properties with `dtype: "str"`. Java only handles numeric types.
 
 **Plan**: When reading, check `dtype` in PropMetadata; if "str" or "bytes", log warning and skip property.
 
 #### 9. `missing` Arrays
+
+**Status**: ✓ IMPLEMENTED
 
 **Problem**: Optional `/nodes/props/{name}/missing` boolean array indicating null values. Java has no support for sparse/missing data.
 
@@ -219,6 +212,8 @@ This team will attempt to address the concerns as time allows, but welcomes help
 ---
 
 ### 10. Version Checking: Allowlist vs Pattern (LOW)
+
+**Status**: ✓ IMPLEMENTED
 
 **Problem**: Java uses an explicit allowlist of supported versions (`0.2`, `0.3`, `0.4`, `1.0`, `1.1`). The Python spec uses a regex pattern that accepts **any** semver-formatted version:
 
@@ -246,5 +241,4 @@ This means Python will accept future versions like `2.0`, `1.5`, etc. as long as
    - Python writes GEFF → Java reads (including varlength properties like polygons)
    - Java writes GEFF → Python reads & validates
    - Comprehensive test coverage for all fixed issues
-2. **Add Graceful Handling**: Implement warn-and-skip for #8, #9
-3. **Documentation**: Document known shortcomings (#2, #5)
+2. **Documentation**: Document known shortcomings (#2, #5)
