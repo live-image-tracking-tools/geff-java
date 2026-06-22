@@ -31,16 +31,20 @@ package org.mastodon.geff;
 import static org.mastodon.geff.GeffUtils.checkSupportedVersion;
 import static org.mastodon.geff.GeffUtils.verifyLength;
 
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5URI;
 import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrWriter;
+import org.mastodon.geff.GeffUtils.FlattenedDoubles;
 import org.mastodon.geff.GeffUtils.FlattenedInts;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,6 +68,8 @@ public class GeffEdge
 	public static final double DEFAULT_DISTANCE = -1; // Default distance for
 	                                                  // edges if not specified
 
+	private static final Set< String > STANDARD_EDGE_PROP_NAMES = new HashSet<>( java.util.Arrays.asList( "distance", "score" ) );
+
 	// Edge attributes
 	private int sourceNodeId;
 
@@ -75,11 +81,18 @@ public class GeffEdge
 
 	private double distance; // Optional distance metric for the edge
 
+	private Map< String, Object > props;
+
+	private Map< String, VarlengthProperty > varlengthProps;
+
 	/**
 	 * Default constructor
 	 */
 	public GeffEdge()
-	{}
+	{
+		this.props = new HashMap<>();
+		this.varlengthProps = new HashMap<>();
+	}
 
 	/**
 	 * Constructor with edge ID, source and target node IDs
@@ -91,6 +104,8 @@ public class GeffEdge
 		this.targetNodeId = targetNodeId;
 		this.score = score;
 		this.distance = distance;
+		this.props = new HashMap<>();
+		this.varlengthProps = new HashMap<>();
 	}
 
 	// Getters and Setters
@@ -142,6 +157,61 @@ public class GeffEdge
 	public void setDistance( double distance )
 	{
 		this.distance = distance;
+	}
+
+	/**
+	 * Get an arbitrary edge property by name. Scalar values are stored as
+	 * {@code Double} or {@code Integer}; vector values as {@code double[]} or
+	 * {@code int[]}.
+	 */
+	public Object getProp( final String name )
+	{
+		return props != null ? props.get( name ) : null;
+	}
+
+	/**
+	 * Set an arbitrary edge property. Supported value types: {@code Double},
+	 * {@code Integer}, {@code double[]}, {@code int[]}.
+	 */
+	public void setProp( final String name, final Object value )
+	{
+		if ( props == null )
+			props = new HashMap<>();
+		props.put( name, value );
+	}
+
+	/**
+	 * Get all arbitrary edge properties as an unmodifiable view.
+	 */
+	public Map< String, Object > getProps()
+	{
+		return props != null ? java.util.Collections.unmodifiableMap( props ) : java.util.Collections.emptyMap();
+	}
+
+	/**
+	 * Get a varlength edge property by name.
+	 */
+	public VarlengthProperty getVarlengthProperty( final String name )
+	{
+		return varlengthProps != null ? varlengthProps.get( name ) : null;
+	}
+
+	/**
+	 * Set a varlength edge property.
+	 */
+	public void setVarlengthProperty( final String name, final VarlengthProperty property )
+	{
+		if ( varlengthProps == null )
+			varlengthProps = new HashMap<>();
+		varlengthProps.put( name, property );
+	}
+
+	/**
+	 * Get all varlength edge properties as an unmodifiable view.
+	 */
+	public Map< String, VarlengthProperty > getVarlengthProperties()
+	{
+		return varlengthProps != null ? java.util.Collections.unmodifiableMap( varlengthProps ) : java.util.Collections.emptyMap();
 	}
 
 	/**
@@ -213,19 +283,29 @@ public class GeffEdge
 		LOG.debug( "Reading edges from Zarr path: " + zarrPath + " with Geff version: " + geffVersion );
 		try ( final N5ZarrReader reader = new N5ZarrReader( zarrPath, true ) )
 		{
-			return readFromN5( reader, "/", geffVersion );
+			return readFromN5( reader, "/", geffVersion, null );
+		}
+	}
+
+	public static List< GeffEdge > readFromZarr( final String zarrPath, final GeffMetadata metadata )
+	{
+		LOG.debug( "Reading edges from Zarr path: {} with Geff version: {}", zarrPath, metadata != null ? metadata.getGeffVersion() : "null" );
+		try ( final N5ZarrReader reader = new N5ZarrReader( zarrPath, true ) )
+		{
+			final String geffVersion = metadata != null ? metadata.getGeffVersion() : Geff.VERSION;
+			return readFromN5( reader, "/", geffVersion, metadata );
 		}
 	}
 
 	public static List< GeffEdge > readFromN5( final N5Reader reader, final String group, final String geffVersion )
 	{
+		return readFromN5( reader, group, geffVersion, null );
+	}
+
+	public static List< GeffEdge > readFromN5( final N5Reader reader, final String group, final String geffVersion, final GeffMetadata metadata )
+	{
 		checkSupportedVersion( geffVersion );
 		final String path = N5URI.normalizeGroupPath( group );
-
-//		final DatasetAttributes attributes = reader.getDatasetAttributes( path + "/edges/ids" );
-//		System.out.println( "attributes.getNumDimensions() = " + attributes.getNumDimensions() );
-//		System.out.println( "attributes.getDimensions() = " + Arrays.toString( attributes.getDimensions() ) );
-//		System.out.println( "attributes.getBlockSize() = " + Arrays.toString( attributes.getBlockSize() ) );
 
 		final FlattenedInts edgeIds = GeffUtils.readAsIntMatrix( reader, path + "/edges/ids", "edge IDs" );
 		if ( edgeIds == null )
@@ -242,6 +322,87 @@ public class GeffEdge
 		final double[] scores = GeffUtils.readAsDoubleArray( reader, path + "/edges/props/score/values", "scores" );
 		verifyLength( scores, numEdges, "/edges/props/score/values" );
 
+		// Read custom non-standard, non-varlength edge props from metadata
+		final Map< String, Object[] > customPropData = new HashMap<>();
+		final Map< String, VarlengthProperty > varlengthPropsMap = new HashMap<>();
+		if ( metadata != null && metadata.getEdgePropsMetadata() != null )
+		{
+			for ( final Map.Entry< String, PropMetadata > entry : metadata.getEdgePropsMetadata().entrySet() )
+			{
+				final String propName = entry.getKey();
+				final PropMetadata propMeta = entry.getValue();
+				if ( STANDARD_EDGE_PROP_NAMES.contains( propName ) )
+					continue;
+				if ( GeffUtils.shouldSkipProperty( propName, propMeta ) )
+					continue;
+
+				if ( propMeta != null && Boolean.TRUE.equals( propMeta.getVarlength() ) )
+				{
+					// Varlength edge prop
+					final String propPath = path + "/edges/props/" + propName;
+					final VarlengthProperty vp = GeffUtils.readVarlengthProperty( reader, propPath, numEdges, propMeta );
+					if ( vp != null )
+					{
+						varlengthPropsMap.put( propName, vp );
+						LOG.debug( "Successfully read varlength edge property: {}", propName );
+					}
+				}
+				else
+				{
+					// Regular (non-varlength) edge prop
+					final String valPath = path + "/edges/props/" + propName + "/values";
+					if ( !reader.datasetExists( valPath ) )
+						continue;
+					try
+					{
+						final int ndim = reader.getDatasetAttributes( valPath ).getNumDimensions();
+						final boolean isFloat = GeffUtils.isFloatDtype( propMeta != null ? propMeta.getDtype() : null );
+						final Object[] edgeVals = new Object[ numEdges ];
+						if ( ndim == 1 )
+						{
+							if ( isFloat )
+							{
+								final double[] arr = GeffUtils.readAsDoubleArray( reader, valPath, propName );
+								if ( arr != null )
+									for ( int i = 0; i < numEdges && i < arr.length; i++ )
+										edgeVals[ i ] = arr[ i ];
+							}
+							else
+							{
+								final int[] arr = GeffUtils.readAsIntArray( reader, valPath, propName );
+								if ( arr != null )
+									for ( int i = 0; i < numEdges && i < arr.length; i++ )
+										edgeVals[ i ] = arr[ i ];
+							}
+							customPropData.put( propName, edgeVals );
+						}
+						else if ( ndim == 2 )
+						{
+							if ( isFloat )
+							{
+								final FlattenedDoubles mat = GeffUtils.readAsDoubleMatrix( reader, valPath, propName );
+								if ( mat != null )
+									for ( int i = 0; i < numEdges; i++ )
+										edgeVals[ i ] = mat.rowAt( i );
+							}
+							else
+							{
+								final FlattenedInts mat = GeffUtils.readAsIntMatrix( reader, valPath, propName );
+								if ( mat != null )
+									for ( int i = 0; i < numEdges; i++ )
+										edgeVals[ i ] = mat.rowAt( i );
+							}
+							customPropData.put( propName, edgeVals );
+						}
+					}
+					catch ( final Exception e )
+					{
+						LOG.debug( "Could not read custom edge prop {}: {}", propName, e.getMessage() );
+					}
+				}
+			}
+		}
+
 		// Create edge objects
 		final List< GeffEdge > edges = new ArrayList<>();
 		for ( int i = 0; i < numEdges; i++ )
@@ -251,6 +412,19 @@ public class GeffEdge
 			final double score = scores != null ? scores[ i ] : DEFAULT_SCORE;
 			final double distance = distances != null ? distances[ i ] : DEFAULT_DISTANCE;
 			final GeffEdge edge = new GeffEdge( i, sourceNodeId, targetNodeId, score, distance );
+
+			// Set custom props
+			for ( final Map.Entry< String, Object[] > entry : customPropData.entrySet() )
+			{
+				final Object val = entry.getValue()[ i ];
+				if ( val != null )
+					edge.setProp( entry.getKey(), val );
+			}
+
+			// Set varlength props
+			for ( final Map.Entry< String, VarlengthProperty > entry : varlengthPropsMap.entrySet() )
+				edge.setVarlengthProperty( entry.getKey(), entry.getValue() );
+
 			edges.add( edge );
 		}
 		return edges;
@@ -355,6 +529,138 @@ public class GeffEdge
 			edgePropsMap.put( "distance", new PropMetadata( "distance", "float64", false, null, null, null ) );
 			edgePropsMap.put( "score", new PropMetadata( "score", "float64", false, null, null, null ) );
 			metadata.setEdgePropsMetadata( edgePropsMap );
+		}
+
+		// Write custom non-standard, non-varlength edge props
+		final Set< String > customRegularPropNames = new java.util.LinkedHashSet<>();
+		for ( final GeffEdge edge : edges )
+			for ( final String name : edge.getProps().keySet() )
+				if ( !STANDARD_EDGE_PROP_NAMES.contains( name ) )
+					customRegularPropNames.add( name );
+
+		for ( final String propName : customRegularPropNames )
+		{
+			Object sample = null;
+			for ( final GeffEdge edge : edges )
+			{
+				sample = edge.getProp( propName );
+				if ( sample != null )
+					break;
+			}
+			if ( sample == null )
+				continue;
+
+			final String dtype;
+			if ( sample instanceof Double )
+			{
+				GeffUtils.writeDoubleArray( edges, e -> {
+					final Object v = e.getProp( propName );
+					return v instanceof Double ? ( double ) ( Double ) v : Double.NaN;
+				}, writer, path + "/edges/props/" + propName + "/values", chunkSize );
+				dtype = "float64";
+			}
+			else if ( sample instanceof Integer )
+			{
+				GeffUtils.writeIntArray( edges, e -> {
+					final Object v = e.getProp( propName );
+					return v instanceof Integer ? ( int ) ( Integer ) v : 0;
+				}, writer, path + "/edges/props/" + propName + "/values", chunkSize );
+				dtype = "int32";
+			}
+			else if ( sample instanceof double[] )
+			{
+				final int cols = ( ( double[] ) sample ).length;
+				GeffUtils.writeDoubleMatrix( edges, cols, e -> {
+					final Object v = e.getProp( propName );
+					return v instanceof double[] ? ( double[] ) v : new double[ cols ];
+				}, writer, path + "/edges/props/" + propName + "/values", chunkSize );
+				dtype = "float64";
+			}
+			else if ( sample instanceof int[] )
+			{
+				final int cols = ( ( int[] ) sample ).length;
+				GeffUtils.writeIntMatrix( edges, cols, e -> {
+					final Object v = e.getProp( propName );
+					return v instanceof int[] ? ( int[] ) v : new int[ cols ];
+				}, writer, path + "/edges/props/" + propName + "/values", chunkSize );
+				dtype = "int32";
+			}
+			else
+			{
+				LOG.warn( "Unsupported type for custom edge prop {}: {}", propName, sample.getClass().getName() );
+				continue;
+			}
+
+			final Map< String, PropMetadata > edgePropsMetadataMap = metadata != null ? metadata.getEdgePropsMetadata() : null;
+			if ( edgePropsMetadataMap != null && !edgePropsMetadataMap.containsKey( propName ) )
+				edgePropsMetadataMap.put( propName, new PropMetadata( propName, dtype, false, null, null, null ) );
+		}
+
+		// Write varlength edge properties
+		final Set< String > varlengthPropNames = new java.util.LinkedHashSet<>();
+		for ( final GeffEdge edge : edges )
+			varlengthPropNames.addAll( edge.getVarlengthProperties().keySet() );
+
+		if ( !varlengthPropNames.isEmpty() )
+		{
+			if ( metadata != null && metadata.getEdgePropsMetadata() == null )
+				metadata.setEdgePropsMetadata( new HashMap<>() );
+
+			final int numEdges = edges.size();
+			for ( final String propName : varlengthPropNames )
+			{
+				final Object[][] edgeDataArrays = new Object[ numEdges ][];
+				final boolean[] missing = new boolean[ numEdges ];
+				String dtype = null;
+
+				for ( int i = 0; i < numEdges; i++ )
+				{
+					final VarlengthProperty property = edges.get( i ).getVarlengthProperty( propName );
+					if ( property == null || property.isMissing( i ) )
+					{
+						edgeDataArrays[ i ] = null;
+						missing[ i ] = true;
+						continue;
+					}
+
+					if ( dtype == null )
+						dtype = property.getDtype();
+
+					final Object edgeData = property.getNodeData( i );
+					if ( edgeData == null )
+					{
+						edgeDataArrays[ i ] = new Object[ 0 ];
+					}
+					else if ( edgeData.getClass().isArray() )
+					{
+						if ( edgeData instanceof Object[] )
+						{
+							edgeDataArrays[ i ] = ( Object[] ) edgeData;
+						}
+						else
+						{
+							final int length = Array.getLength( edgeData );
+							final Object[] converted = new Object[ length ];
+							for ( int j = 0; j < length; j++ )
+								converted[ j ] = Array.get( edgeData, j );
+							edgeDataArrays[ i ] = converted;
+						}
+					}
+					else
+					{
+						edgeDataArrays[ i ] = new Object[] { edgeData };
+					}
+				}
+
+				if ( dtype == null )
+					dtype = "float64";
+
+				GeffUtils.writeVarlengthProperty( writer, path + "/edges/props/" + propName, edgeDataArrays, missing, chunkSize, dtype );
+
+				final Map< String, PropMetadata > edgePropsMetadataMap = metadata != null ? metadata.getEdgePropsMetadata() : null;
+				if ( edgePropsMetadataMap != null && !edgePropsMetadataMap.containsKey( propName ) )
+					edgePropsMetadataMap.put( propName, new PropMetadata( propName, dtype, true, null, null, null ) );
+			}
 		}
 
 		GeffUtils.patchZarrLittleEndian( writer, path + "/edges" );

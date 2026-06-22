@@ -93,6 +93,19 @@ public class GeffUtils
 	}
 
 	/**
+	 * Returns true when the dtype string represents a floating-point type
+	 * (float32, float64). Returns true for null (unknown dtype defaults to
+	 * float). Returns false for integer types (int8, int16, int32, int64,
+	 * uint*).
+	 */
+	static boolean isFloatDtype( final String dtype )
+	{
+		if ( dtype == null )
+			return true;
+		return dtype.toLowerCase().startsWith( "float" );
+	}
+
+	/**
 	 * Check if a property has missing values array and log a warning. Java
 	 * doesn't support sparse/missing data, so we read all values.
 	 */

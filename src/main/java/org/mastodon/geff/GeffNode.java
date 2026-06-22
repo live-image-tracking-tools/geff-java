@@ -83,7 +83,12 @@ public class GeffNode
 
 	private double[] polygonY;
 
-	private Map< String, VarlengthProperty > varlengthProperties;
+	private Map< String, VarlengthProperty > varlengthProps;
+
+	private Map< String, Object > props;
+
+	private static final Set< String > STANDARD_NODE_PROP_NAMES = new HashSet<>( Arrays.asList(
+			"t", "x", "y", "z", "color", "radius", "covariance2d", "covariance3d", "polygon" ) );
 
 	private static final double[] DEFAULT_COLOR = { 1.0, 1.0, 1.0, 1.0 }; // RGBA
 
@@ -98,7 +103,8 @@ public class GeffNode
 	 */
 	public GeffNode()
 	{
-		this.varlengthProperties = new HashMap<>();
+		this.varlengthProps = new HashMap<>();
+		this.props = new HashMap<>();
 	}
 
 	/**
@@ -144,7 +150,8 @@ public class GeffNode
 		this.covariance3d = covariance3d != null ? covariance3d : DEFAULT_COVARIANCE_3D;
 		this.polygonX = polygonX != null ? polygonX : new double[ 0 ];
 		this.polygonY = polygonY != null ? polygonY : new double[ 0 ];
-		this.varlengthProperties = new HashMap<>();
+		this.varlengthProps = new HashMap<>();
+		this.props = new HashMap<>();
 	}
 
 	/**
@@ -435,7 +442,7 @@ public class GeffNode
 	 */
 	public VarlengthProperty getVarlengthProperty( final String propName )
 	{
-		return varlengthProperties != null ? varlengthProperties.get( propName ) : null;
+		return varlengthProps != null ? varlengthProps.get( propName ) : null;
 	}
 
 	/**
@@ -448,11 +455,11 @@ public class GeffNode
 	 */
 	public void setVarlengthProperty( final String propName, final VarlengthProperty property )
 	{
-		if ( varlengthProperties == null )
+		if ( varlengthProps == null )
 		{
-			varlengthProperties = new HashMap<>();
+			varlengthProps = new HashMap<>();
 		}
-		varlengthProperties.put( propName, property );
+		varlengthProps.put( propName, property );
 	}
 
 	/**
@@ -462,7 +469,36 @@ public class GeffNode
 	 */
 	public Map< String, VarlengthProperty > getVarlengthProperties()
 	{
-		return varlengthProperties != null ? varlengthProperties : new HashMap<>();
+		return varlengthProps != null ? varlengthProps : new HashMap<>();
+	}
+
+	/**
+	 * Get an arbitrary node property by name. Scalar properties are stored as
+	 * {@code Double} or {@code Integer}; vector properties as {@code double[]}
+	 * or {@code int[]}.
+	 */
+	public Object getProp( final String name )
+	{
+		return props != null ? props.get( name ) : null;
+	}
+
+	/**
+	 * Set an arbitrary node property. Supported value types: {@code Double},
+	 * {@code Integer}, {@code double[]}, {@code int[]}.
+	 */
+	public void setProp( final String name, final Object value )
+	{
+		if ( props == null )
+			props = new HashMap<>();
+		props.put( name, value );
+	}
+
+	/**
+	 * Get all arbitrary node properties as an unmodifiable view.
+	 */
+	public Map< String, Object > getProps()
+	{
+		return props != null ? java.util.Collections.unmodifiableMap( props ) : java.util.Collections.emptyMap();
 	}
 
 	/**
@@ -774,6 +810,74 @@ public class GeffNode
 			}
 		}
 
+		// Read custom non-standard, non-varlength node props from metadata
+		final Set< String > standardNames = new HashSet<>( STANDARD_NODE_PROP_NAMES );
+		standardNames.add( trackletProp );
+		final Map< String, Object[] > customPropData = new HashMap<>();
+		if ( metadata.getNodePropsMetadata() != null )
+		{
+			for ( final Map.Entry< String, PropMetadata > entry : metadata.getNodePropsMetadata().entrySet() )
+			{
+				final String propName = entry.getKey();
+				final PropMetadata propMeta = entry.getValue();
+				if ( standardNames.contains( propName ) )
+					continue;
+				if ( propMeta != null && Boolean.TRUE.equals( propMeta.getVarlength() ) )
+					continue;
+				if ( GeffUtils.shouldSkipProperty( propName, propMeta ) )
+					continue;
+				final String valPath = path + "/nodes/props/" + propName + "/values";
+				if ( !reader.datasetExists( valPath ) )
+					continue;
+				try
+				{
+					final int ndim = reader.getDatasetAttributes( valPath ).getNumDimensions();
+					final boolean isFloat = GeffUtils.isFloatDtype( propMeta != null ? propMeta.getDtype() : null );
+					final Object[] nodeVals = new Object[ numNodes ];
+					if ( ndim == 1 )
+					{
+						if ( isFloat )
+						{
+							final double[] arr = GeffUtils.readAsDoubleArray( reader, valPath, propName );
+							if ( arr != null )
+								for ( int i = 0; i < numNodes && i < arr.length; i++ )
+									nodeVals[ i ] = arr[ i ];
+						}
+						else
+						{
+							final int[] arr = GeffUtils.readAsIntArray( reader, valPath, propName );
+							if ( arr != null )
+								for ( int i = 0; i < numNodes && i < arr.length; i++ )
+									nodeVals[ i ] = arr[ i ];
+						}
+						customPropData.put( propName, nodeVals );
+					}
+					else if ( ndim == 2 )
+					{
+						if ( isFloat )
+						{
+							final FlattenedDoubles mat = GeffUtils.readAsDoubleMatrix( reader, valPath, propName );
+							if ( mat != null )
+								for ( int i = 0; i < numNodes; i++ )
+									nodeVals[ i ] = mat.rowAt( i );
+						}
+						else
+						{
+							final FlattenedInts mat = GeffUtils.readAsIntMatrix( reader, valPath, propName );
+							if ( mat != null )
+								for ( int i = 0; i < numNodes; i++ )
+									nodeVals[ i ] = mat.rowAt( i );
+						}
+						customPropData.put( propName, nodeVals );
+					}
+				}
+				catch ( final Exception e )
+				{
+					LOG.debug( "Could not read custom node prop {}: {}", propName, e.getMessage() );
+				}
+			}
+		}
+
 		// Extract polygon from varlength map into polygonX/Y fields (v1 spec: nodes/props/polygon/).
 		// The VarlengthProperty stays in the map so nodes also expose it via getVarlengthProperty().
 		if ( varlengthPropsMap.containsKey( "polygon" ) )
@@ -866,6 +970,14 @@ public class GeffNode
 			{
 				final VarlengthProperty varlengthProp = varlengthPropsMap.get( propName );
 				node.setVarlengthProperty( propName, varlengthProp );
+			}
+
+			// Set custom non-standard props on the node
+			for ( final Map.Entry< String, Object[] > entry : customPropData.entrySet() )
+			{
+				final Object val = entry.getValue()[ i ];
+				if ( val != null )
+					node.setProp( entry.getKey(), val );
 			}
 
 			nodes.add( node );
@@ -1085,6 +1197,73 @@ public class GeffNode
 		if ( metadataNodeProps != null )
 		{
 			metadataNodeProps.entrySet().removeIf( e -> GeffUtils.shouldSkipProperty( e.getKey(), e.getValue() ) );
+		}
+
+		// Write custom non-standard, non-varlength node props
+		final Set< String > standardNodeProps = new HashSet<>( STANDARD_NODE_PROP_NAMES );
+		standardNodeProps.add( trackletProp );
+		final Set< String > customRegularPropNames = new java.util.LinkedHashSet<>();
+		for ( final GeffNode node : nodes )
+			for ( final String name : node.getProps().keySet() )
+				if ( !standardNodeProps.contains( name ) )
+					customRegularPropNames.add( name );
+
+		for ( final String propName : customRegularPropNames )
+		{
+			Object sample = null;
+			for ( final GeffNode node : nodes )
+			{
+				sample = node.getProp( propName );
+				if ( sample != null )
+					break;
+			}
+			if ( sample == null )
+				continue;
+
+			final String dtype;
+			if ( sample instanceof Double )
+			{
+				GeffUtils.writeDoubleArray( nodes, n -> {
+					final Object v = n.getProp( propName );
+					return v instanceof Double ? ( double ) ( Double ) v : Double.NaN;
+				}, writer, path + "/nodes/props/" + propName + "/values", chunkSize );
+				dtype = "float64";
+			}
+			else if ( sample instanceof Integer )
+			{
+				GeffUtils.writeIntArray( nodes, n -> {
+					final Object v = n.getProp( propName );
+					return v instanceof Integer ? ( int ) ( Integer ) v : 0;
+				}, writer, path + "/nodes/props/" + propName + "/values", chunkSize );
+				dtype = "int32";
+			}
+			else if ( sample instanceof double[] )
+			{
+				final int cols = ( ( double[] ) sample ).length;
+				GeffUtils.writeDoubleMatrix( nodes, cols, n -> {
+					final Object v = n.getProp( propName );
+					return v instanceof double[] ? ( double[] ) v : new double[ cols ];
+				}, writer, path + "/nodes/props/" + propName + "/values", chunkSize );
+				dtype = "float64";
+			}
+			else if ( sample instanceof int[] )
+			{
+				final int cols = ( ( int[] ) sample ).length;
+				GeffUtils.writeIntMatrix( nodes, cols, n -> {
+					final Object v = n.getProp( propName );
+					return v instanceof int[] ? ( int[] ) v : new int[ cols ];
+				}, writer, path + "/nodes/props/" + propName + "/values", chunkSize );
+				dtype = "int32";
+			}
+			else
+			{
+				LOG.warn( "Unsupported type for custom node prop {}: {}", propName, sample.getClass().getName() );
+				continue;
+			}
+
+			final Map< String, PropMetadata > nodePropsMetadata = metadata.getNodePropsMetadata();
+			if ( nodePropsMetadata != null && !nodePropsMetadata.containsKey( propName ) )
+				nodePropsMetadata.put( propName, new PropMetadata( propName, dtype, false, null, null, null ) );
 		}
 
 		// Write polygon as varlength property under nodes/props/polygon/ (v1 spec)
