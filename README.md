@@ -225,14 +225,10 @@ dataset.zarr/
     │   │   ├── <tracklet>/values   # Track IDs [N] (name from track_node_props, optional)
     │   │   ├── covariance2d/values # Flattened 2D covariance [N, 4] (optional)
     │   │   ├── covariance3d/values # Flattened 3D covariance [N, 6] (optional)
-    │   │   └── <varlength_prop>/   # Variable-length property (optional)
+    │   │   └── <varlength_prop>/   # Variable-length property, e.g. polygon (optional)
     │   │       ├── data            # Flattened values [V]
     │   │       ├── values          # Offsets and shapes [N, ndim+1]
     │   │       └── missing         # Missing-value mask [N] (optional)
-    │   └── serialized_props/
-    │       └── polygon/
-    │           ├── slices          # Start/end index per node [N, 2]
-    │           └── values          # Vertex XY coordinates [numVertices, 2]
     └── edges/
         ├── ids/                    # Source/target node ID pairs [N, 2]
         └── props/

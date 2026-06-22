@@ -40,16 +40,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
-
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5URI;
 import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrWriter;
-import org.mastodon.geff.GeffUtils.FlattenedInts;
-import org.mastodon.geff.geom.GeffSerializableVertex;
 import org.mastodon.geff.GeffUtils.FlattenedDoubles;
+import org.mastodon.geff.GeffUtils.FlattenedInts;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -756,21 +753,69 @@ public class GeffNode
 		// Read polygon from chunks
 		double[][] polygonsX = null;
 		double[][] polygonsY = null;
-		if ( geffVersion.startsWith( "0.4" ) )
+
+		// Read varlength properties
+		final Map< String, VarlengthProperty > varlengthPropsMap = new HashMap<>();
+		if ( metadata.getNodePropsMetadata() != null )
+		{
+			for ( final String propName : metadata.getNodePropsMetadata().keySet() )
+			{
+				final PropMetadata propMeta = metadata.getNodePropsMetadata().get( propName );
+				if ( propMeta != null && propMeta.getVarlength() != null && propMeta.getVarlength() )
+				{
+					final String propPath = path + "/nodes/props/" + propName;
+					final VarlengthProperty varlengthProp = GeffUtils.readVarlengthProperty( reader, propPath, numNodes, propMeta );
+					if ( varlengthProp != null )
+					{
+						varlengthPropsMap.put( propName, varlengthProp );
+						LOG.debug( "Successfully read varlength property: {}", propName );
+					}
+				}
+			}
+		}
+
+		// Extract polygon from varlength map into polygonX/Y fields (v1 spec: nodes/props/polygon/).
+		// The VarlengthProperty stays in the map so nodes also expose it via getVarlengthProperty().
+		if ( varlengthPropsMap.containsKey( "polygon" ) )
+		{
+			final VarlengthProperty polygonProp = varlengthPropsMap.get( "polygon" );
+			polygonsX = new double[ numNodes ][];
+			polygonsY = new double[ numNodes ][];
+			for ( int i = 0; i < numNodes; i++ )
+			{
+				if ( !polygonProp.isMissing( i ) )
+				{
+					final Object nodeData = polygonProp.getNodeData( i );
+					if ( nodeData instanceof Object[] )
+					{
+						final Object[] flat = ( Object[] ) nodeData;
+						final int numVertices = flat.length / 2;
+						polygonsX[ i ] = new double[ numVertices ];
+						polygonsY[ i ] = new double[ numVertices ];
+						for ( int j = 0; j < numVertices; j++ )
+						{
+							polygonsX[ i ][ j ] = ( ( Number ) flat[ 2 * j ] ).doubleValue();
+							polygonsY[ i ][ j ] = ( ( Number ) flat[ 2 * j + 1 ] ).doubleValue();
+						}
+					}
+				}
+			}
+		}
+
+		// Fallback: read polygon from legacy serialized_props format
+		if ( polygonsX == null )
 		{
 			try
 			{
 				final FlattenedInts polygonSlices = GeffUtils.readAsIntMatrix( reader, path + "/nodes/serialized_props/polygon/slices", "polygon slices" );
 				verifyLength( polygonSlices, numNodes, "/nodes/serialized_props/polygon/slices" );
-
 				final FlattenedDoubles polygonValues = GeffUtils.readAsDoubleMatrix( reader, path + "/nodes/serialized_props/polygon/values", "polygon values" );
-
 				polygonsX = new double[ numNodes ][];
 				polygonsY = new double[ numNodes ][];
 				for ( int i = 0; i < numNodes; i++ )
 				{
-					int start = polygonSlices.at( i, 0 );
-					int length = polygonSlices.at( i, 1 );
+					final int start = polygonSlices.at( i, 0 );
+					final int length = polygonSlices.at( i, 1 );
 					final int numVertices = polygonValues.size()[ 0 ];
 					if ( start >= 0 && start + length <= numVertices )
 					{
@@ -792,27 +837,9 @@ public class GeffNode
 			}
 			catch ( Exception e )
 			{
-				LOG.warn( "Warning: Could not read polygon: {}, skipping...", e.getMessage() );
-			}
-		}
-
-		// Read varlength properties
-		final Map< String, VarlengthProperty > varlengthPropsMap = new HashMap<>();
-		if ( metadata.getNodePropsMetadata() != null )
-		{
-			for ( final String propName : metadata.getNodePropsMetadata().keySet() )
-			{
-				final PropMetadata propMeta = metadata.getNodePropsMetadata().get( propName );
-				if ( propMeta != null && propMeta.getVarlength() != null && propMeta.getVarlength() )
-				{
-					final String propPath = path + "/nodes/props/" + propName;
-					final VarlengthProperty varlengthProp = GeffUtils.readVarlengthProperty( reader, propPath, numNodes, propMeta );
-					if ( varlengthProp != null )
-					{
-						varlengthPropsMap.put( propName, varlengthProp );
-						LOG.debug( "Successfully read varlength property: {}", propName );
-					}
-				}
+				LOG.debug( "No legacy polygon data found at serialized_props/polygon/: {}", e.getMessage() );
+				polygonsX = null;
+				polygonsY = null;
 			}
 		}
 
@@ -1060,28 +1087,39 @@ public class GeffNode
 			metadataNodeProps.entrySet().removeIf( e -> GeffUtils.shouldSkipProperty( e.getKey(), e.getValue() ) );
 		}
 
-		if ( geffVersion.startsWith( "0.4" ) )
+		// Write polygon as varlength property under nodes/props/polygon/ (v1 spec)
+		final boolean hasPolygon = nodes.stream().anyMatch(
+				n -> n.getPolygonX() != null && n.getPolygonX().length > 0 );
+		if ( hasPolygon )
 		{
-			// Write polygon slices and values if available
-			final List< GeffSerializableVertex > vertices = new ArrayList<>();
-			final List< int[] > slices = new ArrayList<>();
-			int polygonOffset = 0;
-			for ( final GeffNode node : nodes )
+			final Object[][] polygonData = new Object[ numNodes ][];
+			final boolean[] polygonMissing = new boolean[ numNodes ];
+			boolean anyMissing = false;
+			for ( int i = 0; i < numNodes; i++ )
 			{
-				if ( node.polygonX == null || node.polygonY == null )
-					throw new IllegalArgumentException( "Polygon coordinates cannot be null" );
-				if ( node.getPolygonX().length != node.getPolygonY().length )
-					throw new IllegalArgumentException( "Polygon X and Y coordinates must have the same length" );
-				final int numVertices = node.getPolygonX().length;
-				for ( int j = 0; j < numVertices; j++ )
-					vertices.add( new GeffSerializableVertex(
-							node.getPolygonX()[ j ],
-							node.getPolygonY()[ j ] ) );
-				slices.add( new int[] { polygonOffset, numVertices } );
-				polygonOffset += numVertices;
+				final double[] px = nodes.get( i ).getPolygonX();
+				final double[] py = nodes.get( i ).getPolygonY();
+				if ( px == null || px.length == 0 )
+				{
+					polygonData[ i ] = new Object[ 0 ];
+					polygonMissing[ i ] = true;
+					anyMissing = true;
+				}
+				else
+				{
+					polygonData[ i ] = new Object[ 2 * px.length ];
+					for ( int j = 0; j < px.length; j++ )
+					{
+						polygonData[ i ][ 2 * j ] = px[ j ];
+						polygonData[ i ][ 2 * j + 1 ] = py[ j ];
+					}
+				}
 			}
-			GeffUtils.writeIntMatrix( slices, 2, Function.identity(), writer, path + "/nodes/serialized_props/polygon/slices", chunkSize );
-			GeffUtils.writeDoubleMatrix( vertices, 2, GeffSerializableVertex::getCoordinates, writer, path + "/nodes/serialized_props/polygon/values", chunkSize );
+			GeffUtils.writeVarlengthProperty( writer, path + "/nodes/props/polygon",
+					polygonData, anyMissing ? polygonMissing : null, chunkSize, "float64" );
+			final Map< String, PropMetadata > nodePropsMetadata = metadata.getNodePropsMetadata();
+			if ( nodePropsMetadata != null && !nodePropsMetadata.containsKey( "polygon" ) )
+				nodePropsMetadata.put( "polygon", new PropMetadata( "polygon", "float64", true, null, null, null ) );
 		}
 
 		GeffUtils.patchZarrLittleEndian( writer, path + "/nodes" );
