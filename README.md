@@ -12,7 +12,7 @@ The **Graph Exchange File Format (GEFF)** is a standardized format for storing a
 ## Features
 
 - **GEFF v1 spec compliance** - Reads and writes GEFF v0.2 through v1.x and beyond; version validation uses a semver pattern rather than an allowlist
-- **Zarr-based storage** - Efficient chunked array storage for large-scale tracking data
+- **Zarr Format 2** - Reads and writes [Zarr Format 2](https://zarr-specs.readthedocs.io/en/latest/v2/v2.0.html) only; Zarr Format 3 is not supported
 - **Complete data model** - Support for nodes (spatial-temporal features), edges (connections), and metadata
 - **Flexible metadata handling** - Axis-based metadata with GeffAxis objects; supports `time`, `space`, and `channel` axis types with any axis name
 - **Property metadata** - Full `node_props_metadata` / `edge_props_metadata` support as required by the v1 spec
@@ -32,7 +32,7 @@ Represents nodes in tracking graphs with spatial and temporal attributes:
 - Polygon geometry stored via `polygonX`/`polygonY` builder fields, serialized to `serialized_props/polygon/`
 - Variable-length properties accessible via `getVarlengthProperty(name)` / `setVarlengthProperty(name, ...)`
 - Builder pattern for convenient object construction
-- Chunked Zarr I/O supporting v0.2 through v1.x and beyond
+- Chunked Zarr Format 2 I/O
 
 ### GeffEdge
 Represents connections between nodes in tracking graphs:
