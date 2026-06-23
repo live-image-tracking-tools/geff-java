@@ -35,7 +35,20 @@ public class GeffUtils
 {
 	private static final Logger LOG = LoggerFactory.getLogger( GeffUtils.class );
 
-	private static final Compression DEFAULT_COMPRESSION = createDefaultCompression();
+	// Lazy-initialization holder: BloscCompression is only instantiated the first
+	// time a write method is called, NOT when GeffUtils class is loaded (e.g. by
+	// computeFirstDimChunk). This avoids permanently poisoning the BloscCompression
+	// class before N5ZarrWriter has had a chance to handle the UnsatisfiedLinkError
+	// itself, which would cause N5ZarrWriter to crash with NoClassDefFoundError.
+	private static final class DefaultCompressionHolder
+	{
+		static final Compression INSTANCE = createDefaultCompression();
+	}
+
+	private static Compression defaultCompression()
+	{
+		return DefaultCompressionHolder.INSTANCE;
+	}
 
 	private static Compression createDefaultCompression()
 	{
@@ -157,7 +170,7 @@ public class GeffUtils
 					new long[] { size },
 					new int[] { chunkSize },
 					DataType.INT32,
-					DEFAULT_COMPRESSION );
+					defaultCompression() );
 		writer.createDataset( dataset, attributes );
 		write( data, writer, dataset, attributes );
 	}
@@ -199,7 +212,7 @@ public class GeffUtils
 					new long[] { numColumns, numRows },
 					new int[] { numColumns, chunkSize },
 					DataType.INT32,
-					DEFAULT_COMPRESSION );
+					defaultCompression() );
 		writer.createDataset( dataset, attributes );
 		write( data, writer, dataset, attributes );
 	}
@@ -218,7 +231,7 @@ public class GeffUtils
 					new long[] { size },
 					new int[] { chunkSize },
 					DataType.FLOAT64,
-					DEFAULT_COMPRESSION );
+					defaultCompression() );
 		writer.createDataset( dataset, attributes );
 		write( data, writer, dataset, attributes );
 	}
@@ -244,7 +257,7 @@ public class GeffUtils
 					new long[] { numColumns, size },
 					new int[] { numColumns, chunkSize },
 					DataType.FLOAT64,
-					DEFAULT_COMPRESSION );
+					defaultCompression() );
 		writer.createDataset( dataset, attributes );
 		write( data, writer, dataset, attributes );
 	}
@@ -1013,7 +1026,7 @@ public class GeffUtils
 					new long[] { numElements },
 					new int[] { Math.min( chunkSize, ( int ) numElements ) },
 					dataType,
-					DEFAULT_COMPRESSION );
+					defaultCompression() );
 		writer.createDataset( dataset, attributes );
 		write( data, writer, dataset, attributes );
 	}
@@ -1044,7 +1057,7 @@ public class GeffUtils
 					new long[] { numColumns, numNodes },
 					new int[] { numColumns, Math.min( chunkSize, numNodes ) },
 					DataType.UINT64,
-					DEFAULT_COMPRESSION );
+					defaultCompression() );
 		writer.createDataset( dataset, attributes );
 		write( flatOffsets, writer, dataset, attributes );
 	}
@@ -1064,7 +1077,7 @@ public class GeffUtils
 					new long[] { missing.length },
 					new int[] { Math.min( chunkSize, missing.length ) },
 					DataType.UINT8,
-					DEFAULT_COMPRESSION );
+					defaultCompression() );
 		writer.createDataset( dataset, attributes );
 
 		final byte[] boolAsBytes = new byte[ missing.length ];
