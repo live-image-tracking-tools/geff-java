@@ -1,0 +1,12 @@
+[project]
+name = "geff-java-cross-language-tests"
+version = "0.1.0"
+description = "Cross-language round-trip tests for geff-java"
+requires-python = ">=3.10"
+dependencies = [
+    "geff",
+    "zarr",
+]
+
+[tool.uv]
+# This allows uv sync to work properly

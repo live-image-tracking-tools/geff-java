@@ -32,19 +32,21 @@ import static org.mastodon.geff.GeffUtils.checkSupportedVersion;
 import static org.mastodon.geff.GeffUtils.verifyLength;
 
 import java.io.IOException;
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
-import java.util.function.Function;
-
+import java.util.Map;
+import java.util.Set;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5URI;
 import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrWriter;
-import org.mastodon.geff.GeffUtils.FlattenedInts;
-import org.mastodon.geff.geom.GeffSerializableVertex;
 import org.mastodon.geff.GeffUtils.FlattenedDoubles;
+import org.mastodon.geff.GeffUtils.FlattenedInts;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -81,6 +83,13 @@ public class GeffNode
 
 	private double[] polygonY;
 
+	private Map< String, VarlengthProperty > varlengthProps;
+
+	private Map< String, Object > props;
+
+	private static final Set< String > STANDARD_NODE_PROP_NAMES = new HashSet<>( Arrays.asList(
+			"t", "x", "y", "z", "color", "radius", "covariance2d", "covariance3d", "polygon" ) );
+
 	private static final double[] DEFAULT_COLOR = { 1.0, 1.0, 1.0, 1.0 }; // RGBA
 
 	public static final double DEFAULT_RADIUS = 1.0;
@@ -93,35 +102,38 @@ public class GeffNode
 	 * Default constructor
 	 */
 	public GeffNode()
-	{}
+	{
+		this.varlengthProps = new HashMap<>();
+		this.props = new HashMap<>();
+	}
 
 	/**
 	 * Constructor with basic node parameters
 	 *
 	 * @param id
-	 * 		The unique identifier for the node.
+	 *            The unique identifier for the node.
 	 * @param timepoint
-	 * 		The timepoint of the node.
+	 *            The timepoint of the node.
 	 * @param x
-	 * 		The x-coordinate of the node.
+	 *            The x-coordinate of the node.
 	 * @param y
-	 * 		The y-coordinate of the node.
+	 *            The y-coordinate of the node.
 	 * @param z
-	 * 		The z-coordinate of the node.
+	 *            The z-coordinate of the node.
 	 * @param color
-	 * 		The color of the node (RGBA).
+	 *            The color of the node (RGBA).
 	 * @param segmentId
-	 * 		The segment ID the node belongs to.
+	 *            The segment ID the node belongs to.
 	 * @param radius
-	 * 		The radius of the node.
+	 *            The radius of the node.
 	 * @param covariance2d
-	 * 		The 2D covariance matrix of the node.
+	 *            The 2D covariance matrix of the node.
 	 * @param covariance3d
-	 * 		The 3D covariance matrix of the node.
+	 *            The 3D covariance matrix of the node.
 	 * @param polygonX
-	 * 		The x-coordinates of the polygon vertices.
+	 *            The x-coordinates of the polygon vertices.
 	 * @param polygonY
-	 * 		The y-coordinates of the polygon vertices.
+	 *            The y-coordinates of the polygon vertices.
 	 */
 	public GeffNode( int id, int timepoint, double x, double y, double z, double[] color, int segmentId, double radius,
 			double[] covariance2d, double[] covariance3d, double[] polygonX, double[] polygonY )
@@ -138,6 +150,8 @@ public class GeffNode
 		this.covariance3d = covariance3d != null ? covariance3d : DEFAULT_COVARIANCE_3D;
 		this.polygonX = polygonX != null ? polygonX : new double[ 0 ];
 		this.polygonY = polygonY != null ? polygonY : new double[ 0 ];
+		this.varlengthProps = new HashMap<>();
+		this.props = new HashMap<>();
 	}
 
 	/**
@@ -154,7 +168,7 @@ public class GeffNode
 	 * Set the unique identifier of the node.
 	 *
 	 * @param id
-	 * 		The unique identifier to set.
+	 *            The unique identifier to set.
 	 */
 	public void setId( int id )
 	{
@@ -175,7 +189,7 @@ public class GeffNode
 	 * Set the timepoint of the node.
 	 *
 	 * @param timepoint
-	 * 		The timepoint to set.
+	 *            The timepoint to set.
 	 */
 	public void setT( int timepoint )
 	{
@@ -196,7 +210,7 @@ public class GeffNode
 	 * Set the x-coordinate of the node.
 	 *
 	 * @param x
-	 * 		The x-coordinate to set.
+	 *            The x-coordinate to set.
 	 */
 	public void setX( double x )
 	{
@@ -217,7 +231,7 @@ public class GeffNode
 	 * Set the y-coordinate of the node.
 	 *
 	 * @param y
-	 * 		The y-coordinate to set.
+	 *            The y-coordinate to set.
 	 */
 	public void setY( double y )
 	{
@@ -238,7 +252,7 @@ public class GeffNode
 	 * Set the z-coordinate of the node.
 	 *
 	 * @param z
-	 * 		The z-coordinate to set.
+	 *            The z-coordinate to set.
 	 */
 	public void setZ( double z )
 	{
@@ -259,7 +273,7 @@ public class GeffNode
 	 * Set the color of the node.
 	 *
 	 * @param color
-	 * 		The color to set as an RGBA array.
+	 *            The color to set as an RGBA array.
 	 */
 	public void setColor( double[] color )
 	{
@@ -287,7 +301,7 @@ public class GeffNode
 	 * Set the segment ID of the node.
 	 *
 	 * @param segmentId
-	 * 		The segment ID to set.
+	 *            The segment ID to set.
 	 */
 	public void setSegmentId( int segmentId )
 	{
@@ -308,7 +322,7 @@ public class GeffNode
 	 * Set the radius of the node.
 	 *
 	 * @param radius
-	 * 		The radius to set.
+	 *            The radius to set.
 	 */
 	public void setRadius( double radius )
 	{
@@ -329,10 +343,10 @@ public class GeffNode
 	 * Set the 2D covariance matrix of the node.
 	 *
 	 * @param covariance2d
-	 * 		The 2D covariance matrix to set as a 4-element array.
+	 *            The 2D covariance matrix to set as a 4-element array.
 	 *
 	 * @throws IllegalArgumentException
-	 * 		if the covariance2d array is not of length 4.
+	 *             if the covariance2d array is not of length 4.
 	 */
 	public void setCovariance2d( double[] covariance2d )
 	{
@@ -360,10 +374,10 @@ public class GeffNode
 	 * Set the 3D covariance matrix of the node.
 	 *
 	 * @param covariance3d
-	 * 		The 3D covariance matrix to set as a 6-element array.
+	 *            The 3D covariance matrix to set as a 6-element array.
 	 *
 	 * @throws IllegalArgumentException
-	 * 		if the covariance3d array is not of length 6.
+	 *             if the covariance3d array is not of length 6.
 	 */
 	public void setCovariance3d( double[] covariance3d )
 	{
@@ -401,7 +415,7 @@ public class GeffNode
 	 * Set the x-coordinates of the polygon vertices.
 	 *
 	 * @param polygonX
-	 * 		The x-coordinates to set.
+	 *            The x-coordinates to set.
 	 */
 	public void setPolygonX( double[] polygonX )
 	{
@@ -412,11 +426,79 @@ public class GeffNode
 	 * Set the y-coordinates of the polygon vertices.
 	 *
 	 * @param polygonY
-	 * 		The y-coordinates to set.
+	 *            The y-coordinates to set.
 	 */
 	public void setPolygonY( double[] polygonY )
 	{
 		this.polygonY = polygonY != null ? polygonY : new double[ 0 ];
+	}
+
+	/**
+	 * Get a varlength property by name
+	 *
+	 * @param propName
+	 *            Name of the property
+	 * @return VarlengthProperty if exists, null otherwise
+	 */
+	public VarlengthProperty getVarlengthProperty( final String propName )
+	{
+		return varlengthProps != null ? varlengthProps.get( propName ) : null;
+	}
+
+	/**
+	 * Add or update a varlength property
+	 *
+	 * @param propName
+	 *            Name of the property
+	 * @param property
+	 *            VarlengthProperty to store
+	 */
+	public void setVarlengthProperty( final String propName, final VarlengthProperty property )
+	{
+		if ( varlengthProps == null )
+		{
+			varlengthProps = new HashMap<>();
+		}
+		varlengthProps.put( propName, property );
+	}
+
+	/**
+	 * Get all varlength properties
+	 *
+	 * @return Map of varlength properties
+	 */
+	public Map< String, VarlengthProperty > getVarlengthProperties()
+	{
+		return varlengthProps != null ? varlengthProps : new HashMap<>();
+	}
+
+	/**
+	 * Get an arbitrary node property by name. Scalar properties are stored as
+	 * {@code Double} or {@code Integer}; vector properties as {@code double[]}
+	 * or {@code int[]}.
+	 */
+	public Object getProp( final String name )
+	{
+		return props != null ? props.get( name ) : null;
+	}
+
+	/**
+	 * Set an arbitrary node property. Supported value types: {@code Double},
+	 * {@code Integer}, {@code double[]}, {@code int[]}.
+	 */
+	public void setProp( final String name, final Object value )
+	{
+		if ( props == null )
+			props = new HashMap<>();
+		props.put( name, value );
+	}
+
+	/**
+	 * Get all arbitrary node properties as an unmodifiable view.
+	 */
+	public Map< String, Object > getProps()
+	{
+		return props != null ? java.util.Collections.unmodifiableMap( props ) : java.util.Collections.emptyMap();
 	}
 
 	/**
@@ -425,7 +507,7 @@ public class GeffNode
 	 * @return The position of the node as a 3D array.
 	 *
 	 * @deprecated Use {@link #getX()}, {@link #getY()}, {@link #getZ()}
-	 * instead.
+	 *             instead.
 	 */
 	@Deprecated
 	public double[] getPosition()
@@ -437,10 +519,10 @@ public class GeffNode
 	 * Set the position of the node.
 	 *
 	 * @param position
-	 * 		The position of the node as a 3D array.
+	 *            The position of the node as a 3D array.
 	 *
 	 * @deprecated Use {@link #setX(double)}, {@link #setY(double)},
-	 * {@link #setZ(double)} instead.
+	 *             {@link #setZ(double)} instead.
 	 */
 	@Deprecated
 	public void setPosition( double[] position )
@@ -602,45 +684,55 @@ public class GeffNode
 	 * Read nodes from Zarr format with default version and chunked structure
 	 *
 	 * @param zarrPath
-	 * 		The path to the Zarr directory containing nodes.
+	 *            The path to the Zarr directory containing nodes.
 	 *
 	 * @return List of GeffNode objects read from the Zarr path.
 	 */
 	public static List< GeffNode > readFromZarr( String zarrPath ) throws IOException
 	{
-		return readFromZarr( zarrPath, Geff.VERSION );
+		final GeffMetadata metadata = GeffMetadata.readFromZarr( zarrPath );
+		return readFromZarr( zarrPath, metadata );
 	}
 
 	/**
 	 * Read nodes from Zarr format with specified version and chunked structure
 	 *
 	 * @param zarrPath
-	 * 		The path to the Zarr directory containing nodes.
-	 * @param geffVersion
-	 * 		The version of the GEFF format to read.
+	 *            The path to the Zarr directory containing nodes.
+	 * @param metadata
+	 *            The GeffMetadata for the dataset.
 	 *
 	 * @return List of GeffNode objects read from the Zarr path.
 	 */
-	public static List< GeffNode > readFromZarr( final String zarrPath, final String geffVersion )
+	public static List< GeffNode > readFromZarr( final String zarrPath, final GeffMetadata metadata )
 	{
-		LOG.debug( "Reading nodes from Zarr path: " + zarrPath + " with Geff version: " + geffVersion );
-		try ( final N5ZarrReader reader = new N5ZarrReader( zarrPath, true ) )
+		LOG.debug( "Reading nodes from Zarr path: " + zarrPath + " with Geff version: " + metadata.getGeffVersion() );
+		try (final N5ZarrReader reader = new N5ZarrReader( zarrPath, true ))
 		{
-			return readFromN5( reader, "/", geffVersion );
+			return readFromN5( reader, "/", metadata );
 		}
 	}
 
-	public static List< GeffNode > readFromN5( final N5Reader reader, final String group, final String geffVersion )
+	public static List< GeffNode > readFromN5( final N5Reader reader, final String group, final GeffMetadata metadata )
 	{
+		final String geffVersion = metadata.getGeffVersion();
 		checkSupportedVersion( geffVersion );
 		final String path = N5URI.normalizeGroupPath( group );
+
+		// GRACEFUL HANDLING FOR v1 SPEC COMPATIBILITY:
+		// - Variable-length properties (varlength: true): Will be skipped with
+		// a warning
+		// - String properties (dtype: "str" or "bytes"): Will be skipped with a
+		// warning
+		// - Missing value arrays: Will log a warning; values are read as
+		// present (no sparse support)
+		// See GeffUtils.shouldSkipProperty() and checkForMissingValues() for
+		// implementation
 
 		// Read node IDs from chunks
 		final int[] nodeIds = GeffUtils.readAsIntArray( reader, path + "/nodes/ids", "node IDs" );
 		if ( nodeIds == null )
-		{
-			throw new IllegalArgumentException( "required property '/nodes/ids' not found" );
-		}
+		{ throw new IllegalArgumentException( "required property '/nodes/ids' not found" ); }
 		final int numNodes = nodeIds.length;
 
 		// Read time points from chunks
@@ -664,8 +756,23 @@ public class GeffNode
 		verifyLength( colors, numNodes, "/nodes/props/color/values" );
 
 		// Read track IDs from chunks
-		final int[] trackIds = GeffUtils.readAsIntArray( reader, path + "/nodes/props/track_id/values", "track IDs" );
-		verifyLength( trackIds, numNodes, "/nodes/props/track_id/values" );
+		final String trackletProp = metadata.getTrackNodeProps() != null && metadata.getTrackNodeProps().containsKey( "tracklet" )
+				? metadata.getTrackNodeProps().get( "tracklet" ) : "track_id";
+		final int[] trackIds = GeffUtils.readAsIntArray( reader, path + "/nodes/props/" + trackletProp + "/values", "track IDs" );
+		verifyLength( trackIds, numNodes, "/nodes/props/" + trackletProp + "/values" );
+
+		// Check for missing values and property metadata warnings (graceful
+		// handling)
+		GeffUtils.checkForMissingValues( reader, path + "/nodes/props/" + trackletProp + "/values" );
+		if ( metadata.getNodePropsMetadata() != null && metadata.getNodePropsMetadata().containsKey( trackletProp ) )
+		{
+			PropMetadata propMeta = metadata.getNodePropsMetadata().get( trackletProp );
+			if ( GeffUtils.shouldSkipProperty( trackletProp, propMeta ) )
+			{
+				// Log warning already done in shouldSkipProperty, continue
+				// reading with default values
+			}
+		}
 
 		// Read radius from chunks
 		double[] radius = GeffUtils.readAsDoubleArray( reader, path + "/nodes/props/radius/values", "radius" );
@@ -682,23 +789,139 @@ public class GeffNode
 		// Read polygon from chunks
 		double[][] polygonsX = null;
 		double[][] polygonsY = null;
-		if ( geffVersion.startsWith( "0.4" ) )
+
+		// Read varlength properties
+		final Map< String, VarlengthProperty > varlengthPropsMap = new HashMap<>();
+		if ( metadata.getNodePropsMetadata() != null )
+		{
+			for ( final String propName : metadata.getNodePropsMetadata().keySet() )
+			{
+				final PropMetadata propMeta = metadata.getNodePropsMetadata().get( propName );
+				if ( propMeta != null && propMeta.getVarlength() != null && propMeta.getVarlength() )
+				{
+					final String propPath = path + "/nodes/props/" + propName;
+					final VarlengthProperty varlengthProp = GeffUtils.readVarlengthProperty( reader, propPath, numNodes, propMeta );
+					if ( varlengthProp != null )
+					{
+						varlengthPropsMap.put( propName, varlengthProp );
+						LOG.debug( "Successfully read varlength property: {}", propName );
+					}
+				}
+			}
+		}
+
+		// Read custom non-standard, non-varlength node props from metadata
+		final Set< String > standardNames = new HashSet<>( STANDARD_NODE_PROP_NAMES );
+		standardNames.add( trackletProp );
+		final Map< String, Object[] > customPropData = new HashMap<>();
+		if ( metadata.getNodePropsMetadata() != null )
+		{
+			for ( final Map.Entry< String, PropMetadata > entry : metadata.getNodePropsMetadata().entrySet() )
+			{
+				final String propName = entry.getKey();
+				final PropMetadata propMeta = entry.getValue();
+				if ( standardNames.contains( propName ) )
+					continue;
+				if ( propMeta != null && Boolean.TRUE.equals( propMeta.getVarlength() ) )
+					continue;
+				if ( GeffUtils.shouldSkipProperty( propName, propMeta ) )
+					continue;
+				final String valPath = path + "/nodes/props/" + propName + "/values";
+				if ( !reader.datasetExists( valPath ) )
+					continue;
+				try
+				{
+					final int ndim = reader.getDatasetAttributes( valPath ).getNumDimensions();
+					final boolean isFloat = GeffUtils.isFloatDtype( propMeta != null ? propMeta.getDtype() : null );
+					final Object[] nodeVals = new Object[ numNodes ];
+					if ( ndim == 1 )
+					{
+						if ( isFloat )
+						{
+							final double[] arr = GeffUtils.readAsDoubleArray( reader, valPath, propName );
+							if ( arr != null )
+								for ( int i = 0; i < numNodes && i < arr.length; i++ )
+									nodeVals[ i ] = arr[ i ];
+						}
+						else
+						{
+							final int[] arr = GeffUtils.readAsIntArray( reader, valPath, propName );
+							if ( arr != null )
+								for ( int i = 0; i < numNodes && i < arr.length; i++ )
+									nodeVals[ i ] = arr[ i ];
+						}
+						customPropData.put( propName, nodeVals );
+					}
+					else if ( ndim == 2 )
+					{
+						if ( isFloat )
+						{
+							final FlattenedDoubles mat = GeffUtils.readAsDoubleMatrix( reader, valPath, propName );
+							if ( mat != null )
+								for ( int i = 0; i < numNodes; i++ )
+									nodeVals[ i ] = mat.rowAt( i );
+						}
+						else
+						{
+							final FlattenedInts mat = GeffUtils.readAsIntMatrix( reader, valPath, propName );
+							if ( mat != null )
+								for ( int i = 0; i < numNodes; i++ )
+									nodeVals[ i ] = mat.rowAt( i );
+						}
+						customPropData.put( propName, nodeVals );
+					}
+				}
+				catch ( final Exception e )
+				{
+					LOG.debug( "Could not read custom node prop {}: {}", propName, e.getMessage() );
+				}
+			}
+		}
+
+		// Extract polygon from varlength map into polygonX/Y fields (v1 spec: nodes/props/polygon/).
+		// The VarlengthProperty stays in the map so nodes also expose it via getVarlengthProperty().
+		if ( varlengthPropsMap.containsKey( "polygon" ) )
+		{
+			final VarlengthProperty polygonProp = varlengthPropsMap.get( "polygon" );
+			polygonsX = new double[ numNodes ][];
+			polygonsY = new double[ numNodes ][];
+			for ( int i = 0; i < numNodes; i++ )
+			{
+				if ( !polygonProp.isMissing( i ) )
+				{
+					final Object nodeData = polygonProp.getNodeData( i );
+					if ( nodeData instanceof Object[] )
+					{
+						final Object[] flat = ( Object[] ) nodeData;
+						final int numVertices = flat.length / 2;
+						polygonsX[ i ] = new double[ numVertices ];
+						polygonsY[ i ] = new double[ numVertices ];
+						for ( int j = 0; j < numVertices; j++ )
+						{
+							polygonsX[ i ][ j ] = ( ( Number ) flat[ 2 * j ] ).doubleValue();
+							polygonsY[ i ][ j ] = ( ( Number ) flat[ 2 * j + 1 ] ).doubleValue();
+						}
+					}
+				}
+			}
+		}
+
+		// Fallback: read polygon from legacy serialized_props format
+		if ( polygonsX == null )
 		{
 			try
 			{
 				final FlattenedInts polygonSlices = GeffUtils.readAsIntMatrix( reader, path + "/nodes/serialized_props/polygon/slices", "polygon slices" );
 				verifyLength( polygonSlices, numNodes, "/nodes/serialized_props/polygon/slices" );
-
 				final FlattenedDoubles polygonValues = GeffUtils.readAsDoubleMatrix( reader, path + "/nodes/serialized_props/polygon/values", "polygon values" );
-
 				polygonsX = new double[ numNodes ][];
 				polygonsY = new double[ numNodes ][];
 				for ( int i = 0; i < numNodes; i++ )
 				{
-					int start = polygonSlices.at( i, 0 );
-					int length = polygonSlices.at( i, 1 );
+					final int start = polygonSlices.at( i, 0 );
+					final int length = polygonSlices.at( i, 1 );
 					final int numVertices = polygonValues.size()[ 0 ];
-					if ( start >= 0 && start + length < numVertices )
+					if ( start >= 0 && start + length <= numVertices )
 					{
 						final double[] xPoints = new double[ length ];
 						final double[] yPoints = new double[ length ];
@@ -718,7 +941,9 @@ public class GeffNode
 			}
 			catch ( Exception e )
 			{
-				LOG.warn( "Warning: Could not read polygon: {}, skipping...", e.getMessage() );
+				LOG.debug( "No legacy polygon data found at serialized_props/polygon/: {}", e.getMessage() );
+				polygonsX = null;
+				polygonsY = null;
 			}
 		}
 
@@ -734,11 +959,27 @@ public class GeffNode
 			final double[] color = colors != null ? colors.rowAt( i ) : DEFAULT_COLOR;
 			final int segmentId = trackIds != null ? trackIds[ i ] : -1;
 			final double r = radius != null ? radius[ i ] : Double.NaN;
-			final double[] covariance2d = DEFAULT_COVARIANCE_2D;
-			final double[] covariance3d = DEFAULT_COVARIANCE_2D;
+			final double[] covariance2d = covariance2ds != null ? covariance2ds.rowAt( i ) : DEFAULT_COVARIANCE_2D;
+			final double[] covariance3d = covariance3ds != null ? covariance3ds.rowAt( i ) : DEFAULT_COVARIANCE_3D;
 			final double[] polygonX = polygonsX != null ? polygonsX[ i ] : null;
 			final double[] polygonY = polygonsY != null ? polygonsY[ i ] : null;
 			final GeffNode node = new GeffNode( id, t, x, y, z, color, segmentId, r, covariance2d, covariance3d, polygonX, polygonY );
+
+			// Add varlength properties to the node
+			for ( final String propName : varlengthPropsMap.keySet() )
+			{
+				final VarlengthProperty varlengthProp = varlengthPropsMap.get( propName );
+				node.setVarlengthProperty( propName, varlengthProp );
+			}
+
+			// Set custom non-standard props on the node
+			for ( final Map.Entry< String, Object[] > entry : customPropData.entrySet() )
+			{
+				final Object val = entry.getValue()[ i ];
+				if ( val != null )
+					node.setProp( entry.getKey(), val );
+			}
+
 			nodes.add( node );
 		}
 		return nodes;
@@ -749,7 +990,7 @@ public class GeffNode
 	 */
 	public static void writeToZarr( List< GeffNode > nodes, String zarrPath )
 	{
-		writeToZarr( nodes, zarrPath, GeffUtils.DEFAULT_CHUNK_SIZE );
+		writeToZarr( nodes, zarrPath, GeffUtils.computeFirstDimChunk( new long[]{ nodes.size() }, Integer.BYTES ) );
 	}
 
 	/**
@@ -757,20 +998,35 @@ public class GeffNode
 	 */
 	public static void writeToZarr( List< GeffNode > nodes, String zarrPath, int chunkSize )
 	{
-		writeToZarr( nodes, zarrPath, chunkSize, Geff.VERSION );
+		// Create minimal metadata for backward compatibility
+		GeffMetadata metadata = new GeffMetadata( Geff.VERSION, true ); // Assume
+																		// directed
+																		// for
+																		// now
+		writeToZarr( nodes, zarrPath, chunkSize, metadata );
 	}
 
 	public static void writeToZarr( List< GeffNode > nodes, String zarrPath, String geffVersion )
 	{
-		writeToZarr( nodes, zarrPath, GeffUtils.DEFAULT_CHUNK_SIZE, geffVersion );
+		// Create minimal metadata for backward compatibility
+		GeffMetadata metadata = new GeffMetadata( geffVersion, true ); // Assume
+																		// directed
+																		// for
+																		// now
+		writeToZarr( nodes, zarrPath, GeffUtils.computeFirstDimChunk( new long[]{ nodes.size() }, Integer.BYTES ), metadata );
 	}
 
-	public static void writeToZarr( List< GeffNode > nodes, String zarrPath, int chunkSize, String geffVersion )
+	public static void writeToZarr( List< GeffNode > nodes, String zarrPath, GeffMetadata metadata )
 	{
-		LOG.debug( "Writing {} nodes to Zarr path: {} with chunk size: {} to Geff version: {}", nodes.size(), zarrPath, chunkSize, geffVersion );
-		try ( final N5ZarrWriter writer = new N5ZarrWriter( zarrPath, true ) )
+		writeToZarr( nodes, zarrPath, GeffUtils.computeFirstDimChunk( new long[]{ nodes.size() }, Integer.BYTES ), metadata );
+	}
+
+	public static void writeToZarr( List< GeffNode > nodes, String zarrPath, int chunkSize, GeffMetadata metadata )
+	{
+		LOG.debug( "Writing {} nodes to Zarr path: {} with chunk size: {} to Geff version: {}", nodes.size(), zarrPath, chunkSize, metadata.getGeffVersion() );
+		try (final N5ZarrWriter writer = new N5ZarrWriter( zarrPath, true ))
 		{
-			writeToN5( nodes, writer, "/", chunkSize, geffVersion );
+			writeToN5( nodes, writer, "/", chunkSize, metadata );
 		}
 	}
 
@@ -779,72 +1035,273 @@ public class GeffNode
 			final N5Writer writer,
 			final String group,
 			final int chunkSize,
-			String geffVersion )
+			final GeffMetadata metadata )
 	{
 		if ( nodes == null )
 			throw new NullPointerException( "Nodes list cannot be null" );
 
+		final String geffVersion = metadata.getGeffVersion();
 		if ( geffVersion == null || geffVersion.isEmpty() )
-		{
-			geffVersion = Geff.VERSION; // Use default version if not specified
-		}
+		{ throw new IllegalArgumentException( "Geff version cannot be null or empty" ); }
 		GeffUtils.checkSupportedVersion( geffVersion );
 
 		final String path = N5URI.normalizeGroupPath( group );
+		final int numNodes = nodes.size();
+		final Map< String, PropMetadata > metadataNodeProps = metadata.getNodePropsMetadata();
+		final boolean writeAllProps = metadataNodeProps == null;
 
 		// Write node IDs in chunks
 		GeffUtils.writeIntArray( nodes, GeffNode::getId, writer, path + "/nodes/ids", chunkSize );
 
 		// Write timepoints in chunks
-		GeffUtils.writeIntArray( nodes, GeffNode::getT, writer, path + "/nodes/props/t/values", chunkSize );
+		if ( writeAllProps || metadataNodeProps.containsKey( "t" ) )
+		{
+			final PropMetadata timeMetadata = metadataNodeProps != null ? metadataNodeProps.get( "t" ) : null;
+			final String timeDtype = timeMetadata != null ? timeMetadata.getDtype() : null;
+			if ( timeDtype != null && timeDtype.toLowerCase().startsWith( "float" ) )
+				GeffUtils.writeDoubleArray( nodes, node -> node.getT(), writer, path + "/nodes/props/t/values", chunkSize );
+			else
+				GeffUtils.writeIntArray( nodes, GeffNode::getT, writer, path + "/nodes/props/t/values", chunkSize );
+		}
 
 		// Write X coordinates in chunks
-		GeffUtils.writeDoubleArray( nodes, GeffNode::getX, writer, path + "/nodes/props/x/values", chunkSize );
+		if ( writeAllProps || metadataNodeProps.containsKey( "x" ) )
+			GeffUtils.writeDoubleArray( nodes, GeffNode::getX, writer, path + "/nodes/props/x/values", chunkSize );
 
 		// Write Y coordinates in chunks
-		GeffUtils.writeDoubleArray( nodes, GeffNode::getY, writer, path + "/nodes/props/y/values", chunkSize );
+		if ( writeAllProps || metadataNodeProps.containsKey( "y" ) )
+			GeffUtils.writeDoubleArray( nodes, GeffNode::getY, writer, path + "/nodes/props/y/values", chunkSize );
 
 		// Write Z coordinates in chunks
-		GeffUtils.writeDoubleArray( nodes, GeffNode::getZ, writer, path + "/nodes/props/z/values", chunkSize );
+		if ( writeAllProps || metadataNodeProps.containsKey( "z" ) )
+			GeffUtils.writeDoubleArray( nodes, GeffNode::getZ, writer, path + "/nodes/props/z/values", chunkSize );
 
 		// Write color in chunks
-		GeffUtils.writeDoubleMatrix( nodes, 4, GeffNode::getColor, writer, path + "/nodes/props/color/values", chunkSize );
+		if ( writeAllProps || metadataNodeProps.containsKey( "color" ) )
+			GeffUtils.writeDoubleMatrix( nodes, 4, GeffNode::getColor, writer, path + "/nodes/props/color/values", chunkSize );
 
 		// Write segment IDs in chunks
-		GeffUtils.writeIntArray( nodes, GeffNode::getSegmentId, writer, path + "/nodes/props/track_id/values", chunkSize );
+		final String trackletProp = metadata.getTrackNodeProps() != null && metadata.getTrackNodeProps().containsKey( "tracklet" )
+				? metadata.getTrackNodeProps().get( "tracklet" ) : "track_id";
+		if ( writeAllProps || metadataNodeProps.containsKey( trackletProp ) )
+			GeffUtils.writeIntArray( nodes, GeffNode::getSegmentId, writer, path + "/nodes/props/" + trackletProp + "/values", chunkSize );
 
 		// Write radius and covariance attributes if available
-		GeffUtils.writeDoubleArray( nodes, GeffNode::getRadius, writer, path + "/nodes/props/radius/values", chunkSize );
+		if ( writeAllProps || metadataNodeProps.containsKey( "radius" ) )
+			GeffUtils.writeDoubleArray( nodes, GeffNode::getRadius, writer, path + "/nodes/props/radius/values", chunkSize );
 
 		// Write covariance2d in chunks
-		GeffUtils.writeDoubleMatrix( nodes, 4, GeffNode::getCovariance2d, writer, path + "/nodes/props/covariance2d/values", chunkSize );
+		if ( writeAllProps || metadataNodeProps.containsKey( "covariance2d" ) )
+			GeffUtils.writeDoubleMatrix( nodes, 4, GeffNode::getCovariance2d, writer, path + "/nodes/props/covariance2d/values", chunkSize );
 
 		// Write covariance3d in chunks
-		GeffUtils.writeDoubleMatrix( nodes, 6, GeffNode::getCovariance3d, writer, path + "/nodes/props/covariance3d/values", chunkSize );
+		if ( writeAllProps || metadataNodeProps.containsKey( "covariance3d" ) )
+			GeffUtils.writeDoubleMatrix( nodes, 6, GeffNode::getCovariance3d, writer, path + "/nodes/props/covariance3d/values", chunkSize );
 
-		if ( geffVersion.startsWith( "0.4" ) )
+		// When writeAllProps=true (no nodePropsMetadata provided), populate metadata
+		// with the standard props so the output zarr passes Python structural
+		// validation (node_props_metadata is a required field in the Python spec).
+		if ( writeAllProps )
 		{
-			// Write polygon slices and values if available
-			final List< GeffSerializableVertex > vertices = new ArrayList<>();
-			final List< int[] > slices = new ArrayList<>();
-			int polygonOffset = 0;
+			final Map< String, PropMetadata > nodePropsMap = new HashMap<>();
+			nodePropsMap.put( "t", new PropMetadata( "t", "int32", false, null, null, null ) );
+			nodePropsMap.put( "x", new PropMetadata( "x", "float64", false, null, null, null ) );
+			nodePropsMap.put( "y", new PropMetadata( "y", "float64", false, null, null, null ) );
+			nodePropsMap.put( "z", new PropMetadata( "z", "float64", false, null, null, null ) );
+			nodePropsMap.put( "color", new PropMetadata( "color", "float64", false, null, null, null ) );
+			nodePropsMap.put( trackletProp, new PropMetadata( trackletProp, "int32", false, null, null, null ) );
+			nodePropsMap.put( "radius", new PropMetadata( "radius", "float64", false, null, null, null ) );
+			nodePropsMap.put( "covariance2d", new PropMetadata( "covariance2d", "float64", false, null, null, null ) );
+			nodePropsMap.put( "covariance3d", new PropMetadata( "covariance3d", "float64", false, null, null, null ) );
+			metadata.setNodePropsMetadata( nodePropsMap );
+		}
+
+		// Write variable-length node properties if available
+		final Set< String > varlengthPropertyNames = new HashSet<>();
+		for ( final GeffNode node : nodes )
+		{
+			varlengthPropertyNames.addAll( node.getVarlengthProperties().keySet() );
+		}
+		if ( !varlengthPropertyNames.isEmpty() )
+		{
+			if ( metadata.getNodePropsMetadata() == null )
+			{
+				metadata.setNodePropsMetadata( new HashMap<>() );
+			}
+			for ( final String propName : varlengthPropertyNames )
+			{
+				final Object[][] nodeDataArrays = new Object[ numNodes ][];
+				final boolean[] missing = new boolean[ numNodes ];
+				String dtype = null;
+
+				for ( int i = 0; i < numNodes; i++ )
+				{
+					final VarlengthProperty property = nodes.get( i ).getVarlengthProperty( propName );
+					if ( property == null || property.isMissing( i ) )
+					{
+						nodeDataArrays[ i ] = null;
+						missing[ i ] = true;
+						continue;
+					}
+
+					if ( dtype == null )
+					{
+						dtype = property.getDtype();
+					}
+
+					final Object nodeData = property.getNodeData( i );
+					if ( nodeData == null )
+					{
+						nodeDataArrays[ i ] = new Object[ 0 ];
+					}
+					else if ( nodeData.getClass().isArray() )
+					{
+						if ( nodeData instanceof Object[] )
+						{
+							nodeDataArrays[ i ] = ( Object[] ) nodeData;
+						}
+						else
+						{
+							final int length = Array.getLength( nodeData );
+							final Object[] converted = new Object[ length ];
+							for ( int j = 0; j < length; j++ )
+							{
+								converted[ j ] = Array.get( nodeData, j );
+							}
+							nodeDataArrays[ i ] = converted;
+						}
+					}
+					else
+					{
+						nodeDataArrays[ i ] = new Object[] { nodeData };
+					}
+				}
+
+				if ( dtype == null )
+				{
+					dtype = "float64";
+				}
+
+				GeffUtils.writeVarlengthProperty( writer, path + "/nodes/props/" + propName, nodeDataArrays, missing, chunkSize, dtype );
+
+				final Map< String, PropMetadata > nodePropsMetadata = metadata.getNodePropsMetadata();
+				if ( !nodePropsMetadata.containsKey( propName ) )
+				{
+					nodePropsMetadata.put( propName, new PropMetadata( propName, dtype, true, null, null, null ) );
+				}
+			}
+		}
+
+		// Remove unsupported properties (e.g. string dtype) from metadata so
+		// the output zarr passes structural validation.
+		if ( metadataNodeProps != null )
+		{
+			metadataNodeProps.entrySet().removeIf( e -> GeffUtils.shouldSkipProperty( e.getKey(), e.getValue() ) );
+		}
+
+		// Write custom non-standard, non-varlength node props
+		final Set< String > standardNodeProps = new HashSet<>( STANDARD_NODE_PROP_NAMES );
+		standardNodeProps.add( trackletProp );
+		final Set< String > customRegularPropNames = new java.util.LinkedHashSet<>();
+		for ( final GeffNode node : nodes )
+			for ( final String name : node.getProps().keySet() )
+				if ( !standardNodeProps.contains( name ) )
+					customRegularPropNames.add( name );
+
+		for ( final String propName : customRegularPropNames )
+		{
+			Object sample = null;
 			for ( final GeffNode node : nodes )
 			{
-				if ( node.polygonX == null || node.polygonY == null )
-					throw new IllegalArgumentException( "Polygon coordinates cannot be null" );
-				if ( node.getPolygonX().length != node.getPolygonY().length )
-					throw new IllegalArgumentException( "Polygon X and Y coordinates must have the same length" );
-				final int numVertices = node.getPolygonX().length;
-				for ( int j = 0; j < numVertices; j++ )
-					vertices.add( new GeffSerializableVertex(
-							node.getPolygonX()[ j ],
-							node.getPolygonY()[ j ] ) );
-				slices.add( new int[] { polygonOffset, numVertices } );
-				polygonOffset += numVertices;
+				sample = node.getProp( propName );
+				if ( sample != null )
+					break;
 			}
-			GeffUtils.writeIntMatrix( slices, 2, Function.identity(), writer, path + "/nodes/serialized_props/polygon/slices", chunkSize );
-			GeffUtils.writeDoubleMatrix( vertices, 2, GeffSerializableVertex::getCoordinates, writer, path + "/nodes/serialized_props/polygon/values", chunkSize );
+			if ( sample == null )
+				continue;
+
+			final String dtype;
+			if ( sample instanceof Double )
+			{
+				GeffUtils.writeDoubleArray( nodes, n -> {
+					final Object v = n.getProp( propName );
+					return v instanceof Double ? ( double ) ( Double ) v : Double.NaN;
+				}, writer, path + "/nodes/props/" + propName + "/values", chunkSize );
+				dtype = "float64";
+			}
+			else if ( sample instanceof Integer )
+			{
+				GeffUtils.writeIntArray( nodes, n -> {
+					final Object v = n.getProp( propName );
+					return v instanceof Integer ? ( int ) ( Integer ) v : 0;
+				}, writer, path + "/nodes/props/" + propName + "/values", chunkSize );
+				dtype = "int32";
+			}
+			else if ( sample instanceof double[] )
+			{
+				final int cols = ( ( double[] ) sample ).length;
+				GeffUtils.writeDoubleMatrix( nodes, cols, n -> {
+					final Object v = n.getProp( propName );
+					return v instanceof double[] ? ( double[] ) v : new double[ cols ];
+				}, writer, path + "/nodes/props/" + propName + "/values", chunkSize );
+				dtype = "float64";
+			}
+			else if ( sample instanceof int[] )
+			{
+				final int cols = ( ( int[] ) sample ).length;
+				GeffUtils.writeIntMatrix( nodes, cols, n -> {
+					final Object v = n.getProp( propName );
+					return v instanceof int[] ? ( int[] ) v : new int[ cols ];
+				}, writer, path + "/nodes/props/" + propName + "/values", chunkSize );
+				dtype = "int32";
+			}
+			else
+			{
+				LOG.warn( "Unsupported type for custom node prop {}: {}", propName, sample.getClass().getName() );
+				continue;
+			}
+
+			final Map< String, PropMetadata > nodePropsMetadata = metadata.getNodePropsMetadata();
+			if ( nodePropsMetadata != null && !nodePropsMetadata.containsKey( propName ) )
+				nodePropsMetadata.put( propName, new PropMetadata( propName, dtype, false, null, null, null ) );
 		}
+
+		// Write polygon as varlength property under nodes/props/polygon/ (v1 spec)
+		final boolean hasPolygon = nodes.stream().anyMatch(
+				n -> n.getPolygonX() != null && n.getPolygonX().length > 0 );
+		if ( hasPolygon )
+		{
+			final Object[][] polygonData = new Object[ numNodes ][];
+			final boolean[] polygonMissing = new boolean[ numNodes ];
+			boolean anyMissing = false;
+			for ( int i = 0; i < numNodes; i++ )
+			{
+				final double[] px = nodes.get( i ).getPolygonX();
+				final double[] py = nodes.get( i ).getPolygonY();
+				if ( px == null || px.length == 0 )
+				{
+					polygonData[ i ] = new Object[ 0 ];
+					polygonMissing[ i ] = true;
+					anyMissing = true;
+				}
+				else
+				{
+					polygonData[ i ] = new Object[ 2 * px.length ];
+					for ( int j = 0; j < px.length; j++ )
+					{
+						polygonData[ i ][ 2 * j ] = px[ j ];
+						polygonData[ i ][ 2 * j + 1 ] = py[ j ];
+					}
+				}
+			}
+			GeffUtils.writeVarlengthProperty( writer, path + "/nodes/props/polygon",
+					polygonData, anyMissing ? polygonMissing : null, chunkSize, "float64" );
+			final Map< String, PropMetadata > nodePropsMetadata = metadata.getNodePropsMetadata();
+			if ( nodePropsMetadata != null && !nodePropsMetadata.containsKey( "polygon" ) )
+				nodePropsMetadata.put( "polygon", new PropMetadata( "polygon", "float64", true, null, null, null ) );
+		}
+
+		GeffUtils.patchZarrLittleEndian( writer, path + "/nodes" );
 
 		LOG.debug( "Successfully wrote nodes to Zarr format with chunked structure" );
 	}

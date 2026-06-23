@@ -11,12 +11,14 @@ The **Graph Exchange File Format (GEFF)** is a standardized format for storing a
 
 ## Features
 
-- **Full GEFF specification compliance** - Supports Geff versions 0.0, 0.1, 0.2, and 0.3 (including patch versions, development versions, and metadata like 0.2.2.dev20+g611e7a2.d20250719)
-- **Zarr-based storage** - Efficient chunked array storage for large-scale tracking data
+- **GEFF v1 spec compliance** - Reads and writes GEFF v0.2 through v1.x and beyond; version validation uses a semver pattern rather than an allowlist
+- **Zarr Format 2** - Reads and writes [Zarr Format 2](https://zarr-specs.readthedocs.io/en/latest/v2/v2.0.html) only; Zarr Format 3 is not supported
 - **Complete data model** - Support for nodes (spatial-temporal features), edges (connections), and metadata
-- **Flexible metadata handling** - Axis-based metadata with GeffAxis objects for spatial and temporal dimensions
-- **Type safety** - Strong typing with comprehensive validation
-- **Memory efficient** - Chunked reading and writing for handling large datasets
+- **Flexible metadata handling** - Axis-based metadata with GeffAxis objects; supports `time`, `space`, and `channel` axis types with any axis name
+- **Property metadata** - Full `node_props_metadata` / `edge_props_metadata` support as required by the v1 spec
+- **Variable-length properties** - Read and write properties with `varlength: true` (e.g. polygon coordinates per node)
+- **Type safety** - Strong typing with comprehensive validation; graceful skip with warning for unsupported types (`str`, `bytes`)
+- **Adaptive chunking** - Chunk sizes targeting ~8 MiB per chunk (power-of-two on the first dimension)
 - **Builder patterns** - Convenient object construction with builder classes for GeffNode and GeffEdge
 
 ## Core Classes
@@ -25,39 +27,50 @@ The **Graph Exchange File Format (GEFF)** is a standardized format for storing a
 Represents nodes in tracking graphs with spatial and temporal attributes:
 - Time point information (`t` property)
 - Spatial coordinates (x, y, z)
-- Segment identifiers
+- Segment identifiers (dynamic property name via metadata)
 - Additional properties: color, radius, covariance2d, covariance3d
-- Polygon geometry: separate polygonX and polygonY coordinate arrays with polygon offset for serialization
+- Polygon geometry stored via `polygonX`/`polygonY` builder fields, serialized to `serialized_props/polygon/`
+- Variable-length properties accessible via `getVarlengthProperty(name)` / `setVarlengthProperty(name, ...)`
 - Builder pattern for convenient object construction
-- Chunked Zarr I/O support for versions 0.1, 0.2, and 0.3
+- Chunked Zarr Format 2 I/O
 
-### GeffEdge  
+### GeffEdge
 Represents connections between nodes in tracking graphs:
 - Source and target node references
 - Edge properties: score, distance
 - Builder pattern for convenient object construction
 - Chunked storage for efficient large-scale edge data
-- Support for different Geff version formats
 
 ### GeffAxis
 Represents axis metadata for spatial and temporal dimensions:
 - Predefined constants for common axis names (t, x, y, z)
-- Type classifications (time, space)
+- Type classifications: `time`, `space`, `channel`
 - Unit specifications with common constants
 - Optional min/max bounds for ROI definition
+
+### GeffMetadata
+Handles GEFF metadata with schema validation:
+- Version validation via semver pattern (accepts any well-formed version)
+- GeffAxis array supporting any axis name and the three axis types
+- Node/edge property metadata maps (`nodePropsMetadata`, `edgePropsMetadata`)
+- Dynamic tracklet property name from `track_node_props["tracklet"]`
+- Graph properties (directed/undirected)
+
+### PropMetadata
+Describes a single node or edge property as required by the v1 spec:
+- Fields: `identifier`, `dtype`, `varlength`, `unit`, `name`, `description`
+- Used to infer data types on write and skip unsupported types on read
+
+### VarlengthProperty
+Stores a variable-length property (one array per node with potentially different shapes):
+- `getNodeData(int nodeIndex)` – extract the data array for a specific node
+- `isMissing(int nodeIndex)` – check the optional missing-value indicator
+- Backed by a flattened data array and an offset/shape index
 
 ### GeffSerializableVertex
 Lightweight geometry class internally used for storing polygon vertex coordinates:
 - Simple (x, y) coordinate storage
 - Part of the geometry package for efficient polygon handling
-
-### GeffMetadata
-Handles Geff metadata with schema validation:
-- Version compatibility checking with pattern matching for development versions
-- GeffAxis array for spatial/temporal metadata
-- Graph properties (directed/undirected)
-- Comprehensive validation with detailed error messages
-- Support for multiple Geff version formats (0.1, 0.2, 0.3)
 
 ### Geff
 Main utility class demonstrating library usage and providing examples.
@@ -69,8 +82,11 @@ Main utility class demonstrating library usage and providing examples.
 
 ## Dependencies
 
-- **jzarr 0.3.5** - Zarr format support for Java
-- **ucar.ma2** - Multi-dimensional array operations
+- **n5** - N5/Zarr core data model
+- **n5-zarr** - Zarr format reader/writer
+- **n5-blosc** - Optional Blosc compression (falls back to raw compression if the native library is absent)
+- **imglib2** - Multi-dimensional array and interval utilities
+- **slf4j-api** - Logging facade
 
 ## Usage Example
 
@@ -118,7 +134,7 @@ GeffNode node1 = new GeffNode.Builder()
 newNodes.add(node1);
 
 // Write to Zarr format with version specification
-GeffNode.writeToZarr(newNodes, "/path/to/output.zarr/tracks", "0.4.0");
+GeffNode.writeToZarr(newNodes, "/path/to/output.zarr/tracks", "1.0.0");
 
 // Create new edges using builder pattern
 List<GeffEdge> newEdges = new ArrayList<>();
@@ -132,7 +148,14 @@ GeffEdge edge = new GeffEdge.Builder()
 newEdges.add(edge);
 
 // Write to Zarr format
-GeffEdge.writeToZarr(newEdges, "/path/to/output.zarr/tracks", "0.4.0");
+GeffEdge.writeToZarr(newEdges, "/path/to/output.zarr/tracks", "1.0.0");
+
+// Access variable-length properties after reading (e.g. per-node polygon)
+List<GeffNode> readNodes = GeffNode.readFromZarr("/path/to/data.zarr/tracks");
+VarlengthProperty polygon = readNodes.get(0).getVarlengthProperty("polygon");
+if (polygon != null) {
+    Object nodeData = polygon.getNodeData(0); // double[] or int[] for node 0
+}
 
 // Create metadata with axis information
 GeffAxis[] axes = {
@@ -141,11 +164,13 @@ GeffAxis[] axes = {
     new GeffAxis(GeffAxis.NAME_SPACE_Y, GeffAxis.TYPE_SPACE, GeffAxis.UNIT_MICROMETER, 0.0, 1024.0),
     new GeffAxis(GeffAxis.NAME_SPACE_Z, GeffAxis.TYPE_SPACE, GeffAxis.UNIT_MICROMETER, 0.0, 100.0)
 };
-GeffMetadata metadata = new GeffMetadata("0.4.0", true, axes);
+GeffMetadata metadata = new GeffMetadata("1.0.0", true, axes);
 GeffMetadata.writeToZarr(metadata, "/path/to/output.zarr/tracks");
 ```
 
 ## Building
+
+geff-java prefers `BloscCompression` for writing datasets when [c-blosc](https://github.com/Blosc/c-blosc) is available. If Blosc is not installed, it will print a warning and automatically fall back to `RawCompression`.
 
 ```bash
 mvn clean compile
@@ -153,41 +178,62 @@ mvn test
 mvn package
 ```
 
+## Cross-Language Tests
+
+Round-trip tests validate interoperability between geff-java and the Python reference implementation.
+
+**Requirements:**
+- [uv](https://docs.astral.sh/uv/) (Python package manager)
+
+**Optional compression support:**
+- If [c-blosc](https://github.com/Blosc/c-blosc) is installed, geff-java will use `BloscCompression` for output datasets.
+- If Blosc is not available, geff-java prints a warning and automatically falls back to `RawCompression`, so end users can still run the library and the cross-language tests without extra native setup.
+- On macOS, Blosc can be installed with `brew install c-blosc`.
+
+**Run tests:**
+```bash
+mvn package -DskipTests
+cd cross-language-tests
+uv run run_tests.py
+```
+
+The tests create GEFF files with Python, read/write them with Java, and validate the results.
+
 ## Data Format
 
 The library follows the Geff specification for biological tracking data:
 
 ```
 dataset.zarr/
-├── .zgroup                 # Zarr group metadata
-├── .zattrs                 # Geff metadata (version, spatial info, etc.)
+├── .zgroup
+├── .zattrs                         # Geff metadata:
+│                                   #   version, directed, axes,
+│                                   #   node_props_metadata,
+│                                   #   edge_props_metadata,
+│                                   #   track_node_props
 └── tracks/
     ├── .zgroup
     ├── nodes/
-    │   ├── .zgroup
-    │   ├── props/              # For Geff 0.2/0.3 format
-    │   │   ├── t/              # Time points [N]
-    │   │   ├── x/              # X coordinates [N]
-    │   │   ├── y/              # Y coordinates [N]
-    │   │   ├── z/              # Z coordinates [N] (optional)
-    │   │   ├── color/          # Node colors [N] (optional)
-    │   │   ├── radius/         # Node radii [N] (optional)
-    │   │   ├── track_id/       # Track identifiers [N] (optional)
-    │   │   ├── covariance2d/   # 2D covariance matrices for ellipse serialized in 1D [N, 4] (optional)
-    │   │   ├── covariance3d/   # 3D covariance matrices for ellipsoid serialized in 1D [N, 6] (optional)
-    │   │   └── polygon/        # Polygon coordinates (optional)
-    │   │       ├── slices/     # Polygon slices with startIndex and endIndex [N, 2] (optional)
-    │   │       └── values/     # XY coordinates of vertices in polygons [numVertices, 2] (optional)
-    │   └── ids/
-    │       └── 0               # Node ID chunks
+    │   ├── ids/                    # Node IDs [N]
+    │   ├── props/
+    │   │   ├── t/values            # Time points [N]
+    │   │   ├── x/values            # X coordinates [N]
+    │   │   ├── y/values            # Y coordinates [N]
+    │   │   ├── z/values            # Z coordinates [N] (optional)
+    │   │   ├── color/values        # RGBA colors [N, 4] (optional)
+    │   │   ├── radius/values       # Node radii [N] (optional)
+    │   │   ├── <tracklet>/values   # Track IDs [N] (name from track_node_props, optional)
+    │   │   ├── covariance2d/values # Flattened 2D covariance [N, 4] (optional)
+    │   │   ├── covariance3d/values # Flattened 3D covariance [N, 6] (optional)
+    │   │   └── <varlength_prop>/   # Variable-length property, e.g. polygon (optional)
+    │   │       ├── data            # Flattened values [V]
+    │   │       ├── values          # Offsets and shapes [N, ndim+1]
+    │   │       └── missing         # Missing-value mask [N] (optional)
     └── edges/
-        ├── .zgroup
-        ├── props/              # For Geff 0.2/0.3 format
-        │   ├── distance/       # Edge distances (optional)
-        │   └── score/          # Edge scores (optional)
-        └── ids/
-            ├── 0.0             # Edge chunks (source nodes)
-            └── 1.0             # Edge chunks (target nodes)
+        ├── ids/                    # Source/target node ID pairs [N, 2]
+        └── props/
+            ├── distance/values     # Edge distances [N] (optional)
+            └── score/values        # Edge scores [N] (optional)
 ```
 
 ## Technical Information
@@ -198,7 +244,10 @@ dataset.zarr/
 
 ### Contributors
 
-* [Ko Sugawara](https://github.com/ksugar/) - Project maintainer
+* [Ko Sugawara](https://github.com/ksugar/)
+* [Jean-Yves Tinevez](https://github.com/tinevez)
+* [Tobias Pietzsch](https://github.com/tpietzsch)
+* [Caroline Malin-Mayor](https://github.com/cmalinmayor)
 
 ### License
 
@@ -217,4 +266,4 @@ dataset.zarr/
 ## Acknowledgements
 
 * [Geff Python implementation](https://github.com/live-image-tracking-tools/geff) - Original specification and reference implementation
-* [jzarr library](https://github.com/bcdev/jzarr) - Zarr format support for Java
+* [N5-universe](https://github.com/saalfeldlab/n5) - N5/Zarr I/O libraries used by this implementation

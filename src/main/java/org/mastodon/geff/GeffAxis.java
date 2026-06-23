@@ -42,272 +42,274 @@ import java.util.TreeMap;
 public class GeffAxis
 {
 
-    public static final String NAME_TIME = "t";
+	public static final String NAME_TIME = "t";
 
-    public static final String NAME_SPACE_X = "x";
+	public static final String NAME_SPACE_X = "x";
 
-    public static final String NAME_SPACE_Y = "y";
+	public static final String NAME_SPACE_Y = "y";
 
-    public static final String NAME_SPACE_Z = "z";
+	public static final String NAME_SPACE_Z = "z";
 
-    // Supported axis types
-    public static final String TYPE_TIME = "time";
+	// Supported axis types
+	public static final String TYPE_TIME = "time";
 
-    public static final String TYPE_SPACE = "space";
+	public static final String TYPE_SPACE = "space";
 
-    // Common units
-    public static final String UNIT_SECOND = "second";
+	public static final String TYPE_CHANNEL = "channel";
 
-    public static final String UNIT_MICROMETER = "micrometer";
+	// Common units
+	public static final String UNIT_SECOND = "second";
 
-    public static final String UNIT_PIXEL = "pixel";
+	public static final String UNIT_MICROMETER = "micrometer";
 
-    public static final String UNIT_MILLIMETER = "millimeter";
+	public static final String UNIT_PIXEL = "pixel";
 
-    private String name;
+	public static final String UNIT_MILLIMETER = "millimeter";
 
-    private String type;
+	private String name;
 
-    private String unit;
+	private String type;
 
-    private Double min; // Optional - can be null
+	private String unit;
 
-    private Double max; // Optional - can be null
+	private Double min; // Optional - can be null
 
-    /**
-     * Default constructor
-     */
-    public GeffAxis()
-    {}
+	private Double max; // Optional - can be null
 
-    /**
-     * Constructor with required fields
-     */
-    public GeffAxis( String name, String type, String unit )
-    {
-        this.name = name;
-        this.type = type;
-        this.unit = unit;
-    }
+	/**
+	 * Default constructor
+	 */
+	public GeffAxis()
+	{}
 
-    /**
-     * Constructor with all fields
-     */
-    public GeffAxis( String name, String type, String unit, Double min, Double max )
-    {
-        this.name = name;
-        this.type = type;
-        this.unit = unit;
-        this.min = min;
-        this.max = max;
-    }
+	/**
+	 * Constructor with required fields
+	 */
+	public GeffAxis( String name, String type, String unit )
+	{
+		this.name = name;
+		this.type = type;
+		this.unit = unit;
+	}
 
-    // Getters and Setters
-    public String getName()
-    {
-        return name;
-    }
+	/**
+	 * Constructor with all fields
+	 */
+	public GeffAxis( String name, String type, String unit, Double min, Double max )
+	{
+		this.name = name;
+		this.type = type;
+		this.unit = unit;
+		this.min = min;
+		this.max = max;
+	}
 
-    public void setName( String name )
-    {
-        this.name = name;
-    }
+	// Getters and Setters
+	public String getName()
+	{
+		return name;
+	}
 
-    public String getType()
-    {
-        return type;
-    }
+	public void setName( String name )
+	{
+		this.name = name;
+	}
 
-    public void setType( String type )
-    {
-        if ( type != null && !TYPE_TIME.equals( type ) && !TYPE_SPACE.equals( type ) )
-        { throw new IllegalArgumentException(
-                "Axis type must be '" + TYPE_TIME + "' or '" + TYPE_SPACE + "', got: " + type ); }
-        this.type = type;
-    }
+	public String getType()
+	{
+		return type;
+	}
 
-    public String getUnit()
-    {
-        return unit;
-    }
+	public void setType( String type )
+	{
+		if ( type != null && !TYPE_TIME.equals( type ) && !TYPE_SPACE.equals( type ) && !TYPE_CHANNEL.equals( type ) )
+		{ throw new IllegalArgumentException(
+				"Axis type must be '" + TYPE_TIME + "', '" + TYPE_SPACE + "', or '" + TYPE_CHANNEL + "', got: " + type ); }
+		this.type = type;
+	}
 
-    public void setUnit( String unit )
-    {
-        this.unit = unit;
-    }
+	public String getUnit()
+	{
+		return unit;
+	}
 
-    public Double getMin()
-    {
-        return min;
-    }
+	public void setUnit( String unit )
+	{
+		this.unit = unit;
+	}
 
-    public void setMin( Double min )
-    {
-        this.min = min;
-        validateBounds();
-    }
+	public Double getMin()
+	{
+		return min;
+	}
 
-    public Double getMax()
-    {
-        return max;
-    }
+	public void setMin( Double min )
+	{
+		this.min = min;
+		validateBounds();
+	}
 
-    public void setMax( Double max )
-    {
-        this.max = max;
-        validateBounds();
-    }
+	public Double getMax()
+	{
+		return max;
+	}
 
-    /**
-     * Set both min and max bounds
-     * 
-     * @param min
-     *            the minimum bound value
-     * @param max
-     *            the maximum bound value
-     */
-    public void setBounds( Double min, Double max )
-    {
-        this.min = min;
-        this.max = max;
-        validateBounds();
-    }
+	public void setMax( Double max )
+	{
+		this.max = max;
+		validateBounds();
+	}
 
-    /**
-     * Check if this axis has bounds defined
-     */
-    public boolean hasBounds()
-    {
-        return min != null && max != null;
-    }
+	/**
+	 * Set both min and max bounds
+	 * 
+	 * @param min
+	 *            the minimum bound value
+	 * @param max
+	 *            the maximum bound value
+	 */
+	public void setBounds( Double min, Double max )
+	{
+		this.min = min;
+		this.max = max;
+		validateBounds();
+	}
 
-    /**
-     * Get the range (max - min) if bounds are defined
-     */
-    public Double getRange()
-    {
-        if ( hasBounds() )
-        { return max - min; }
-        return null;
-    }
+	/**
+	 * Check if this axis has bounds defined
+	 */
+	public boolean hasBounds()
+	{
+		return min != null && max != null;
+	}
 
-    /**
-     * Validate that min <= max if both are defined
-     */
-    private void validateBounds()
-    {
-        if ( min != null && max != null && min > max )
-        { throw new IllegalArgumentException( "Axis min (" + min + ") cannot be greater than max (" + max + ")" ); }
-    }
+	/**
+	 * Get the range (max - min) if bounds are defined
+	 */
+	public Double getRange()
+	{
+		if ( hasBounds() )
+		{ return max - min; }
+		return null;
+	}
 
-    /**
-     * Validate the axis according to GEFF rules
-     */
-    public void validate()
-    {
-        if ( name == null || name.trim().isEmpty() )
-        { throw new IllegalArgumentException( "Axis name cannot be null or empty" ); }
+	/**
+	 * Validate that min <= max if both are defined
+	 */
+	private void validateBounds()
+	{
+		if ( min != null && max != null && min > max )
+		{ throw new IllegalArgumentException( "Axis min (" + min + ") cannot be greater than max (" + max + ")" ); }
+	}
 
-        if ( type == null || type.trim().isEmpty() )
-        { throw new IllegalArgumentException( "Axis type cannot be null or empty" ); }
+	/**
+	 * Validate the axis according to GEFF rules
+	 */
+	public void validate()
+	{
+		if ( name == null || name.trim().isEmpty() )
+		{ throw new IllegalArgumentException( "Axis name cannot be null or empty" ); }
 
-        if ( !TYPE_TIME.equals( type ) && !TYPE_SPACE.equals( type ) )
-        { throw new IllegalArgumentException(
-                "Axis type must be '" + TYPE_TIME + "' or '" + TYPE_SPACE + "', got: " + type ); }
+		if ( type == null || type.trim().isEmpty() )
+		{ throw new IllegalArgumentException( "Axis type cannot be null or empty" ); }
 
-        if ( unit == null || unit.trim().isEmpty() )
-        { throw new IllegalArgumentException( "Axis unit cannot be null or empty" ); }
+		if ( !TYPE_TIME.equals( type ) && !TYPE_SPACE.equals( type ) && !TYPE_CHANNEL.equals( type ) )
+		{ throw new IllegalArgumentException(
+				"Axis type must be '" + TYPE_TIME + "', '" + TYPE_SPACE + "', or '" + TYPE_CHANNEL + "', got: " + type ); }
 
-        validateBounds();
-    }
+		if ( unit == null || unit.trim().isEmpty() )
+		{ throw new IllegalArgumentException( "Axis unit cannot be null or empty" ); }
 
-    /**
-     * Create a time axis
-     */
-    public static GeffAxis createTimeAxis( String name, String unit, Double min, Double max )
-    {
-        return new GeffAxis( name, TYPE_TIME, unit, min, max );
-    }
+		validateBounds();
+	}
 
-    /**
-     * Create a space axis
-     */
-    public static GeffAxis createSpaceAxis( String name, String unit, Double min, Double max )
-    {
-        return new GeffAxis( name, TYPE_SPACE, unit, min, max );
-    }
+	/**
+	 * Create a time axis
+	 */
+	public static GeffAxis createTimeAxis( String name, String unit, Double min, Double max )
+	{
+		return new GeffAxis( name, TYPE_TIME, unit, min, max );
+	}
 
-    /**
-     * Create a time axis without bounds
-     */
-    public static GeffAxis createTimeAxis( String name, String unit )
-    {
-        return new GeffAxis( name, TYPE_TIME, unit );
-    }
+	/**
+	 * Create a space axis
+	 */
+	public static GeffAxis createSpaceAxis( String name, String unit, Double min, Double max )
+	{
+		return new GeffAxis( name, TYPE_SPACE, unit, min, max );
+	}
 
-    /**
-     * Create a space axis without bounds
-     */
-    public static GeffAxis createSpaceAxis( String name, String unit )
-    {
-        return new GeffAxis( name, TYPE_SPACE, unit );
-    }
+	/**
+	 * Create a time axis without bounds
+	 */
+	public static GeffAxis createTimeAxis( String name, String unit )
+	{
+		return new GeffAxis( name, TYPE_TIME, unit );
+	}
 
-    /**
-     * Write this axis to json format for serialization. This is a placeholder
-     * method for future implementation.
-     */
-    public TreeMap< String, Object > toTreeMap()
-    {
-        TreeMap< String, Object > map = new TreeMap<>();
-        map.put( "name", name );
-        map.put( "type", type );
-        map.put( "unit", unit );
-        map.put( "min", min );
-        map.put( "max", max );
-        return map;
-    }
+	/**
+	 * Create a space axis without bounds
+	 */
+	public static GeffAxis createSpaceAxis( String name, String unit )
+	{
+		return new GeffAxis( name, TYPE_SPACE, unit );
+	}
 
-    @Override
-    public String toString()
-    {
-        StringBuilder sb = new StringBuilder();
-        sb.append( "GeffAxis{" );
-        sb.append( "name='" ).append( name ).append( '\'' );
-        sb.append( ", type='" ).append( type ).append( '\'' );
-        sb.append( ", unit='" ).append( unit ).append( '\'' );
-        if ( min != null )
-        {
-            sb.append( ", min=" ).append( min );
-        }
-        if ( max != null )
-        {
-            sb.append( ", max=" ).append( max );
-        }
-        sb.append( '}' );
-        return sb.toString();
-    }
+	/**
+	 * Write this axis to json format for serialization. This is a placeholder
+	 * method for future implementation.
+	 */
+	public TreeMap< String, Object > toTreeMap()
+	{
+		TreeMap< String, Object > map = new TreeMap<>();
+		map.put( "name", name );
+		map.put( "type", type );
+		map.put( "unit", unit );
+		map.put( "min", min );
+		map.put( "max", max );
+		return map;
+	}
 
-    @Override
-    public boolean equals( Object obj )
-    {
-        if ( this == obj )
-            return true;
-        if ( obj == null || getClass() != obj.getClass() )
-            return false;
+	@Override
+	public String toString()
+	{
+		StringBuilder sb = new StringBuilder();
+		sb.append( "GeffAxis{" );
+		sb.append( "name='" ).append( name ).append( '\'' );
+		sb.append( ", type='" ).append( type ).append( '\'' );
+		sb.append( ", unit='" ).append( unit ).append( '\'' );
+		if ( min != null )
+		{
+			sb.append( ", min=" ).append( min );
+		}
+		if ( max != null )
+		{
+			sb.append( ", max=" ).append( max );
+		}
+		sb.append( '}' );
+		return sb.toString();
+	}
 
-        GeffAxis geffAxis = ( GeffAxis ) obj;
+	@Override
+	public boolean equals( Object obj )
+	{
+		if ( this == obj )
+			return true;
+		if ( obj == null || getClass() != obj.getClass() )
+			return false;
 
-        return Objects.equals( name, geffAxis.name ) &&
-                Objects.equals( type, geffAxis.type ) &&
-                Objects.equals( unit, geffAxis.unit ) &&
-                Objects.equals( min, geffAxis.min ) &&
-                Objects.equals( max, geffAxis.max );
-    }
+		GeffAxis geffAxis = ( GeffAxis ) obj;
 
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash( name, type, unit, min, max );
-    }
+		return Objects.equals( name, geffAxis.name ) &&
+				Objects.equals( type, geffAxis.type ) &&
+				Objects.equals( unit, geffAxis.unit ) &&
+				Objects.equals( min, geffAxis.min ) &&
+				Objects.equals( max, geffAxis.max );
+	}
+
+	@Override
+	public int hashCode()
+	{
+		return Objects.hash( name, type, unit, min, max );
+	}
 }

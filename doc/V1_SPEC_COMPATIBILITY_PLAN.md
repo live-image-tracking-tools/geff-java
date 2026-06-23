@@ -8,20 +8,21 @@ This team will attempt to address the concerns as time allows, but welcomes help
 
 ## Action Summary
 
-| # | Issue | Action | Priority |
-|---|-------|--------|----------|
-| 1 | Missing `node_props_metadata` / `edge_props_metadata` | **FIX** | Critical |
-| 2 | Axis missing `scale`/`scaled_unit`/`offset` | Document | Low |
-| 3 | Hardcoded axis names (`t`,`x`,`y`,`z` only) | **FIX** | Critical |
-| 4 | Missing `channel` axis type | **FIX** | Low |
-| 5 | Covariance format mismatch | Document | Low |
-| 6 | Hardcoded `track_id` path | **FIX** | Medium |
-| 7 | Variable-length properties | **Warn & skip** | Medium |
-| 8 | String properties | **Warn & skip** | Medium |
-| 9 | `missing` arrays | **Warn & skip** | Medium |
+| #   | Issue                                                 | Action          | Priority | Status         |
+| --- | ----------------------------------------------------- | --------------- | -------- | -------------- |
+| 1   | Missing `node_props_metadata` / `edge_props_metadata` | **FIX**         | Critical | **✓ COMPLETE** |
+| 2   | Axis missing `scale`/`scaled_unit`/`offset`           | Document        | Low      | Pending        |
+| 3   | Hardcoded axis names (`t`,`x`,`y`,`z` only)           | **FIX**         | Critical | **✓ COMPLETE** |
+| 4   | Missing `channel` axis type                           | **FIX**         | Low      | **✓ COMPLETE** |
+| 5   | Covariance format mismatch                            | Document        | Low      | Pending        |
+| 6   | Hardcoded `track_id` path                             | **FIX**         | Medium   | **✓ COMPLETE** |
+| 7   | Variable-length properties                            | **FIX**         | High     | **✓ COMPLETE** |
+| 8   | String properties                                     | **Warn & skip** | Medium   | **✓ COMPLETE** |
+| 9   | `missing` arrays                                      | **Warn & skip** | Medium   | **✓ COMPLETE** |
+| 10  | Version checking: allowlist vs pattern                | **FIX**         | Low      | **✓ COMPLETE** |
 
-**Fixes required**: #1, #3, #4, #6
-**Graceful handling**: #7, #8, #9
+**Fixes required**: #1, #3, #4, #6, #7, #10 (all complete ✓)
+**Graceful handling**: #8, #9 (all complete ✓)
 **Document only**: #2, #5
 
 ---
@@ -30,7 +31,9 @@ This team will attempt to address the concerns as time allows, but welcomes help
 
 ### 1. Missing Required Metadata Fields (CRITICAL)
 
-**Problem**: Java does not read or write `node_props_metadata` and `edge_props_metadata`, which are **required** fields in the v1 spec. Files written by Java are invalid per spec.
+**Status**: ✓ IMPLEMENTED
+
+**Problem**: Java did not read or write `node_props_metadata` and `edge_props_metadata`, which are **required** fields in the v1 spec. Files written by Java are invalid per spec.
 
 **Locations**:
 - `GeffMetadata.java:70-75`
@@ -62,6 +65,8 @@ This team will attempt to address the concerns as time allows, but welcomes help
 
 ### 3. Axis: Hardcoded Names Validation (CRITICAL)
 
+**Status**: ✓ IMPLEMENTED
+
 **Problem**: Java only allows axis names `t`, `x`, `y`, `z` and **throws an error** for any other name. The spec allows any string name (must match a node property).
 
 **Location**: `GeffMetadata.java:176-181`
@@ -74,6 +79,8 @@ This team will attempt to address the concerns as time allows, but welcomes help
 ---
 
 ### 4. Axis: Missing `channel` Type (LOW)
+
+**Status**: ✓ IMPLEMENTED
 
 **Problem**: Java only supports axis types `time` and `space`. The spec also supports `channel`. Java **throws an error** if an axis has `type: "channel"`.
 
@@ -104,6 +111,8 @@ This team will attempt to address the concerns as time allows, but welcomes help
 
 ### 6. Property Paths: `track_id` vs Dynamic (MEDIUM)
 
+**Status**: ✓ IMPLEMENTED
+
 **Problem**: Java hardcodes the path `/nodes/props/track_id/values`. The spec uses a dynamic property name from `track_node_props["tracklet"]` in metadata.
 
 **Location**: `GeffNode.java:667`
@@ -130,17 +139,71 @@ This team will attempt to address the concerns as time allows, but welcomes help
 
 #### 7. Variable-length Properties
 
-**Problem**: Properties with `varlength: true` in PropMetadata use offset/length encoding. Java may error on unexpected array structure.
+**Status**: ✓ READING & WRITING FULLY IMPLEMENTED (see [VARLENGTH_IMPLEMENTATION.md](VARLENGTH_IMPLEMENTATION.md) for details)
 
-**Plan**: When reading, check `varlength` in PropMetadata; if true, log warning and skip property instead of erroring.
+**Problem**: Properties with `varlength: true` in PropMetadata use offset/length encoding. Java initially had no support for these properties.
+
+**Encoding Format** (from spec):
+- For each node, the property can have a different shape/length
+- A `data` array contains all flattened values concatenated (shape: `(V,)` where V is total number of elements across all nodes)
+- A `values` array contains offset and shape information (shape: `(N, ndim+1)` where N is number of nodes, ndim is dimensionality)
+  - First column: offset into the data array for that node's data
+  - Remaining columns: shape of that node's data (e.g., for 2D polygon: `[offset, rows, cols]`)
+
+**Examples from Spec**:
+- Polygon property: `polygon/data`, `polygon/values` (shape: N x 3 for 2D coords, containing offset, height, width)
+
+**Reading Implementation** (✓ COMPLETE):
+1. When reading a property, check `varlength` in PropMetadata
+2. If `varlength: true`:
+   - Read both the `data` array and `values` array from zarr
+   - For each node index, extract the offset and shape from `values[i]`
+   - Use these to slice the appropriate section from `data` array
+   - Reconstruct the variable-length array for that node
+   - Handle optional `missing` array to skip nodes with missing values
+3. For Java representation:
+   - Store as wrapper class `VarlengthProperty` containing `Object[] data` indexed by node position
+4. Graceful error handling and validation
+
+**Writing Implementation** (✓ COMPLETE):
+1. Flatten all node data:
+   - For each node i with varlength property data, extract the array
+   - Concatenate all data into single flattened array
+   - Track cumulative offset for each node's data
+
+2. Build offset and shape metadata:
+   - For each node i, calculate the starting offset
+   - Extract dimensionality from node's array shape
+   - Create `values` array: shape (numNodes, ndim+1) where values[i][0]=offset, values[i][1:]=dims
+   - Example: Node with 2x3 array starting at offset 5 → [5, 2, 3]
+
+3. Handle data type encoding:
+   - Infer dtype from actual data type (double[] → "float64", int[] → "int32", etc.)
+   - Store dtype in PropMetadata for each varlength property
+   - Convert data to appropriate N5/zarr compatible format
+
+4. Write to zarr:
+   - Create `/nodes/props/{propName}/data` dataset with flattened data
+   - Create `/nodes/props/{propName}/values` dataset with offset/shape info (int64)
+   - If any node has missing value, create `/nodes/props/{propName}/missing` boolean array
+   - Update PropMetadata with `varlength: true` and correct dtype
+
+**Implementation Phases**:
+- Phase 1 (✓ DONE): Reading varlength properties from zarr
+- Phase 2 (✓ DONE): Writing varlength properties to zarr
+- Phase 3 (FUTURE): Optimization for large datasets, edge property support
 
 #### 8. String Properties
+
+**Status**: ✓ IMPLEMENTED
 
 **Problem**: Properties with `dtype: "str"`. Java only handles numeric types.
 
 **Plan**: When reading, check `dtype` in PropMetadata; if "str" or "bytes", log warning and skip property.
 
 #### 9. `missing` Arrays
+
+**Status**: ✓ IMPLEMENTED
 
 **Problem**: Optional `/nodes/props/{name}/missing` boolean array indicating null values. Java has no support for sparse/missing data.
 
@@ -149,6 +212,8 @@ This team will attempt to address the concerns as time allows, but welcomes help
 ---
 
 ### 10. Version Checking: Allowlist vs Pattern (LOW)
+
+**Status**: ✓ IMPLEMENTED
 
 **Problem**: Java uses an explicit allowlist of supported versions (`0.2`, `0.3`, `0.4`, `1.0`, `1.1`). The Python spec uses a regex pattern that accepts **any** semver-formatted version:
 
@@ -173,7 +238,7 @@ This means Python will accept future versions like `2.0`, `1.5`, etc. as long as
 ## Next Steps
 
 1. **Interoperability Testing**: Create cross-language tests
-   - Python writes GEFF → Java reads
+   - Python writes GEFF → Java reads (including varlength properties like polygons)
    - Java writes GEFF → Python reads & validates
-2. **Implement Fixes**: Address issues #1, #3, #4, #6 in priority order
-3. **Add Graceful Handling**: Implement warn-and-skip for #7, #8, #9
+   - Comprehensive test coverage for all fixed issues
+2. **Documentation**: Document known shortcomings (#2, #5)
