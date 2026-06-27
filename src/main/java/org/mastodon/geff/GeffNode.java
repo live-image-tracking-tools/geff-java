@@ -729,27 +729,47 @@ public class GeffNode
 		// See GeffUtils.shouldSkipProperty() and checkForMissingValues() for
 		// implementation
 
+		// Determine axis names dynamically from metadata
+		// Fall back to standard names (t, x, y, z) if axes not defined
+		final String timeAxisName = metadata.getAxisNameByType( GeffAxis.TYPE_TIME );
+		final String[] spaceAxes = metadata.getAxisNamesByType( GeffAxis.TYPE_SPACE );
+		final String xAxisName = spaceAxes.length > 0 ? spaceAxes[ 0 ] : "x";
+		final String yAxisName = spaceAxes.length > 1 ? spaceAxes[ 1 ] : "y";
+		final String zAxisName = spaceAxes.length > 2 ? spaceAxes[ 2 ] : "z";
+
 		// Read node IDs from chunks
 		final int[] nodeIds = GeffUtils.readAsIntArray( reader, path + "/nodes/ids", "node IDs" );
 		if ( nodeIds == null )
 		{ throw new IllegalArgumentException( "required property '/nodes/ids' not found" ); }
 		final int numNodes = nodeIds.length;
 
-		// Read time points from chunks
-		final int[] timepoints = GeffUtils.readAsIntArray( reader, path + "/nodes/props/t/values", "timepoints" );
-		verifyLength( timepoints, numNodes, "/nodes/props/t/values" );
+		// Read time points from chunks using dynamic axis name
+		final String timePropPath = path + "/nodes/props/" + ( timeAxisName != null ? timeAxisName : "t" ) + "/values";
+		final int[] timepoints = GeffUtils.readAsIntArray( reader, timePropPath, "timepoints" );
+		verifyLength( timepoints, numNodes, timePropPath );
 
-		// Read X coordinates from chunks
-		final double[] xCoords = GeffUtils.readAsDoubleArray( reader, path + "/nodes/props/x/values", "X coordinates" );
-		verifyLength( xCoords, numNodes, "/nodes/props/x/values" );
+		// Read X coordinates from chunks using dynamic axis name
+		final String xPropPath = path + "/nodes/props/" + xAxisName + "/values";
+		final double[] xCoords = GeffUtils.readAsDoubleArray( reader, xPropPath, "X coordinates" );
+		verifyLength( xCoords, numNodes, xPropPath );
 
-		// Read Y coordinates from chunks
-		final double[] yCoords = GeffUtils.readAsDoubleArray( reader, path + "/nodes/props/y/values", "Y coordinates" );
-		verifyLength( yCoords, numNodes, "/nodes/props/y/values" );
+		// Read Y coordinates from chunks using dynamic axis name
+		final String yPropPath = path + "/nodes/props/" + yAxisName + "/values";
+		final double[] yCoords = GeffUtils.readAsDoubleArray( reader, yPropPath, "Y coordinates" );
+		verifyLength( yCoords, numNodes, yPropPath );
 
-		// Read Z coordinates from chunks
-		final double[] zCoords = GeffUtils.readAsDoubleArray( reader, path + "/nodes/props/z/values", "Z coordinates" );
-		verifyLength( zCoords, numNodes, "/nodes/props/z/values" );
+		// Read Z coordinates from chunks using dynamic axis name (optional)
+		final double[] zCoords;
+		final String zPropPath = path + "/nodes/props/" + zAxisName + "/values";
+		if ( spaceAxes.length > 2 && reader.datasetExists( zPropPath ) )
+		{
+			zCoords = GeffUtils.readAsDoubleArray( reader, zPropPath, "Z coordinates" );
+			verifyLength( zCoords, numNodes, zPropPath );
+		}
+		else
+		{
+			zCoords = null;
+		}
 
 		// Read color from chunks
 		final FlattenedDoubles colors = GeffUtils.readAsDoubleMatrix( reader, path + "/nodes/props/color/values", "color" );
@@ -1047,34 +1067,45 @@ public class GeffNode
 
 		final String path = N5URI.normalizeGroupPath( group );
 		final int numNodes = nodes.size();
+
+		// Determine axis names dynamically from metadata
+		// Fall back to standard names (t, x, y, z) if axes not defined
+		final String timeAxisName = metadata.getAxisNameByType( GeffAxis.TYPE_TIME );
+		final String[] spaceAxes = metadata.getAxisNamesByType( GeffAxis.TYPE_SPACE );
+		final String xAxisName = spaceAxes.length > 0 ? spaceAxes[ 0 ] : "x";
+		final String yAxisName = spaceAxes.length > 1 ? spaceAxes[ 1 ] : "y";
+		final String zAxisName = spaceAxes.length > 2 ? spaceAxes[ 2 ] : "z";
+
 		final Map< String, PropMetadata > metadataNodeProps = metadata.getNodePropsMetadata();
 		final boolean writeAllProps = metadataNodeProps == null;
 
 		// Write node IDs in chunks
 		GeffUtils.writeIntArray( nodes, GeffNode::getId, writer, path + "/nodes/ids", chunkSize );
 
-		// Write timepoints in chunks
-		if ( writeAllProps || metadataNodeProps.containsKey( "t" ) )
+		// Write timepoints in chunks using dynamic axis name
+		final String timePropName = timeAxisName != null ? timeAxisName : "t";
+		if ( writeAllProps || metadataNodeProps.containsKey( timePropName ) )
 		{
-			final PropMetadata timeMetadata = metadataNodeProps != null ? metadataNodeProps.get( "t" ) : null;
+			final PropMetadata timeMetadata = metadataNodeProps != null ? metadataNodeProps.get( timePropName ) : null;
 			final String timeDtype = timeMetadata != null ? timeMetadata.getDtype() : null;
+			final String timePropPath = path + "/nodes/props/" + timePropName + "/values";
 			if ( timeDtype != null && timeDtype.toLowerCase().startsWith( "float" ) )
-				GeffUtils.writeDoubleArray( nodes, node -> node.getT(), writer, path + "/nodes/props/t/values", chunkSize );
+				GeffUtils.writeDoubleArray( nodes, node -> node.getT(), writer, timePropPath, chunkSize );
 			else
-				GeffUtils.writeIntArray( nodes, GeffNode::getT, writer, path + "/nodes/props/t/values", chunkSize );
+				GeffUtils.writeIntArray( nodes, GeffNode::getT, writer, timePropPath, chunkSize );
 		}
 
-		// Write X coordinates in chunks
-		if ( writeAllProps || metadataNodeProps.containsKey( "x" ) )
-			GeffUtils.writeDoubleArray( nodes, GeffNode::getX, writer, path + "/nodes/props/x/values", chunkSize );
+		// Write X coordinates in chunks using dynamic axis name
+		if ( writeAllProps || metadataNodeProps.containsKey( xAxisName ) )
+			GeffUtils.writeDoubleArray( nodes, GeffNode::getX, writer, path + "/nodes/props/" + xAxisName + "/values", chunkSize );
 
-		// Write Y coordinates in chunks
-		if ( writeAllProps || metadataNodeProps.containsKey( "y" ) )
-			GeffUtils.writeDoubleArray( nodes, GeffNode::getY, writer, path + "/nodes/props/y/values", chunkSize );
+		// Write Y coordinates in chunks using dynamic axis name
+		if ( writeAllProps || metadataNodeProps.containsKey( yAxisName ) )
+			GeffUtils.writeDoubleArray( nodes, GeffNode::getY, writer, path + "/nodes/props/" + yAxisName + "/values", chunkSize );
 
-		// Write Z coordinates in chunks
-		if ( writeAllProps || metadataNodeProps.containsKey( "z" ) )
-			GeffUtils.writeDoubleArray( nodes, GeffNode::getZ, writer, path + "/nodes/props/z/values", chunkSize );
+		// Write Z coordinates in chunks using dynamic axis name
+		if ( writeAllProps || metadataNodeProps.containsKey( zAxisName ) )
+			GeffUtils.writeDoubleArray( nodes, GeffNode::getZ, writer, path + "/nodes/props/" + zAxisName + "/values", chunkSize );
 
 		// Write color in chunks
 		if ( writeAllProps || metadataNodeProps.containsKey( "color" ) )
@@ -1101,13 +1132,18 @@ public class GeffNode
 		// When writeAllProps=true (no nodePropsMetadata provided), populate metadata
 		// with the standard props so the output zarr passes Python structural
 		// validation (node_props_metadata is a required field in the Python spec).
+		// Use dynamic axis names from metadata if available.
 		if ( writeAllProps )
 		{
 			final Map< String, PropMetadata > nodePropsMap = new HashMap<>();
-			nodePropsMap.put( "t", new PropMetadata( "t", "int32", false, null, null, null ) );
-			nodePropsMap.put( "x", new PropMetadata( "x", "float64", false, null, null, null ) );
-			nodePropsMap.put( "y", new PropMetadata( "y", "float64", false, null, null, null ) );
-			nodePropsMap.put( "z", new PropMetadata( "z", "float64", false, null, null, null ) );
+			// Use dynamic axis names
+			nodePropsMap.put( timePropName, new PropMetadata( timePropName, "int32", false, null, null, null ) );
+			nodePropsMap.put( xAxisName, new PropMetadata( xAxisName, "float64", false, null, null, null ) );
+			nodePropsMap.put( yAxisName, new PropMetadata( yAxisName, "float64", false, null, null, null ) );
+			if ( spaceAxes.length > 2 )
+			{
+				nodePropsMap.put( zAxisName, new PropMetadata( zAxisName, "float64", false, null, null, null ) );
+			}
 			nodePropsMap.put( "color", new PropMetadata( "color", "float64", false, null, null, null ) );
 			nodePropsMap.put( trackletProp, new PropMetadata( trackletProp, "int32", false, null, null, null ) );
 			nodePropsMap.put( "radius", new PropMetadata( "radius", "float64", false, null, null, null ) );

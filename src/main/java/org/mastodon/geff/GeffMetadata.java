@@ -195,6 +195,46 @@ public class GeffMetadata
 	}
 
 	/**
+	 * Get the axis name for a given axis type.
+	 * Returns the name of the first axis matching the specified type, or null if no such axis exists.
+	 *
+	 * @param type the axis type (e.g., "time", "space", "channel")
+	 * @return the axis name, or null if no axis of the given type exists
+	 */
+	public String getAxisNameByType( String type )
+	{
+		if ( geffAxes != null )
+		{
+			for ( GeffAxis axis : geffAxes )
+			{
+				if ( type.equals( axis.getType() ) )
+				{
+					return axis.getName();
+				}
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Get all axis names for a given axis type.
+	 * Returns an array of names for all axes matching the specified type.
+	 *
+	 * @param type the axis type (e.g., "space" for all spatial axes)
+	 * @return array of axis names (empty array if no matching axes)
+	 */
+	public String[] getAxisNamesByType( String type )
+	{
+		if ( geffAxes == null )
+			return new String[ 0 ];
+
+		return Arrays.stream( geffAxes )
+				.filter( axis -> type.equals( axis.getType() ) )
+				.map( GeffAxis::getName )
+				.toArray( String[]::new );
+	}
+
+	/**
 	 * Validates the metadata according to the GEFF schema rules
 	 */
 	public void validate()
