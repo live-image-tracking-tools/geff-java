@@ -15,6 +15,7 @@ The **Graph Exchange File Format (GEFF)** is a standardized format for storing a
 - **Zarr Format 2** - Reads and writes [Zarr Format 2](https://zarr-specs.readthedocs.io/en/latest/v2/v2.0.html) only; Zarr Format 3 is not supported
 - **Complete data model** - Support for nodes (spatial-temporal features), edges (connections), and metadata
 - **Flexible metadata handling** - Axis-based metadata with GeffAxis objects; supports `time`, `space`, and `channel` axis types with any axis name
+- **Custom axis names** - Node property paths for coordinates (t/x/y/z) are derived from the axis names declared in metadata, so non-standard names such as `frame`, `cell_x`, `cell_y` work out of the box; standard names are used as fallbacks when axes are not declared
 - **Property metadata** - Full `node_props_metadata` / `edge_props_metadata` support as required by the v1 spec
 - **Variable-length properties** - Read and write properties with `varlength: true` (e.g. polygon coordinates per node)
 - **Type safety** - Strong typing with comprehensive validation; graceful skip with warning for unsupported types (`str`, `bytes`)
@@ -29,8 +30,10 @@ Represents nodes in tracking graphs with spatial and temporal attributes:
 - Spatial coordinates (x, y, z)
 - Segment identifiers (dynamic property name via metadata)
 - Additional properties: color, radius, covariance2d, covariance3d
-- Polygon geometry stored via `polygonX`/`polygonY` builder fields, serialized to `serialized_props/polygon/`
+- Polygon geometry stored as a varlength property under `nodes/props/polygon/`
 - Variable-length properties accessible via `getVarlengthProperty(name)` / `setVarlengthProperty(name, ...)`
+- Arbitrary scalar/vector properties accessible via `getProp(name)` / `setProp(name, value)` / `getProps()`
+- **Axis-aware I/O**: property paths for time and spatial coordinates are resolved from the axis names declared in `GeffMetadata`; falls back to `t`, `x`, `y`, `z` when no axes are defined
 - Builder pattern for convenient object construction
 - Chunked Zarr Format 2 I/O
 
@@ -55,6 +58,8 @@ Handles GEFF metadata with schema validation:
 - Node/edge property metadata maps (`nodePropsMetadata`, `edgePropsMetadata`)
 - Dynamic tracklet property name from `track_node_props["tracklet"]`
 - Graph properties (directed/undirected)
+- `getAxisNameByType(type)` – returns the name of the first axis matching a given type (e.g. `"time"`)
+- `getAxisNamesByType(type)` – returns all axis names matching a given type (e.g. all `"space"` axes in order)
 
 ### PropMetadata
 Describes a single node or edge property as required by the v1 spec:
@@ -166,6 +171,27 @@ GeffAxis[] axes = {
 };
 GeffMetadata metadata = new GeffMetadata("1.0.0", true, axes);
 GeffMetadata.writeToZarr(metadata, "/path/to/output.zarr/tracks");
+
+// Use custom axis names (e.g. "frame", "cell_x", "cell_y" instead of "t", "x", "y")
+// Node property paths are resolved from the axis names declared in metadata.
+GeffAxis[] customAxes = {
+    new GeffAxis("frame",  GeffAxis.TYPE_TIME,  "frame",  0.0, 500.0),
+    new GeffAxis("cell_x", GeffAxis.TYPE_SPACE, "pixel",  0.0, 1024.0),
+    new GeffAxis("cell_y", GeffAxis.TYPE_SPACE, "pixel",  0.0, 768.0)
+};
+GeffMetadata customMetadata = new GeffMetadata("1.0.0", true, customAxes);
+// GeffNode.writeToZarr will write to nodes/props/frame/values,
+// nodes/props/cell_x/values, nodes/props/cell_y/values automatically.
+GeffNode.writeToZarr(newNodes, "/path/to/output.zarr/tracks", customMetadata);
+GeffMetadata.writeToZarr(customMetadata, "/path/to/output.zarr/tracks");
+
+// When reading back, pass the metadata so axis names are resolved correctly:
+GeffMetadata readMetadata = GeffMetadata.readFromZarr("/path/to/output.zarr/tracks");
+List<GeffNode> readNodes = GeffNode.readFromZarr("/path/to/output.zarr/tracks", readMetadata);
+
+// Query axis names from metadata directly:
+String timeAxis  = readMetadata.getAxisNameByType("time");   // "frame"
+String[] spaceAxes = readMetadata.getAxisNamesByType("space"); // ["cell_x", "cell_y"]
 ```
 
 ## Building
@@ -216,10 +242,10 @@ dataset.zarr/
     ├── nodes/
     │   ├── ids/                    # Node IDs [N]
     │   ├── props/
-    │   │   ├── t/values            # Time points [N]
-    │   │   ├── x/values            # X coordinates [N]
-    │   │   ├── y/values            # Y coordinates [N]
-    │   │   ├── z/values            # Z coordinates [N] (optional)
+    │   │   ├── <t>/values          # Time points [N]   (name from axes[type=time], default "t")
+    │   │   ├── <x>/values          # X coordinates [N] (name from axes[type=space][0], default "x")
+    │   │   ├── <y>/values          # Y coordinates [N] (name from axes[type=space][1], default "y")
+    │   │   ├── <z>/values          # Z coordinates [N] (name from axes[type=space][2], default "z", optional)
     │   │   ├── color/values        # RGBA colors [N, 4] (optional)
     │   │   ├── radius/values       # Node radii [N] (optional)
     │   │   ├── <tracklet>/values   # Track IDs [N] (name from track_node_props, optional)
