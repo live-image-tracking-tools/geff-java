@@ -439,4 +439,62 @@ public class GeffTest
 			}, "Version " + version + " should be invalid" );
 		}
 	}
+
+	@Test
+	@DisplayName( "Test reading/writing with custom axis names (non-standard)" )
+	void testCustomAxisNames( @TempDir Path tempDir ) throws IOException
+	{
+		// Create metadata with custom axis names (like "frame", "cell_x", "cell_y")
+		final GeffMetadata metadata = new GeffMetadata( Geff.VERSION, true );
+
+		// Use custom axis names instead of standard t, x, y, z
+		final GeffAxis[] axes = {
+				new GeffAxis( "frame", GeffAxis.TYPE_TIME, "frame", 0.0, 100.0 ),
+				new GeffAxis( "cell_x", GeffAxis.TYPE_SPACE, "pixel", 0.0, 1024.0 ),
+				new GeffAxis( "cell_y", GeffAxis.TYPE_SPACE, "pixel", 0.0, 768.0 )
+		};
+		metadata.setGeffAxes( axes );
+
+		// Create test nodes
+		final List< GeffNode > nodes = new ArrayList<>();
+		for ( int i = 0; i < 3; i++ )
+		{
+			final GeffNode node = new GeffNode();
+			node.setId( i );
+			node.setT( i ); // timepoint stored as "frame"
+			node.setX( i * 10.0 ); // stored as "cell_x"
+			node.setY( i * 20.0 ); // stored as "cell_y"
+			node.setSegmentId( i + 100 );
+			nodes.add( node );
+		}
+
+		final String tempPath = tempDir.toString() + "/test-custom-axes.zarr/tracks";
+
+		// Write with custom axis names
+		GeffNode.writeToZarr( nodes, tempPath, metadata );
+		GeffMetadata.writeToZarr( metadata, tempPath );
+
+		// Read back and verify
+		final GeffMetadata readMetadata = GeffMetadata.readFromZarr( tempPath );
+		final List< GeffNode > readNodes = GeffNode.readFromZarr( tempPath, readMetadata );
+
+		// Verify metadata
+		assertEquals( 3, readMetadata.getGeffAxes().length );
+		assertEquals( "frame", readMetadata.getGeffAxes()[ 0 ].getName() );
+		assertEquals( GeffAxis.TYPE_TIME, readMetadata.getGeffAxes()[ 0 ].getType() );
+		assertEquals( "cell_x", readMetadata.getGeffAxes()[ 1 ].getName() );
+		assertEquals( "cell_y", readMetadata.getGeffAxes()[ 2 ].getName() );
+
+		// Verify node data
+		assertEquals( nodes.size(), readNodes.size() );
+		for ( int i = 0; i < nodes.size(); i++ )
+		{
+			final GeffNode expected = nodes.get( i );
+			final GeffNode actual = readNodes.get( i );
+			assertEquals( expected.getT(), actual.getT(), "timepoint mismatch at node " + i );
+			assertEquals( expected.getX(), actual.getX(), 1e-9, "x mismatch at node " + i );
+			assertEquals( expected.getY(), actual.getY(), 1e-9, "y mismatch at node " + i );
+			assertEquals( expected.getSegmentId(), actual.getSegmentId(), "segmentId mismatch at node " + i );
+		}
+	}
 }

@@ -20,3 +20,9 @@ buildNumber.properties
 
 # Cross-language test data
 cross-language-tests/data/*.zarr/
+
+# Eclipse stuff
+.classpath
+.project
+.settings/
+
