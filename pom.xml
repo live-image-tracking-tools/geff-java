@@ -5,7 +5,7 @@
     <parent>
         <groupId>org.scijava</groupId>
         <artifactId>pom-scijava</artifactId>
-        <version>40.0.0</version>
+        <version>44.0.0</version>
     </parent>
 
     <groupId>org.litt</groupId>
@@ -21,9 +21,12 @@
 
         <releaseProfiles>sign,deploy-to-scijava</releaseProfiles>
 
-        <enforcer.skip>true</enforcer.skip>
-		<imglib2.version>7.1.5</imglib2.version>
-        <logback.version>1.5.25</logback.version>
+		<scijava.jvm.version>21</scijava.jvm.version>
+
+		<imglib2.version>8.0.2-SNAPSHOT</imglib2.version>
+		<enforcer.skip>true</enforcer.skip>
+
+		<logback.version>1.5.25</logback.version>
 
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
         <sonar.java.coveragePlugin>jacoco</sonar.java.coveragePlugin>
@@ -49,6 +52,11 @@
     </licenses>
 
     <dependencies>
+		<dependency>
+			<groupId>net.imglib2</groupId>
+			<artifactId>imglib2</artifactId>
+		</dependency>
+
 		<dependency>
 			<groupId>org.janelia.saalfeldlab</groupId>
 			<artifactId>n5</artifactId>
