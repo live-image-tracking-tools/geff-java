@@ -3,6 +3,9 @@ package org.mastodon.geff.imglib2;
 import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.Sampler;
+import net.imglib2.converter.Converter;
+import net.imglib2.converter.RealTypeConverters;
+import net.imglib2.converter.read.ConvertedRandomAccess;
 import net.imglib2.img.array.ArrayImgs;
 import net.imglib2.type.NativeType;
 import net.imglib2.type.numeric.integer.IntType;
@@ -30,7 +33,7 @@ public class Playground {
     // -----------------------------------------------------------------------
     // client-side
     //
-    record Vertex(long id, double x) {
+    record Vertex(long id, double x, int t) {
     }
 
 
@@ -100,20 +103,29 @@ public class Playground {
 
             printAttributes(n5, "nodes/ids");
             printAttributes(n5, "nodes/props/x/values");
-//            printAttributes(n5, "nodes/props/covariance2d/values");
-//            printAttributes(n5, "nodes/props/covariance3d/values");
+            printAttributes(n5, "nodes/props/t/values");
+            printAttributes(n5, "nodes/props/covariance2d/values");
+            printAttributes(n5, "nodes/props/covariance3d/values");
 
             final RandomAccessibleInterval<UnsignedLongType> ids = N5Utils.open(n5, "nodes/ids");
             final RandomAccessibleInterval<DoubleType> xs = N5Utils.open(n5, "nodes/props/x/values");
+            final RandomAccessibleInterval<DoubleType> ts = N5Utils.open(n5, "nodes/props/t/values");
 
             final NodeData nodeData = new NodeData(ids);
             nodeData.addProperty("x", xs);
+            nodeData.addProperty("t", ts);
 
             final Sampler<UnsignedLongType> id = Cast.unchecked(nodeData.getPropertyAccess("id"));
             final Sampler<DoubleType> x = Cast.unchecked(nodeData.getPropertyAccess("x"));
+
+            // convert geff type to type requested by the client ...
+            final RandomAccess<DoubleType> tDouble = Cast.unchecked(nodeData.getPropertyAccess("t"));
+            final Converter<DoubleType, IntType> toIntConverter = RealTypeConverters.getConverter(tDouble.getType(), new IntType());
+            final Sampler<IntType> t = new ConvertedRandomAccess<>(tDouble, toIntConverter, IntType::new);
+
             for (int i = 0; i < nodeData.size(); i++) {
                 nodeData.nodeIndex(i);
-                nodes.add(new Vertex(id.get().get(), x.get().get()));
+                nodes.add(new Vertex(id.get().get(), x.get().get(), t.get().get()));
             }
 
             print(nodes);
@@ -124,20 +136,33 @@ public class Playground {
 
             final RandomAccessibleInterval<UnsignedLongType> ids = ArrayImgs.unsignedLongs(nodes.size());
             final RandomAccessibleInterval<DoubleType> xs = ArrayImgs.doubles(nodes.size());
+            final RandomAccessibleInterval<DoubleType> ts = ArrayImgs.doubles(nodes.size());
 
             final NodeData nodeData = new NodeData(ids);
             nodeData.addProperty("x", xs);
+            nodeData.addProperty("t", ts);
 
             final Sampler<UnsignedLongType> id = Cast.unchecked(nodeData.getPropertyAccess("id"));
             final Sampler<DoubleType> x = Cast.unchecked(nodeData.getPropertyAccess("x"));
+            final Sampler<DoubleType> t = Cast.unchecked(nodeData.getPropertyAccess("t"));
+
+            // convert client provided type to geff type ...
+            final Converter<IntType, DoubleType> toDoubleConverter = RealTypeConverters.getConverter(new IntType(), t.getType());
+            final IntType tInt = new IntType();
+
             for (int i = 0; i < nodes.size(); i++) {
                 nodeData.nodeIndex(i);
                 id.get().set(nodes.get(i).id());
                 x.get().set(nodes.get(i).x());
+
+                // convert client provided type to geff type ...
+                tInt.set(nodes.get(i).t());
+                toDoubleConverter.convert(tInt, t.get());
             }
 
             writeDataset(n5, "nodes/ids2", "<u8", ids);
             writeDataset(n5, "nodes/props/x/values2", "<f8", xs);
+            writeDataset(n5, "nodes/props/t/values2", "<f8", ts);
         }
     }
 
