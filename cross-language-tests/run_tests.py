@@ -89,7 +89,7 @@ def run_java_roundtrip(
 
     # Add library path if blosc is found
     if blosc_path:
-        cmd.append(f"-Djava.library.path={blosc_path}")
+        cmd.append(f"-Djna.library.path={blosc_path}")
 
     cmd.extend(
         [
