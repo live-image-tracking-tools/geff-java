@@ -5,6 +5,9 @@
 #     "geff",
 #     "zarr",
 # ]
+#
+# [tool.uv.sources]
+# geff = { path = "../../geff/packages/geff", editable = true }
 # ///
 """
 Cross-language round-trip tests for geff-java.
