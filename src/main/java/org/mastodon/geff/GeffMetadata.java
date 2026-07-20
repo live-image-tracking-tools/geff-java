@@ -81,6 +81,20 @@ public class GeffMetadata
 	private Map< String, String > trackNodeProps;
 
 	/**
+	 * The optional extra object is a free-form dictionary that can hold any
+	 * additional, application-specific metadata that is not covered by the core
+	 * geff schema. Users may place arbitrary keys and values inside extra
+	 * without fear of clashing with future reserved fields. Although the core
+	 * geff reader makes these attributes available, their meaning and use are
+	 * left entirely to downstream applications.
+	 *
+	 * @see <a href=
+	 *      "https://liveimagetrackingtools.org/geff/latest/specification/#geff_spec.GeffMetadata">GEFF
+	 *      Specification: extra</a>
+	 */
+	private Map< String, Object > extra;
+
+	/**
 	 * Default constructor
 	 */
 	public GeffMetadata()
@@ -192,6 +206,16 @@ public class GeffMetadata
 	public void setTrackNodeProps( final Map< String, String > trackNodeProps )
 	{
 		this.trackNodeProps = trackNodeProps;
+	}
+
+	public Map< String, Object > getExtra()
+	{
+		return extra;
+	}
+
+	public void setExtra( final Map< String, Object > extra )
+	{
+		this.extra = extra;
 	}
 
 	/**
@@ -318,10 +342,27 @@ public class GeffMetadata
 		}
 		LOG.debug( "found geff/track_node_props = {}", trackNodeProps );
 
+		// Extra may be null, so safe-read it
+		Map< String, Object > extra = null;
+		try
+		{
+			extra = reader.getAttribute( group, "geff/extra",
+					new TypeToken< Map< String, Object > >()
+					{}.getType() );
+		}
+		catch ( final Exception e )
+		{
+			// If the attribute cannot be parsed as Map<String, String> (e.g.,
+			// if it's null in JSON), just leave it as null
+			LOG.debug( "Could not parse geff/extra as Map<String,Object>, setting to null: {}", e.getMessage() );
+		}
+		LOG.debug( "found geff/extra = {}", extra );
+
 		final GeffMetadata metadata = new GeffMetadata( geffVersion, directed, axes );
 		metadata.setNodePropsMetadata( nodePropsMetadata );
 		metadata.setEdgePropsMetadata( edgePropsMetadata );
 		metadata.setTrackNodeProps( trackNodeProps );
+		metadata.setExtra( extra );
 		metadata.validate();
 
 		return metadata;
@@ -371,6 +412,12 @@ public class GeffMetadata
 		{
 			LOG.debug( "writing geff/track_node_props {}", trackNodeProps );
 			writer.setAttribute( group, "geff/track_node_props", trackNodeProps );
+		}
+
+		if ( extra != null )
+		{
+			LOG.debug( "writing geff/extra {}", extra );
+			writer.setAttribute( group, "geff/extra", extra );
 		}
 	}
 
