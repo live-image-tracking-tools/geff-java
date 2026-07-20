@@ -6,13 +6,13 @@
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -89,7 +89,7 @@ public class GeffMetadata
 	/**
 	 * Constructor with basic parameters
 	 */
-	public GeffMetadata( String geffVersion, boolean directed )
+	public GeffMetadata( final String geffVersion, final boolean directed )
 	{
 		setGeffVersion( geffVersion );
 		this.directed = directed;
@@ -98,7 +98,7 @@ public class GeffMetadata
 	/**
 	 * Constructor with all parameters
 	 */
-	public GeffMetadata( String geffVersion, boolean directed, GeffAxis[] geffAxes )
+	public GeffMetadata( final String geffVersion, final boolean directed, final GeffAxis[] geffAxes )
 	{
 		setGeffVersion( geffVersion );
 		this.directed = directed;
@@ -108,7 +108,7 @@ public class GeffMetadata
 	/**
 	 * Constructor with all parameters
 	 */
-	public GeffMetadata( String geffVersion, boolean directed, List< GeffAxis > geffAxes )
+	public GeffMetadata( final String geffVersion, final boolean directed, final List< GeffAxis > geffAxes )
 	{
 		setGeffVersion( geffVersion );
 		this.directed = directed;
@@ -121,7 +121,7 @@ public class GeffMetadata
 		return geffVersion;
 	}
 
-	public void setGeffVersion( String geffVersion )
+	public void setGeffVersion( final String geffVersion )
 	{
 		if ( geffVersion != null && !SUPPORTED_VERSIONS_PATTERN.matcher( geffVersion ).matches() )
 		{ throw new IllegalArgumentException(
@@ -137,7 +137,7 @@ public class GeffMetadata
 		return directed;
 	}
 
-	public void setDirected( boolean directed )
+	public void setDirected( final boolean directed )
 	{
 		this.directed = directed;
 	}
@@ -152,7 +152,7 @@ public class GeffMetadata
 		return ( geffAxes != null ) ? Arrays.asList( geffAxes ) : null;
 	}
 
-	public void setGeffAxes( GeffAxis[] geffAxes ) // TODO make List<GeffAxis>
+	public void setGeffAxes( final GeffAxis[] geffAxes ) // TODO make List<GeffAxis>
 	{
 		this.geffAxes = geffAxes != null ? geffAxes.clone() : null;
 		validate();
@@ -169,7 +169,7 @@ public class GeffMetadata
 		return nodePropsMetadata;
 	}
 
-	public void setNodePropsMetadata( Map< String, PropMetadata > nodePropsMetadata )
+	public void setNodePropsMetadata( final Map< String, PropMetadata > nodePropsMetadata )
 	{
 		this.nodePropsMetadata = nodePropsMetadata;
 	}
@@ -179,7 +179,7 @@ public class GeffMetadata
 		return edgePropsMetadata;
 	}
 
-	public void setEdgePropsMetadata( Map< String, PropMetadata > edgePropsMetadata )
+	public void setEdgePropsMetadata( final Map< String, PropMetadata > edgePropsMetadata )
 	{
 		this.edgePropsMetadata = edgePropsMetadata;
 	}
@@ -189,7 +189,7 @@ public class GeffMetadata
 		return trackNodeProps;
 	}
 
-	public void setTrackNodeProps( Map< String, String > trackNodeProps )
+	public void setTrackNodeProps( final Map< String, String > trackNodeProps )
 	{
 		this.trackNodeProps = trackNodeProps;
 	}
@@ -201,11 +201,11 @@ public class GeffMetadata
 	 * @param type the axis type (e.g., "time", "space", "channel")
 	 * @return the axis name, or null if no axis of the given type exists
 	 */
-	public String getAxisNameByType( String type )
+	public String getAxisNameByType( final String type )
 	{
 		if ( geffAxes != null )
 		{
-			for ( GeffAxis axis : geffAxes )
+			for ( final GeffAxis axis : geffAxes )
 			{
 				if ( type.equals( axis.getType() ) )
 				{
@@ -223,7 +223,7 @@ public class GeffMetadata
 	 * @param type the axis type (e.g., "space" for all spatial axes)
 	 * @return array of axis names (empty array if no matching axes)
 	 */
-	public String[] getAxisNamesByType( String type )
+	public String[] getAxisNamesByType( final String type )
 	{
 		if ( geffAxes == null )
 			return new String[ 0 ];
@@ -245,7 +245,7 @@ public class GeffMetadata
 		// Check spatial metadata consistency if position is provided
 		if ( geffAxes != null )
 		{
-			for ( GeffAxis axis : geffAxes )
+			for ( final GeffAxis axis : geffAxes )
 			{
 				if ( !Arrays.asList( GeffAxis.TYPE_TIME, GeffAxis.TYPE_SPACE, GeffAxis.TYPE_CHANNEL ).contains( axis.getType() ) )
 				{ throw new IllegalArgumentException(
@@ -387,7 +387,7 @@ public class GeffMetadata
 	{
 		if ( !( o instanceof GeffMetadata ) )
 			return false;
-		GeffMetadata that = ( GeffMetadata ) o;
+		final GeffMetadata that = ( GeffMetadata ) o;
 		return directed == that.directed && Objects.equals( geffVersion, that.geffVersion ) && Objects.deepEquals( geffAxes, that.geffAxes )
 				&& Objects.equals( nodePropsMetadata, that.nodePropsMetadata ) && Objects.equals( edgePropsMetadata, that.edgePropsMetadata )
 				&& Objects.equals( trackNodeProps, that.trackNodeProps );
