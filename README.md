@@ -155,11 +155,20 @@ newEdges.add(edge);
 // Write to Zarr format
 GeffEdge.writeToZarr(newEdges, "/path/to/output.zarr/tracks", "1.0.0");
 
-// Access variable-length properties after reading (e.g. per-node polygon)
+// Set variable-length properties per node (e.g. per-node polygon vertices).
+// Polygon data is stored as interleaved [x1, y1, x2, y2, ...] pairs.
+node0.setVarlengthProperty("polygon",
+    new VarlengthProperty("polygon", "float64",
+        new Object[]{1.0, 2.0, 3.0, 2.0, 2.0, 4.0})); // triangle: 3 vertices
+node1.setVarlengthProperty("polygon",
+    new VarlengthProperty("polygon", "float64",
+        new Object[]{5.0, 6.0, 7.0, 6.0, 7.0, 8.0, 5.0, 8.0})); // quad: 4 vertices
+
+// Access variable-length properties after reading
 List<GeffNode> readNodes = GeffNode.readFromZarr("/path/to/data.zarr/tracks");
 VarlengthProperty polygon = readNodes.get(0).getVarlengthProperty("polygon");
-if (polygon != null) {
-    Object nodeData = polygon.getNodeData(0); // double[] or int[] for node 0
+if (polygon != null && !polygon.isMissing()) {
+    Object[] nodeData = polygon.getData(); // values for this node
 }
 
 // Create metadata with axis information

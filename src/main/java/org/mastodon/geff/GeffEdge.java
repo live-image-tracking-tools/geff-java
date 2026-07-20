@@ -31,7 +31,6 @@ package org.mastodon.geff;
 import static org.mastodon.geff.GeffUtils.checkSupportedVersion;
 import static org.mastodon.geff.GeffUtils.verifyLength;
 
-import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -324,7 +323,7 @@ public class GeffEdge
 
 		// Read custom non-standard, non-varlength edge props from metadata
 		final Map< String, Object[] > customPropData = new HashMap<>();
-		final Map< String, VarlengthProperty > varlengthPropsMap = new HashMap<>();
+		final Map< String, VarlengthProperty[] > varlengthPropsMap = new HashMap<>();
 		if ( metadata != null && metadata.getEdgePropsMetadata() != null )
 		{
 			for ( final Map.Entry< String, PropMetadata > entry : metadata.getEdgePropsMetadata().entrySet() )
@@ -340,10 +339,10 @@ public class GeffEdge
 				{
 					// Varlength edge prop
 					final String propPath = path + "/edges/props/" + propName;
-					final VarlengthProperty vp = GeffUtils.readVarlengthProperty( reader, propPath, numEdges, propMeta );
-					if ( vp != null )
+					final VarlengthProperty[] perEdgeProps = GeffUtils.readVarlengthProperty( reader, propPath, numEdges, propMeta );
+					if ( perEdgeProps != null )
 					{
-						varlengthPropsMap.put( propName, vp );
+						varlengthPropsMap.put( propName, perEdgeProps );
 						LOG.debug( "Successfully read varlength edge property: {}", propName );
 					}
 				}
@@ -421,9 +420,13 @@ public class GeffEdge
 					edge.setProp( entry.getKey(), val );
 			}
 
-			// Set varlength props
-			for ( final Map.Entry< String, VarlengthProperty > entry : varlengthPropsMap.entrySet() )
-				edge.setVarlengthProperty( entry.getKey(), entry.getValue() );
+			// Set varlength props (each edge gets its own per-edge slice)
+			for ( final Map.Entry< String, VarlengthProperty[] > entry : varlengthPropsMap.entrySet() )
+			{
+				final VarlengthProperty edgeProp = entry.getValue()[ i ];
+				if ( edgeProp != null )
+					edge.setVarlengthProperty( entry.getKey(), edgeProp );
+			}
 
 			edges.add( edge );
 		}
@@ -616,7 +619,7 @@ public class GeffEdge
 				for ( int i = 0; i < numEdges; i++ )
 				{
 					final VarlengthProperty property = edges.get( i ).getVarlengthProperty( propName );
-					if ( property == null || property.isMissing( i ) )
+					if ( property == null || property.isMissing() )
 					{
 						edgeDataArrays[ i ] = null;
 						missing[ i ] = true;
@@ -626,30 +629,8 @@ public class GeffEdge
 					if ( dtype == null )
 						dtype = property.getDtype();
 
-					final Object edgeData = property.getNodeData( i );
-					if ( edgeData == null )
-					{
-						edgeDataArrays[ i ] = new Object[ 0 ];
-					}
-					else if ( edgeData.getClass().isArray() )
-					{
-						if ( edgeData instanceof Object[] )
-						{
-							edgeDataArrays[ i ] = ( Object[] ) edgeData;
-						}
-						else
-						{
-							final int length = Array.getLength( edgeData );
-							final Object[] converted = new Object[ length ];
-							for ( int j = 0; j < length; j++ )
-								converted[ j ] = Array.get( edgeData, j );
-							edgeDataArrays[ i ] = converted;
-						}
-					}
-					else
-					{
-						edgeDataArrays[ i ] = new Object[] { edgeData };
-					}
+					final Object[] edgeData = property.getData();
+					edgeDataArrays[ i ] = edgeData != null ? edgeData : new Object[ 0 ];
 				}
 
 				if ( dtype == null )

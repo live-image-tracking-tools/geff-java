@@ -6,13 +6,13 @@
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -32,14 +32,15 @@ import java.util.Arrays;
 import java.util.Objects;
 
 /**
- * Represents a variable-length property in the GEFF format. Each node can have
- * a different shape/length for the property value. The data is stored as a
- * single flattened array, with offset and shape information for each node.
- *
- * Format (from spec): - data: 1D array containing all flattened values
- * concatenated - values: (N, ndim+1) array where N is number of nodes, ndim is
- * dimensionality - First column: offset into the data array for that node's
- * data - Remaining columns: shape of that node's data
+ * Represents a variable-length property value for a single node or edge. Each
+ * instance holds the data for exactly one element; the length may differ
+ * between elements, which is the defining feature of a varlength property.
+ * <p>
+ * On-disk (Zarr), varlength data is stored as a flattened array with an offset
+ * table. That layout is an I/O implementation detail handled by
+ * {@link GeffUtils#readVarlengthProperty} and
+ * {@link GeffUtils#writeVarlengthProperty}; users of this class do not need to
+ * know about it.
  */
 public class VarlengthProperty
 {
@@ -49,36 +50,47 @@ public class VarlengthProperty
 
 	private final Object[] data;
 
-	private final long[][] offsets;
-
-	private final boolean[] missing;
+	private final boolean missing;
 
 	/**
-	 * Constructor for VarlengthProperty
+	 * Creates a non-missing varlength property for one node/edge.
 	 *
 	 * @param name
-	 *            Name of the property
+	 *            property name (e.g. {@code "polygon"})
 	 * @param dtype
-	 *            Data type of the property
+	 *            data type string (e.g. {@code "float64"})
 	 * @param data
-	 *            The raw data array that holds all values flattened
-	 * @param offsets
-	 *            Array of shape information for each node. offsets[i][0] is the
-	 *            offset, offsets[i][1:] are the dimensions
-	 * @param missing
-	 *            Boolean array indicating which nodes have missing values
+	 *            the values for this node/edge
 	 */
-	public VarlengthProperty( final String name, final String dtype, final Object[] data, final long[][] offsets, final boolean[] missing )
+	public VarlengthProperty( final String name, final String dtype, final Object[] data )
+	{
+		this( name, dtype, data, false );
+	}
+
+	/**
+	 * Creates a varlength property for one node/edge with an explicit missing
+	 * flag.
+	 *
+	 * @param name
+	 *            property name
+	 * @param dtype
+	 *            data type string
+	 * @param data
+	 *            the values for this node/edge; ignored when {@code missing} is
+	 *            {@code true}
+	 * @param missing
+	 *            {@code true} if this entry has no value
+	 */
+	public VarlengthProperty( final String name, final String dtype, final Object[] data, final boolean missing )
 	{
 		this.name = name;
 		this.dtype = dtype;
 		this.data = data;
-		this.offsets = offsets;
 		this.missing = missing;
 	}
 
 	/**
-	 * Get the name of the property
+	 * Returns the property name.
 	 */
 	public String getName()
 	{
@@ -86,7 +98,7 @@ public class VarlengthProperty
 	}
 
 	/**
-	 * Get the data type
+	 * Returns the data type string (e.g. {@code "float64"}, {@code "int32"}).
 	 */
 	public String getDtype()
 	{
@@ -94,7 +106,8 @@ public class VarlengthProperty
 	}
 
 	/**
-	 * Get the raw flattened data array
+	 * Returns the data values for this node/edge, or {@code null} when
+	 * {@link #isMissing()} is {@code true}.
 	 */
 	public Object[] getData()
 	{
@@ -102,90 +115,20 @@ public class VarlengthProperty
 	}
 
 	/**
-	 * Get offset and shape information for each node
-	 *
-	 * @return 2D array where [i][0] is offset, [i][1:] are dimensions for node
-	 *         i
+	 * Returns {@code true} when this entry has no value (missing-value
+	 * indicator).
 	 */
-	public long[][] getOffsets()
-	{
-		return offsets;
-	}
-
-	/**
-	 * Get missing value indicators
-	 */
-	public boolean[] getMissing()
+	public boolean isMissing()
 	{
 		return missing;
-	}
-
-	/**
-	 * Check if a specific node has a missing value
-	 *
-	 * @param nodeIndex
-	 *            Index of the node
-	 * @return true if the value is missing, false otherwise
-	 */
-	public boolean isMissing( final int nodeIndex )
-	{
-		if ( missing == null || nodeIndex < 0 || nodeIndex >= missing.length )
-		{ return false; }
-		return missing[ nodeIndex ];
-	}
-
-	/**
-	 * Get the data for a specific node
-	 *
-	 * @param nodeIndex
-	 *            Index of the node
-	 * @return Array of data for this node, or null if missing
-	 */
-	public Object getNodeData( final int nodeIndex )
-	{
-		if ( isMissing( nodeIndex ) )
-		{ return null; }
-
-		if ( nodeIndex < 0 || nodeIndex >= offsets.length )
-		{ return null; }
-
-		final long[] shapeInfo = offsets[ nodeIndex ];
-		if ( shapeInfo == null || shapeInfo.length < 1 )
-		{ return null; }
-
-		final long offset = shapeInfo[ 0 ];
-		final long[] shape = Arrays.copyOfRange( shapeInfo, 1, shapeInfo.length );
-
-		// Calculate total number of elements
-		long totalElements = 1;
-		for ( final long dim : shape )
-		{
-			totalElements *= dim;
-		}
-
-		if ( offset < 0 || offset + totalElements > data.length )
-		{
-			// Invalid offset/shape, return null
-			return null;
-		}
-
-		// Extract the slice of data
-		final Object[] nodeData = new Object[ ( int ) totalElements ];
-		System.arraycopy( data, ( int ) offset, nodeData, 0, ( int ) totalElements );
-
-		// If single element or 1D, return as-is; otherwise keep as array
-		if ( shape.length == 0 )
-		{ return nodeData.length > 0 ? nodeData[ 0 ] : null; }
-
-		return nodeData;
 	}
 
 	@Override
 	public String toString()
 	{
 		return String.format(
-				"VarlengthProperty{name='%s', dtype='%s', dataLength=%d, nodeCount=%d}",
-				name, dtype, data != null ? data.length : 0, offsets != null ? offsets.length : 0 );
+				"VarlengthProperty{name='%s', dtype='%s', length=%d, missing=%b}",
+				name, dtype, data != null ? data.length : 0, missing );
 	}
 
 	@Override
@@ -195,13 +138,18 @@ public class VarlengthProperty
 			return true;
 		if ( o == null || getClass() != o.getClass() )
 			return false;
-		VarlengthProperty that = ( VarlengthProperty ) o;
-		return Objects.equals( name, that.name ) && Objects.equals( dtype, that.dtype );
+		final VarlengthProperty that = ( VarlengthProperty ) o;
+		return missing == that.missing
+				&& Objects.equals( name, that.name )
+				&& Objects.equals( dtype, that.dtype )
+				&& Arrays.equals( data, that.data );
 	}
 
 	@Override
 	public int hashCode()
 	{
-		return Objects.hash( name, dtype );
+		int result = Objects.hash( name, dtype, missing );
+		result = 31 * result + Arrays.hashCode( data );
+		return result;
 	}
 }

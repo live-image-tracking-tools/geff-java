@@ -162,10 +162,11 @@ public class VarlengthPropertyWriteTest
 
 		try (final N5ZarrReader reader = new N5ZarrReader( zarrPath ))
 		{
-			final VarlengthProperty prop = GeffUtils.readVarlengthProperty( reader, "/props/test", 2, metadata );
-			assertNotNull( "Property should not be null", prop );
-			assertFalse( "Node 0 should not be missing", prop.isMissing( 0 ) );
-			assertFalse( "Node 1 should not be missing", prop.isMissing( 1 ) );
+			final VarlengthProperty[] props = GeffUtils.readVarlengthProperty( reader, "/props/test", 2, metadata );
+			assertNotNull( "Property array should not be null", props );
+			assertEquals( "Should have 2 per-node entries", 2, props.length );
+			assertFalse( "Node 0 should not be missing", props[ 0 ].isMissing() );
+			assertFalse( "Node 1 should not be missing", props[ 1 ].isMissing() );
 		}
 	}
 

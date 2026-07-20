@@ -620,26 +620,27 @@ public class GeffUtils
 	}
 
 	/**
-	 * Read a variable-length property from the zarr format
-	 * 
+	 * Read a variable-length property from the zarr format. Returns one
+	 * {@link VarlengthProperty} per node/edge, or {@code null} if the property
+	 * does not exist.
+	 *
 	 * @param reader
 	 *            N5Reader to read from
 	 * @param propPath
 	 *            Path to the property (e.g., /nodes/props/polygon)
 	 * @param numNodes
-	 *            Number of nodes in the graph
+	 *            Number of nodes/edges in the graph
 	 * @param metadata
 	 *            PropMetadata for the property (optional, for dtype info)
-	 * @return VarlengthProperty containing the varlength data, or null if
-	 *         property doesn't exist
+	 * @return array of per-node {@link VarlengthProperty}, or {@code null} if
+	 *         the property does not exist
 	 */
-	public static VarlengthProperty readVarlengthProperty(
+	public static VarlengthProperty[] readVarlengthProperty(
 			final N5Reader reader,
 			final String propPath,
 			final int numNodes,
 			final PropMetadata metadata )
 	{
-		// Check if the property exists
 		final String dataPath = propPath + "/data";
 		final String valuesPath = propPath + "/values";
 
@@ -651,7 +652,6 @@ public class GeffUtils
 
 		try
 		{
-			// Read the data array (flattened values)
 			final Object dataArray = readFully( reader, dataPath );
 			if ( dataArray == null )
 			{
@@ -659,9 +659,7 @@ public class GeffUtils
 				return null;
 			}
 
-			// Read the values array (offset and shape information)
-			// values shape is (numNodes, ndim+1) where first column is offset,
-			// rest are dims
+			// values shape is (ndim+1, numNodes): first row = offsets, rest = dims
 			final FlattenedInts valuesArray = readAsIntMatrix( reader, valuesPath, "varlength property values" );
 			if ( valuesArray == null )
 			{
@@ -669,11 +667,9 @@ public class GeffUtils
 				return null;
 			}
 
-			// Convert values array to long[][] for VarlengthProperty
 			final int[] valuesDims = valuesArray.size();
 			final int numColumns = valuesDims[ 0 ]; // ndim + 1
-			final int numRowsFromValues = valuesDims[ 1 ]; // should equal
-															// numNodes
+			final int numRowsFromValues = valuesDims[ 1 ];
 
 			if ( numRowsFromValues != numNodes )
 			{
@@ -681,18 +677,8 @@ public class GeffUtils
 				return null;
 			}
 
-			final long[][] offsets = new long[ numNodes ][];
-			for ( int i = 0; i < numNodes; i++ )
-			{
-				offsets[ i ] = new long[ numColumns ];
-				for ( int j = 0; j < numColumns; j++ )
-				{
-					offsets[ i ][ j ] = valuesArray.at( j, i );
-				}
-			}
-
-			// Read missing array if present
-			boolean[] missing = null;
+			// Read missing indicators if present
+			boolean[] missingFlags = null;
 			final String missingPath = propPath + "/missing";
 			if ( reader.datasetExists( missingPath ) )
 			{
@@ -701,9 +687,9 @@ public class GeffUtils
 					final byte[] missingBytes = ( byte[] ) readFully( reader, missingPath );
 					if ( missingBytes != null && missingBytes.length == numNodes )
 					{
-						missing = new boolean[ numNodes ];
+						missingFlags = new boolean[ numNodes ];
 						for ( int i = 0; i < numNodes; i++ )
-							missing[ i ] = missingBytes[ i ] != 0;
+							missingFlags[ i ] = missingBytes[ i ] != 0;
 						LOG.debug( "Varlength property {} has missing indicators", propPath );
 					}
 				}
@@ -713,18 +699,35 @@ public class GeffUtils
 				}
 			}
 
-			// Determine dtype from metadata if available
 			final String dtype = metadata != null ? metadata.getDtype() : "unknown";
-
-			// Use the property name from metadata; fall back to the last path segment
 			final String propName = ( metadata != null && metadata.getIdentifier() != null )
 					? metadata.getIdentifier()
 					: propPath.substring( propPath.lastIndexOf( '/' ) + 1 );
 
-			// Create and return VarlengthProperty
-			// Convert Object array to handle different data types properly
 			final Object[] convertedData = convertVarlengthData( dataArray, dtype );
-			return new VarlengthProperty( propName, dtype, convertedData, offsets, missing );
+
+			// Split bulk data into one VarlengthProperty per node/edge
+			final VarlengthProperty[] result = new VarlengthProperty[ numNodes ];
+			for ( int i = 0; i < numNodes; i++ )
+			{
+				final boolean isMissing = missingFlags != null && missingFlags[ i ];
+				if ( isMissing )
+				{
+					result[ i ] = new VarlengthProperty( propName, dtype, null, true );
+					continue;
+				}
+
+				final long offset = valuesArray.at( 0, i );
+				long totalElements = 1;
+				for ( int j = 1; j < numColumns; j++ )
+					totalElements *= valuesArray.at( j, i );
+
+				final Object[] nodeData = new Object[ ( int ) totalElements ];
+				if ( convertedData != null )
+					System.arraycopy( convertedData, ( int ) offset, nodeData, 0, ( int ) totalElements );
+				result[ i ] = new VarlengthProperty( propName, dtype, nodeData );
+			}
+			return result;
 		}
 		catch ( final Exception e )
 		{
