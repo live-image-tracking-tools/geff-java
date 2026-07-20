@@ -788,6 +788,15 @@ public class GeffUtils
 			}
 			return result;
 		}
+		else if ( dataArray instanceof byte[] )
+		{
+			// UINT8 data: convert signed Java bytes to unsigned integers (0–255)
+			final byte[] bArray = ( byte[] ) dataArray;
+			final Object[] result = new Object[ bArray.length ];
+			for ( int i = 0; i < bArray.length; i++ )
+				result[ i ] = bArray[ i ] & 0xFF;
+			return result;
+		}
 		else
 		{
 			// Unknown type, return as Object array if possible
@@ -886,7 +895,20 @@ public class GeffUtils
 		{
 			// Step 2: Write data array using declared dtype when available so the
 			// on-disk type matches the metadata (e.g. uint64 stays uint64).
-			final Object dataToWrite = convertObjectArrayToNativeArray( flattenedData, elementType, ( int ) currentOffset );
+			// For uint8 (e.g. UTF-8 byte labels), Integer elements are converted
+			// to a byte[] to avoid int-to-byte sign issues in SubArrayCopy.
+			final Object dataToWrite;
+			if ( "uint8".equalsIgnoreCase( declaredDtype ) && elementType instanceof Integer )
+			{
+				final byte[] bytes = new byte[ ( int ) currentOffset ];
+				for ( int i = 0; i < ( int ) currentOffset; i++ )
+					bytes[ i ] = ( byte ) ( ( Number ) flattenedData[ i ] ).intValue();
+				dataToWrite = bytes;
+			}
+			else
+			{
+				dataToWrite = convertObjectArrayToNativeArray( flattenedData, elementType, ( int ) currentOffset );
+			}
 			DataType dataType = declaredDtype != null
 					? dtypeStringToDataType( declaredDtype )
 					: inferDataType( dataToWrite );

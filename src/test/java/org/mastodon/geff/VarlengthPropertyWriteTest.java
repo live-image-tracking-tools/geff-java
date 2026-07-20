@@ -171,6 +171,54 @@ public class VarlengthPropertyWriteTest
 	}
 
 	@Test
+	public void testUint8LabelRoundTrip() throws Exception
+	{
+		final String zarrPath = TEST_OUTPUT_DIR + "/uint8_label.zarr";
+
+		// Encode UTF-8 labels (including multibyte characters) as uint8 Object[]
+		final String label0 = "cell_A";
+		final String label1 = "細胞_B";
+		final byte[] bytes0 = label0.getBytes( java.nio.charset.StandardCharsets.UTF_8 );
+		final byte[] bytes1 = label1.getBytes( java.nio.charset.StandardCharsets.UTF_8 );
+
+		final Object[][] nodeData = new Object[ 2 ][];
+		nodeData[ 0 ] = new Object[ bytes0.length ];
+		for ( int i = 0; i < bytes0.length; i++ )
+			nodeData[ 0 ][ i ] = bytes0[ i ] & 0xFF;
+		nodeData[ 1 ] = new Object[ bytes1.length ];
+		for ( int i = 0; i < bytes1.length; i++ )
+			nodeData[ 1 ][ i ] = bytes1[ i ] & 0xFF;
+
+		final boolean[] missing = { false, false };
+		final PropMetadata metadata = new PropMetadata( "label", "uint8", true, null, null, null );
+
+		try (final N5ZarrWriter writer = new N5ZarrWriter( zarrPath, true ))
+		{
+			GeffUtils.writeVarlengthProperty( writer, "/props/label", nodeData, missing, 1000, "uint8" );
+		}
+
+		try (final N5ZarrReader reader = new N5ZarrReader( zarrPath ))
+		{
+			final VarlengthProperty[] props = GeffUtils.readVarlengthProperty( reader, "/props/label", 2, metadata );
+			assertNotNull( props );
+
+			// Decode node 0: "cell_A"
+			final Object[] data0 = props[ 0 ].getData();
+			final byte[] decoded0 = new byte[ data0.length ];
+			for ( int i = 0; i < data0.length; i++ )
+				decoded0[ i ] = ( ( Number ) data0[ i ] ).byteValue();
+			assertEquals( label0, new String( decoded0, java.nio.charset.StandardCharsets.UTF_8 ) );
+
+			// Decode node 1: "細胞_B" (multibyte)
+			final Object[] data1 = props[ 1 ].getData();
+			final byte[] decoded1 = new byte[ data1.length ];
+			for ( int i = 0; i < data1.length; i++ )
+				decoded1[ i ] = ( ( Number ) data1[ i ] ).byteValue();
+			assertEquals( label1, new String( decoded1, java.nio.charset.StandardCharsets.UTF_8 ) );
+		}
+	}
+
+	@Test
 	public void testWriteIntArray() throws Exception
 	{
 		final String zarrPath = TEST_OUTPUT_DIR + "/int_array.zarr";

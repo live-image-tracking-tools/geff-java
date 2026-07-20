@@ -155,20 +155,31 @@ newEdges.add(edge);
 // Write to Zarr format
 GeffEdge.writeToZarr(newEdges, "/path/to/output.zarr/tracks", "1.0.0");
 
-// Set variable-length properties per node (e.g. per-node polygon vertices).
-// Polygon data is stored as interleaved [x1, y1, x2, y2, ...] pairs.
-node0.setVarlengthProperty("polygon",
-    new VarlengthProperty("polygon", "float64",
-        new Object[]{1.0, 2.0, 3.0, 2.0, 2.0, 4.0})); // triangle: 3 vertices
-node1.setVarlengthProperty("polygon",
-    new VarlengthProperty("polygon", "float64",
-        new Object[]{5.0, 6.0, 7.0, 6.0, 7.0, 8.0, 5.0, 8.0})); // quad: 4 vertices
+// Set a custom variable-length property per node.
+// Example: per-node UTF-8 label stored as uint8 byte array.
+// (Note: polygon vertices use the dedicated polygonX/polygonY fields instead.)
+String label0 = "cell_A";
+String label1 = "細胞_B"; // multibyte characters are supported via UTF-8 encoding
+byte[] bytes0 = label0.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+byte[] bytes1 = label1.getBytes(java.nio.charset.StandardCharsets.UTF_8);
 
-// Access variable-length properties after reading
+Object[] data0 = new Object[bytes0.length];
+for (int i = 0; i < bytes0.length; i++) data0[i] = bytes0[i] & 0xFF;
+
+Object[] data1 = new Object[bytes1.length];
+for (int i = 0; i < bytes1.length; i++) data1[i] = bytes1[i] & 0xFF;
+
+node0.setVarlengthProperty("label", new VarlengthProperty("label", "uint8", data0));
+node1.setVarlengthProperty("label", new VarlengthProperty("label", "uint8", data1));
+
+// Decode the label back after reading
 List<GeffNode> readNodes = GeffNode.readFromZarr("/path/to/data.zarr/tracks");
-VarlengthProperty polygon = readNodes.get(0).getVarlengthProperty("polygon");
-if (polygon != null && !polygon.isMissing()) {
-    Object[] nodeData = polygon.getData(); // values for this node
+VarlengthProperty labelProp = readNodes.get(0).getVarlengthProperty("label");
+if (labelProp != null && !labelProp.isMissing()) {
+    Object[] labelData = labelProp.getData();
+    byte[] labelBytes = new byte[labelData.length];
+    for (int i = 0; i < labelData.length; i++) labelBytes[i] = ((Number) labelData[i]).byteValue();
+    String label = new String(labelBytes, java.nio.charset.StandardCharsets.UTF_8);
 }
 
 // Create metadata with axis information
