@@ -32,6 +32,7 @@ import static org.mastodon.geff.GeffUtils.checkSupportedVersion;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -56,6 +57,7 @@ import com.google.gson.reflect.TypeToken;
  */
 public class GeffMetadata
 {
+
 	private static final Logger LOG = LoggerFactory.getLogger( GeffMetadata.class );
 
 	// Supported GEFF versions
@@ -93,6 +95,8 @@ public class GeffMetadata
 	 *      Specification: extra</a>
 	 */
 	private Map< String, Object > extra;
+
+	private DisplayHints displayHints;
 
 	/**
 	 * Default constructor
@@ -216,6 +220,16 @@ public class GeffMetadata
 	public void setExtra( final Map< String, Object > extra )
 	{
 		this.extra = extra;
+	}
+
+	public DisplayHints getDisplayHints()
+	{
+		return displayHints;
+	}
+
+	public void setDisplayHints( final DisplayHints displayHints )
+	{
+		this.displayHints = displayHints;
 	}
 
 	/**
@@ -342,6 +356,17 @@ public class GeffMetadata
 		}
 		LOG.debug( "found geff/track_node_props = {}", trackNodeProps );
 
+		// DisplayHints
+		DisplayHints displayHints = null;
+		try
+		{
+			displayHints = reader.getAttribute( group, "geff/display_hints", DisplayHints.class );
+		}
+		catch ( final Exception e )
+		{
+			LOG.debug( "Could not parse geff/display_hints as DisplayHints, setting to null: {}", e.getMessage() );
+		}
+
 		// Extra may be null, so safe-read it
 		Map< String, Object > extra = null;
 		try
@@ -362,6 +387,7 @@ public class GeffMetadata
 		metadata.setNodePropsMetadata( nodePropsMetadata );
 		metadata.setEdgePropsMetadata( edgePropsMetadata );
 		metadata.setTrackNodeProps( trackNodeProps );
+		metadata.setDisplayHints( displayHints );
 		metadata.setExtra( extra );
 		metadata.validate();
 
@@ -414,6 +440,12 @@ public class GeffMetadata
 			writer.setAttribute( group, "geff/track_node_props", trackNodeProps );
 		}
 
+		if ( displayHints != null )
+		{
+			LOG.debug( "writing geff/display_hints {}", displayHints );
+			writer.setAttribute( group, "geff/display_hints", displayHints );
+		}
+
 		if ( extra != null )
 		{
 			LOG.debug( "writing geff/extra {}", extra );
@@ -444,5 +476,51 @@ public class GeffMetadata
 	public int hashCode()
 	{
 		return Objects.hash( geffVersion, directed, Arrays.hashCode( geffAxes ), nodePropsMetadata, edgePropsMetadata, trackNodeProps );
+	}
+
+	/**
+	 * Display hints for GEFF
+	 *
+	 * @see <a href=
+	 *      "https://liveimagetrackingtools.org/geff/latest/reference/geff_spec/#geff_spec.DisplayHint">GEFF
+	 *      Specification: DisplayHint</a>
+	 * @author Jean-Yves Tinevez
+	 */
+	public static class DisplayHints
+	{
+
+		private final Map< String, String > hints = new HashMap<>();
+
+
+		/**
+		 * Which spatial axis to use for horizontal display.
+		 *
+		 * @param propName
+		 *            the name of the property to use for horizontal display.
+		 * @return
+		 */
+		public DisplayHints displayHorizontal( final String propName )
+		{
+			hints.put( "display_horizontal", propName );
+			return this;
+		}
+
+		public DisplayHints displayVertical( final String propName )
+		{
+			hints.put( "display_vertical", propName );
+			return this;
+		}
+
+		public DisplayHints displayDepth( final String propName )
+		{
+			hints.put( "display_depth", propName );
+			return this;
+		}
+
+		public DisplayHints displayTime( final String propName )
+		{
+			hints.put( "display_time", propName );
+			return this;
+		}
 	}
 }
