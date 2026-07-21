@@ -15,10 +15,6 @@ import java.util.function.ToLongFunction;
 
 public class Wrappers {
 
-    public interface PropertySupplier<O, T> extends GeffProperty<T> {
-        PropertySupplier<O, T> update(O obj);
-    }
-
     public static <O> PropertySupplier<O, UnsignedLongType> wrap(final String identifier, final ToLongFunction<O> supplier) {
         return scalar(identifier, UnsignedLongType::new, (p, obj) -> p.getAt().set(supplier.applyAsLong(obj)));
     }
@@ -59,6 +55,11 @@ public class Wrappers {
 
         private ScalarRandomAccessibleInterval(final Supplier<T> typeSupplier) {
             a = new ScalarRandomAccess<>(typeSupplier.get());
+        }
+
+        @Override
+        public T getType() {
+            return a.getType();
         }
 
         @Override

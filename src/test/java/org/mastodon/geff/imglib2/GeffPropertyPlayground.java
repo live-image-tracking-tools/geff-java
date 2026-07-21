@@ -2,9 +2,7 @@ package org.mastodon.geff.imglib2;
 
 import net.imglib2.Cursor;
 import net.imglib2.RandomAccessibleInterval;
-import net.imglib2.converter.Converter;
 import net.imglib2.converter.Converters;
-import net.imglib2.converter.RealTypeConverters;
 import net.imglib2.img.array.ArrayImgs;
 import net.imglib2.type.BooleanType;
 import net.imglib2.type.NativeType;
@@ -12,7 +10,6 @@ import net.imglib2.type.Type;
 import net.imglib2.type.logic.BoolType;
 import net.imglib2.type.numeric.integer.IntType;
 import net.imglib2.type.numeric.integer.UnsignedByteType;
-import net.imglib2.type.numeric.integer.UnsignedIntType;
 import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.type.numeric.real.DoubleType;
 import net.imglib2.util.Cast;
@@ -23,7 +20,6 @@ import org.janelia.saalfeldlab.n5.zarr.DType;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrWriter;
 import org.janelia.saalfeldlab.n5.zarr.ZarrDatasetAttributes;
-import org.mastodon.geff.imglib2.Wrappers.PropertySupplier;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -219,7 +215,7 @@ public class GeffPropertyPlayground {
             // source handles and properties
             final PropertySupplier<Vertex, UnsignedLongType> _id = Wrappers.wrap("id", Vertex::id);
             final PropertySupplier<Vertex, DoubleType> _x = Wrappers.wrap("x", Vertex::x);
-            final PropertySupplier<Vertex, IntType> _t = Wrappers.wrap("t", Vertex::t);
+            final PropertySupplier<Vertex, DoubleType> _t = Wrappers.wrap("t", Vertex::t).convert(DoubleType::new);
 
 //            final Converter<IntType, DoubleType> toDoubleConverter = RealTypeConverters.getConverter(new IntType(), t.getType());
 
@@ -227,14 +223,11 @@ public class GeffPropertyPlayground {
             for (int i = 0; i < nodes.size(); i++) {
 
                 final Vertex vertex = nodes.get(i);
-
                 nodeData.index(i);
+
                 id.set(_id.update(vertex));
                 x.set(_x.update(vertex));
-
-                // TODO: this should be done via converted source property
-//                ddata[0] = (double) vertex.t();
-//                t.set(_t);
+                t.set(_t.update(vertex));
             }
 
             // write populated data
