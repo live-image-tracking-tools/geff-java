@@ -32,7 +32,6 @@ import static org.mastodon.geff.GeffUtils.checkSupportedVersion;
 import static org.mastodon.geff.GeffUtils.verifyLength;
 
 import java.io.IOException;
-import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -810,8 +809,8 @@ public class GeffNode
 		double[][] polygonsX = null;
 		double[][] polygonsY = null;
 
-		// Read varlength properties
-		final Map< String, VarlengthProperty > varlengthPropsMap = new HashMap<>();
+		// Read varlength properties (one VarlengthProperty[] per property name)
+		final Map< String, VarlengthProperty[] > varlengthPropsMap = new HashMap<>();
 		if ( metadata.getNodePropsMetadata() != null )
 		{
 			for ( final String propName : metadata.getNodePropsMetadata().keySet() )
@@ -820,10 +819,10 @@ public class GeffNode
 				if ( propMeta != null && propMeta.getVarlength() != null && propMeta.getVarlength() )
 				{
 					final String propPath = path + "/nodes/props/" + propName;
-					final VarlengthProperty varlengthProp = GeffUtils.readVarlengthProperty( reader, propPath, numNodes, propMeta );
-					if ( varlengthProp != null )
+					final VarlengthProperty[] perNodeProps = GeffUtils.readVarlengthProperty( reader, propPath, numNodes, propMeta );
+					if ( perNodeProps != null )
 					{
-						varlengthPropsMap.put( propName, varlengthProp );
+						varlengthPropsMap.put( propName, perNodeProps );
 						LOG.debug( "Successfully read varlength property: {}", propName );
 					}
 				}
@@ -899,20 +898,20 @@ public class GeffNode
 		}
 
 		// Extract polygon from varlength map into polygonX/Y fields (v1 spec: nodes/props/polygon/).
-		// The VarlengthProperty stays in the map so nodes also expose it via getVarlengthProperty().
+		// The per-node VarlengthProperty stays in the map so nodes also expose it via getVarlengthProperty().
 		if ( varlengthPropsMap.containsKey( "polygon" ) )
 		{
-			final VarlengthProperty polygonProp = varlengthPropsMap.get( "polygon" );
+			final VarlengthProperty[] polygonProps = varlengthPropsMap.get( "polygon" );
 			polygonsX = new double[ numNodes ][];
 			polygonsY = new double[ numNodes ][];
 			for ( int i = 0; i < numNodes; i++ )
 			{
-				if ( !polygonProp.isMissing( i ) )
+				final VarlengthProperty prop = polygonProps[ i ];
+				if ( prop != null && !prop.isMissing() )
 				{
-					final Object nodeData = polygonProp.getNodeData( i );
-					if ( nodeData instanceof Object[] )
+					final Object[] flat = prop.getData();
+					if ( flat != null )
 					{
-						final Object[] flat = ( Object[] ) nodeData;
 						final int numVertices = flat.length / 2;
 						polygonsX[ i ] = new double[ numVertices ];
 						polygonsY[ i ] = new double[ numVertices ];
@@ -985,11 +984,12 @@ public class GeffNode
 			final double[] polygonY = polygonsY != null ? polygonsY[ i ] : null;
 			final GeffNode node = new GeffNode( id, t, x, y, z, color, segmentId, r, covariance2d, covariance3d, polygonX, polygonY );
 
-			// Add varlength properties to the node
+			// Add varlength properties to the node (each node gets its own slice)
 			for ( final String propName : varlengthPropsMap.keySet() )
 			{
-				final VarlengthProperty varlengthProp = varlengthPropsMap.get( propName );
-				node.setVarlengthProperty( propName, varlengthProp );
+				final VarlengthProperty nodeProp = varlengthPropsMap.get( propName )[ i ];
+				if ( nodeProp != null )
+					node.setVarlengthProperty( propName, nodeProp );
 			}
 
 			// Set custom non-standard props on the node
@@ -1173,7 +1173,7 @@ public class GeffNode
 				for ( int i = 0; i < numNodes; i++ )
 				{
 					final VarlengthProperty property = nodes.get( i ).getVarlengthProperty( propName );
-					if ( property == null || property.isMissing( i ) )
+					if ( property == null || property.isMissing() )
 					{
 						nodeDataArrays[ i ] = null;
 						missing[ i ] = true;
@@ -1181,36 +1181,10 @@ public class GeffNode
 					}
 
 					if ( dtype == null )
-					{
 						dtype = property.getDtype();
-					}
 
-					final Object nodeData = property.getNodeData( i );
-					if ( nodeData == null )
-					{
-						nodeDataArrays[ i ] = new Object[ 0 ];
-					}
-					else if ( nodeData.getClass().isArray() )
-					{
-						if ( nodeData instanceof Object[] )
-						{
-							nodeDataArrays[ i ] = ( Object[] ) nodeData;
-						}
-						else
-						{
-							final int length = Array.getLength( nodeData );
-							final Object[] converted = new Object[ length ];
-							for ( int j = 0; j < length; j++ )
-							{
-								converted[ j ] = Array.get( nodeData, j );
-							}
-							nodeDataArrays[ i ] = converted;
-						}
-					}
-					else
-					{
-						nodeDataArrays[ i ] = new Object[] { nodeData };
-					}
+					final Object[] nodeData = property.getData();
+					nodeDataArrays[ i ] = nodeData != null ? nodeData : new Object[ 0 ];
 				}
 
 				if ( dtype == null )
