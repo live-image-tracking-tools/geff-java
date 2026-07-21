@@ -374,7 +374,12 @@ public class GeffMetadata
 		DisplayHints displayHints = null;
 		try
 		{
-			displayHints = reader.getAttribute( group, "geff/display_hints", DisplayHints.class );
+			final Map< String, String > dhMap = reader.getAttribute( group, "geff/display_hints", Map.class );
+			if ( dhMap != null )
+			{
+				displayHints = new DisplayHints();
+				displayHints.hints.putAll( dhMap );
+			}
 		}
 		catch ( final Exception e )
 		{
@@ -471,7 +476,7 @@ public class GeffMetadata
 		if ( displayHints != null )
 		{
 			LOG.debug( "writing geff/display_hints {}", displayHints );
-			writer.setAttribute( group, "geff/display_hints", displayHints );
+			writer.setAttribute( group, "geff/display_hints", displayHints.hints );
 		}
 
 		if ( relatedObjects != null )
