@@ -124,6 +124,11 @@ class VarLengthProperty<T> implements GeffProperty<T> {
     }
 
     @Override
+    public void set(final GeffProperty<T> property) {
+        throw new UnsupportedOperationException("TODO");
+    }
+
+    @Override
     public String toString() {
         return GeffProperty.toString(this);
     }

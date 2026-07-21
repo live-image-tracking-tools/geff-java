@@ -44,6 +44,8 @@ public interface GeffProperty<T> {
      * For {@link #isVarlength() varlength} properties, the dimensions may be different for each node.
      * (However, the {@link #numDimensions()} number of dimensions never changes).
      */
+    // TODO: Revise. This should be default impl to forward to values().dimensions().
+    //       This requires to adapt GeffProperty implementations though ...
     Dimensions dimensions();
 
     // TODO optional DType (from geff file, must map to imglib2 type's primitive)
@@ -82,6 +84,7 @@ public interface GeffProperty<T> {
      * can be used for multithreaded access to the property values of the same
      * node/edge but cannot be positioned independently on different nodes.
      */
+    // TODO: remove?
     RandomAccess<T> randomAccess();
 
     /**
@@ -93,6 +96,12 @@ public interface GeffProperty<T> {
      * TODO: provides dimensions() + randomAccess()
      */
     RandomAccessibleInterval<T> values();
+
+    void set(final GeffProperty<T> property);
+
+    // ------------------------------------------------------------------------
+    // shortcuts
+    // ------------------------------------------------------------------------
 
     default T getAt() {
         return randomAccess().get();

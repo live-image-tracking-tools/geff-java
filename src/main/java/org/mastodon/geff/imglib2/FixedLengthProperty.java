@@ -1,12 +1,14 @@
 package org.mastodon.geff.imglib2;
 
+import net.imglib2.Cursor;
 import net.imglib2.Dimensions;
 import net.imglib2.FinalDimensions;
 import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.type.BooleanType;
+import net.imglib2.type.Type;
 
-class FixedLengthProperty<T> implements GeffProperty<T> {
+class FixedLengthProperty<T extends Type<T>> implements GeffProperty<T> {
 
     private final String identifier;
     private final boolean isOptional;
@@ -16,13 +18,13 @@ class FixedLengthProperty<T> implements GeffProperty<T> {
     private final Dimensions dimensions;
 
     private final RandomAccess<T> valuesAccess;
-    private final RandomAccess<BooleanType<?>> missingAccess;
+    private final RandomAccess<? extends BooleanType<?>> missingAccess;
     private final PropertyRAI<T> values;
 
     FixedLengthProperty(
             final String identifier,
             final RandomAccessibleInterval<T> propertyValues,
-            final RandomAccessibleInterval<BooleanType<?>> propertyMissing, // optional
+            final RandomAccessibleInterval<? extends BooleanType<?>> propertyMissing, // optional
             final ElementIndex sharedElementIndex
     ) {
         this.identifier = identifier;
@@ -39,7 +41,7 @@ class FixedLengthProperty<T> implements GeffProperty<T> {
                 throw new IllegalArgumentException("The \"missing\" array must be 1-dimensional");
             if (propertyMissing.dimension(0) != numElements)
                 throw new IllegalArgumentException("The \"missing\" array must contain the same number of rows as the \"values\" array");
-            final PropertySlice<BooleanType<?>> missingSlice = new PropertySlice<>(propertyMissing, elementIndex);
+            final PropertySlice<? extends BooleanType<?>> missingSlice = new PropertySlice<>(propertyMissing, elementIndex);
             missingAccess = missingSlice.randomAccess();
             isOptional = true;
         } else {
@@ -91,6 +93,37 @@ class FixedLengthProperty<T> implements GeffProperty<T> {
     @Override
     public RandomAccessibleInterval<T> values() {
         return values;
+    }
+
+    @Override
+    public void set(final GeffProperty<T> property) {
+
+        if (isOptional) {
+            final boolean missing = property.isMissing();
+            missingAccess.get().set(missing);
+            if(missing)
+                return;
+        }
+
+        final int n = numDimensions();
+        if (n == 0) {
+            values().randomAccess().get().set(property.getAt());
+        } else if (n == 1) {
+            final int w = (int) dimensions().dimension(0);
+            for (int x = 0; x < w; x++)
+                getAt(x).set(property.getAt(x));
+        } else if (n == 2) {
+            final int w = (int) dimensions().dimension(0);
+            final int h = (int) dimensions().dimension(1);
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                    getAt(x, y).set(property.getAt(x, y));
+        } else {
+            final Cursor<T> s = property.values().cursor();
+            final Cursor<T> t = values().cursor();
+            while (s.hasNext())
+                t.next().set(s.next());
+        }
     }
 
     @Override

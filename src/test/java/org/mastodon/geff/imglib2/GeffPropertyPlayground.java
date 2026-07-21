@@ -9,6 +9,7 @@ import net.imglib2.converter.RealTypeConverters;
 import net.imglib2.img.array.ArrayImgs;
 import net.imglib2.type.BooleanType;
 import net.imglib2.type.NativeType;
+import net.imglib2.type.Type;
 import net.imglib2.type.logic.BoolType;
 import net.imglib2.type.numeric.integer.IntType;
 import net.imglib2.type.numeric.integer.UnsignedByteType;
@@ -16,6 +17,7 @@ import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.type.numeric.real.DoubleType;
 import net.imglib2.util.Cast;
 import net.imglib2.util.Util;
+import org.janelia.saalfeldlab.n5.blosc.BloscCompression;
 import org.janelia.saalfeldlab.n5.imglib2.N5Utils;
 import org.janelia.saalfeldlab.n5.zarr.DType;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
@@ -80,31 +82,31 @@ public class GeffPropertyPlayground {
             return Cast.unchecked(nodeProperties.get(property));
         }
 
-        void addProperty(
+        <T extends Type<T>> void addProperty(
                 final String identifier,
-                final RandomAccessibleInterval<?> propertyValues ) {
+                final RandomAccessibleInterval<T> propertyValues ) {
             addProperty(identifier, propertyValues, null);
         }
 
-        void addProperty(
+        <T extends Type<T>> void addProperty(
                 final String identifier,
-                final RandomAccessibleInterval<?> propertyValues,
-                final RandomAccessibleInterval<BooleanType<?>> propertyMissing) {
+                final RandomAccessibleInterval<T> propertyValues,
+                final RandomAccessibleInterval<? extends BooleanType<?>> propertyMissing) {
             final GeffProperty<?> property = new FixedLengthProperty<>(identifier, propertyValues, propertyMissing, elementIndex);
             nodeProperties.put(identifier, property);
         }
 
-        void addVarLengthProperty(
+        <T extends Type<T>> void addVarLengthProperty(
                 final String identifier,
                 final RandomAccessibleInterval<UnsignedLongType> propertyValues,
-                final RandomAccessibleInterval<?> propertyData) {
+                final RandomAccessibleInterval<T> propertyData) {
             addVarLengthProperty(identifier, propertyValues, propertyData, null);
         }
 
-        void addVarLengthProperty(
+        <T extends Type<T>> void addVarLengthProperty(
                 final String identifier,
                 final RandomAccessibleInterval<UnsignedLongType> propertyValues,
-                final RandomAccessibleInterval<?> propertyData,
+                final RandomAccessibleInterval<T> propertyData,
                 final RandomAccessibleInterval<? extends BooleanType<?>> propertyMissing) {
             final GeffProperty<?> property = new VarLengthProperty<>(identifier, propertyValues, propertyData, propertyMissing, elementIndex);
             nodeProperties.put(identifier, property);
@@ -201,32 +203,46 @@ public class GeffPropertyPlayground {
         // write
         try (final N5ZarrWriter n5 = new N5ZarrWriter(path)) {
 
+            // allocate space for property data
             final RandomAccessibleInterval<UnsignedLongType> ids = ArrayImgs.unsignedLongs(nodes.size());
             final RandomAccessibleInterval<DoubleType> xs = ArrayImgs.doubles(nodes.size());
             final RandomAccessibleInterval<DoubleType> ts = ArrayImgs.doubles(nodes.size());
 
+            // set up target NodeData
             final NodeData nodeData = new NodeData(ids);
             nodeData.addProperty("x", xs);
             nodeData.addProperty("t", ts);
 
-            final Sampler<UnsignedLongType> id = nodeData.<UnsignedLongType>get("id").randomAccess();
-            final Sampler<DoubleType> x = nodeData.<DoubleType>get("x").randomAccess();
-            final Sampler<DoubleType> t = nodeData.<DoubleType>get("t").randomAccess();
+            // get target properties
+            final GeffProperty<UnsignedLongType> id = nodeData.get("id");
+            final GeffProperty<DoubleType> x = nodeData.get("x");
+            final GeffProperty<DoubleType> t = nodeData.get("t");
 
-            // convert client provided type to geff type ...
-            final Converter<IntType, DoubleType> toDoubleConverter = RealTypeConverters.getConverter(new IntType(), t.getType());
-            final IntType tInt = new IntType();
+            // source handles and properties
+            final long[] uldata = new long[1];
+            final double[] ddata = new double[1];
+            final GeffProperty<UnsignedLongType> _id = new FixedLengthProperty<>("id", ArrayImgs.unsignedLongs(uldata, 1), null, new ElementIndex());
+            final GeffProperty<DoubleType> _x = new FixedLengthProperty<>("x", ArrayImgs.doubles(ddata, 1), null, new ElementIndex());
+            final GeffProperty<DoubleType> _t = new FixedLengthProperty<>("t", ArrayImgs.doubles(ddata, 1), null, new ElementIndex());
 
+//            final Converter<IntType, DoubleType> toDoubleConverter = RealTypeConverters.getConverter(new IntType(), t.getType());
+
+            // iterate nodes and fill properties
             for (int i = 0; i < nodes.size(); i++) {
                 nodeData.index(i);
-                id.get().set(nodes.get(i).id());
-                x.get().set(nodes.get(i).x());
 
-                // convert client provided type to geff type ...
-                tInt.set(nodes.get(i).t());
-                toDoubleConverter.convert(tInt, t.get());
+                uldata[0] = nodes.get(i).id();
+                id.set(_id);
+
+                ddata[0] = nodes.get(i).x();
+                x.set(_x);
+
+                // TODO: this should be done via converted source property
+                ddata[0] = (double) nodes.get(i).t();
+                t.set(_t);
             }
 
+            // write populated data
             writeDataset(n5, "nodes/ids2", "<u8", ids);
             writeDataset(n5, "nodes/props/x/values2", "<f8", xs);
             writeDataset(n5, "nodes/props/t/values2", "<f8", ts);
@@ -240,11 +256,13 @@ public class GeffPropertyPlayground {
             final RandomAccessibleInterval<T> data) {
         final long[] dimensions = data.dimensionsAsLongArray();
         final int[] blockSize = Util.long2int(dimensions);
+//        final ZstandardCompression compression = new ZstandardCompression(0);
+        final BloscCompression compression = new BloscCompression("lz4", 5, 1, 0, 0);
         final ZarrDatasetAttributes attributes = new ZarrDatasetAttributes(
                 dimensions,
                 blockSize,
                 new DType(typestr, null),
-                new ZstandardCompression(0),
+                compression,
                 true,
                 "0"
         );
