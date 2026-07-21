@@ -17,7 +17,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
 
-public class VarLengthData<T extends NativeType<T>, A extends ArrayDataAccess<A>> implements NativeImg<T, A> {
+// TODO split off interface without <A> type parameter
+class VarLengthData<T extends NativeType<T>, A extends ArrayDataAccess<A>> implements NativeImg<T, A> {
 
     private static final int CHUNK_POT = 10;
     private static final int CHUNK_SIZE = 1 << CHUNK_POT;

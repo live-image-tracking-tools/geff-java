@@ -1,15 +1,17 @@
 package org.mastodon.geff.imglib2;
 
+import net.imglib2.Cursor;
 import net.imglib2.Dimensions;
 import net.imglib2.FinalDimensions;
 import net.imglib2.Point;
 import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.type.BooleanType;
+import net.imglib2.type.NativeType;
 import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.util.IntervalIndexer;
 
-class VarLengthProperty<T> implements GeffProperty<T> {
+class VarLengthWriteProperty<T extends NativeType<T>> implements GeffProperty<T> {
 
     private final String identifier;
     private final boolean isOptional;
@@ -19,6 +21,7 @@ class VarLengthProperty<T> implements GeffProperty<T> {
 
     private final RandomAccess<UnsignedLongType> valuesAccess;
     private final RandomAccess<? extends BooleanType<?>> missingAccess;
+    private final VarLengthData<T, ?> propertyData;
 
     // dataOffset[0] is the elementIndex for which dataOffset and dataDimensions are currently configured
     // dataOffset[1] is the current offset into the data array
@@ -26,14 +29,15 @@ class VarLengthProperty<T> implements GeffProperty<T> {
     private final long[] dataDimensions;
     private final PropertyRAI<T> values;
 
-    VarLengthProperty(
+    VarLengthWriteProperty(
             final String identifier,
             final RandomAccessibleInterval<UnsignedLongType> propertyValues,
-            final RandomAccessibleInterval<T> propertyData,
+            final VarLengthData<T, ?> propertyData,
             final RandomAccessibleInterval<? extends BooleanType<?>> propertyMissing, // optional
             final ElementIndex sharedElementIndex
     ) {
         this.identifier = identifier;
+        this.propertyData = propertyData;
         this.elementIndex = sharedElementIndex;
 
         numElements = propertyValues.dimension(propertyValues.numDimensions() - 1);
@@ -113,7 +117,36 @@ class VarLengthProperty<T> implements GeffProperty<T> {
 
     @Override
     public void set(final GeffProperty<T> property) {
-        throw new UnsupportedOperationException("TODO");
+        if (isOptional) {
+            final boolean missing = property.isMissing();
+            missingAccess.get().set(missing);
+            if(missing)
+                return;
+        }
+
+        final long index = elementIndex.index();
+        final long offset = propertyData.size();
+        dataOffset[0] = index;
+        dataOffset[1] = offset;
+        final int n = dataDimensions.length;
+        final Dimensions dims = property.dimensions();
+        for (int i = 1; i < n + 1; i++) {
+            final long dim = dims.dimension(i);
+            dataDimensions[n - i] = dim;
+            valuesAccess.setPositionAndGet(i).set(dim);
+        }
+
+        // TODO: reuse Cursor instances:
+        //   Override cursor() in values() implementations.
+        //   PropertyRAI
+        //   Wrappers.ScalarRandomAccessibleInterval
+        //
+        final int size = (int) property.values().size();
+        propertyData.growBy(size);
+        final Cursor<T> s = property.values().cursor();
+        final Cursor<T> t = values().cursor();
+        while (s.hasNext())
+            t.next().set(s.next());
     }
 
     @Override
