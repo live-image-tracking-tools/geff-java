@@ -9,7 +9,7 @@ import java.util.function.Supplier;
 
 class PropertyRAI<T> implements RandomAccessibleInterval<T> {
 
-    private final Supplier<Dimensions> dimensions;
+    final Supplier<Dimensions> dimensions;
     private final RandomAccess<T> randomAccess;
     private final int n;
 
@@ -21,6 +21,11 @@ class PropertyRAI<T> implements RandomAccessibleInterval<T> {
         this.dimensions = dimensions;
         this.randomAccess = randomAccess;
         n = dimensions.get().numDimensions();
+    }
+
+    @Override
+    public T getType() {
+        return randomAccess.getType();
     }
 
     @Override

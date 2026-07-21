@@ -175,9 +175,7 @@ public class GeffPropertyPlayground {
             final GeffProperty<DoubleType> x = nodeData.get("x");
 
             // convert geff type to type requested by the client ...
-            final GeffProperty<DoubleType> tDouble = nodeData.get("t");
-            final Converter<DoubleType, IntType> toIntConverter = RealTypeConverters.getConverter(tDouble.type(), new IntType());
-            final RandomAccessibleInterval<IntType> t = Converters.convert2(tDouble.values(), toIntConverter, IntType::new);
+            final GeffProperty<IntType> t = nodeData.get("t").convert(IntType::new);
 
             // varlength ...
             final RandomAccessibleInterval<UnsignedLongType> var_length = nodeData.<UnsignedLongType>get("var_length").values();
