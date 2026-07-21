@@ -99,8 +99,8 @@ class VarLengthWriteProperty<T extends NativeType<T>> implements GeffProperty<T>
             dataOffset[0] = index;
             dataOffset[1] = valuesAccess.setPositionAndGet(0).get();
             final int n = dataDimensions.length;
-            for (int i = 1; i < n + 1; i++) {
-                dataDimensions[n - i] = valuesAccess.setPositionAndGet(i).get();
+            for (int i = 0; i < n; i++) {
+                dataDimensions[n - 1 - i] = valuesAccess.setPositionAndGet(i + 1).get();
             }
         }
     }
@@ -128,12 +128,13 @@ class VarLengthWriteProperty<T extends NativeType<T>> implements GeffProperty<T>
         final long offset = propertyData.size();
         dataOffset[0] = index;
         dataOffset[1] = offset;
+        valuesAccess.setPositionAndGet(0).set(offset);
         final int n = dataDimensions.length;
         final Dimensions dims = property.dimensions();
-        for (int i = 1; i < n + 1; i++) {
+        for (int i = 0; i < n; i++) {
             final long dim = dims.dimension(i);
-            dataDimensions[n - i] = dim;
-            valuesAccess.setPositionAndGet(i).set(dim);
+            dataDimensions[n - 1 - i] = dim;
+            valuesAccess.setPositionAndGet(i + 1).set(dim);
         }
 
         // TODO: reuse Cursor instances:

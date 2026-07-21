@@ -8,6 +8,8 @@ import net.imglib2.Point;
 import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.converter.Converters;
+import net.imglib2.img.array.ArrayImgs;
+import net.imglib2.type.BooleanType;
 import net.imglib2.type.logic.BoolType;
 import net.imglib2.type.numeric.integer.UnsignedByteType;
 import net.imglib2.type.numeric.integer.UnsignedLongType;
@@ -24,143 +26,12 @@ import java.util.List;
 
 public class VarLengthPlayground {
 
-
-    // -----------------------------------------------------------------------
-    // client-side
-    //
-    record Vertex(long id, double x, int t) {
-    }
-
-
-    // -----------------------------------------------------------------------
-    // geff-java side
-    //
-    static class VarLengthData< T >
-    {
-        private final long numNodes;
-        private final int numDimensions;
-
-        private final List<SlicePosition> slicePositions = new ArrayList<>();
-
-        private final Slice<UnsignedLongType> valuesSlice;
-        private final Slice<BoolType> missingSlice;
-
-        private final RandomAccess<UnsignedLongType> valuesAccess;
-        private final RandomAccess<BoolType> missingAccess;
-
-        private final RandomAccessibleInterval<T> data;
-
-        private final long[] dataOffset;
-        private final long[] dataDimensions;
-        private final RA<T> ra;
-
-        VarLengthData(
-                final RandomAccessibleInterval<UnsignedLongType> values,
-                final RandomAccessibleInterval<BoolType> missing,
-                final RandomAccessibleInterval<T> data
-        ) {
-            // TODO: verify values.numDimensions() == 2
-            // TODO: verify missing.numDimensions() == 1
-
-            numNodes = values.dimension(1);
-            numDimensions = (int) values.dimension(0) - 1;
-
-            // TODO: verify missing.dimension(0) == numNodes
-
-            valuesSlice = Slice.slice(values, 1);
-            missingSlice = Slice.slice(missing, 0);
-
-            slicePositions.add(valuesSlice.slicePosition());
-            slicePositions.add(missingSlice.slicePosition());
-
-            valuesAccess = valuesSlice.randomAccess();
-            missingAccess = missingSlice.randomAccess();
-
-            this.data = data;
-            dataOffset = new long[1];
-            dataDimensions = new long[numDimensions];
-            ra = new RA<>(data.randomAccess(), dataOffset, dataDimensions);
-        }
-
-        long size() {
-            return numNodes;
-        }
-
-        int numDimensions() {
-            return numDimensions;
-        }
-
-        void nodeIndex(long index) {
-            if (index < 0 || index >= numNodes)
-                throw new IndexOutOfBoundsException(index + "(numNodes=" + numNodes + ")");
-            slicePositions.forEach(p -> p.setPosition(index, 0));
-
-            dataOffset[0] = valuesAccess.setPositionAndGet(0).get();
-            for (int i = 1; i < numDimensions + 1; i++) {
-                dataDimensions[numDimensions - i] = valuesAccess.setPositionAndGet(i).get();
-            }
-        }
-
-        Dimensions dimensions() {
-            return new FinalDimensions(ra.dataDimensions);
-        }
-
-        RandomAccess<T> randomAccess() {
-            return ra;
-        }
-
-        void print() {
-
-            final boolean isMissing = missingAccess.get().get();
-
-            System.out.println("  missing = " + isMissing);
-            System.out.println("  offset = " + ra.dataOffset[0]);
-            System.out.println("  shape = " + Arrays.toString(ra.dataDimensions));
-        }
-
-        private static class RA< T > extends Point implements RandomAccess< T >
-        {
-            private final RandomAccess< T > dataAccess;
-
-            private final long[] dataOffset;
-
-            private final long[] dataDimensions;
-
-            RA(final RandomAccess< T > dataAccess, long[] dataOffset, long[] dataDimensions)
-            {
-                super(dataDimensions.length);
-                this.dataAccess = dataAccess;
-                this.dataOffset = dataOffset;
-                this.dataDimensions = dataDimensions;
-            }
-
-            @Override
-            public T get()
-            {
-                final long index = dataOffset[0] + IntervalIndexer.positionToIndex(position, dataDimensions);
-                return dataAccess.setPositionAndGet( index );
-            }
-
-            @Override
-            public RandomAccess< T > copy()
-            {
-                return new RA<>( dataAccess.copy(), dataOffset, dataDimensions );
-            }
-        }
-
-    }
-
-
-
-
     // -----------------------------------------------------------------------
 
     public static void main(String[] args) {
         final String path = "cross-language-tests/data/varlength_original.zarr";
 
-        final List<Vertex> nodes = new ArrayList<>();
-
-        // read
+        // read and populate VarLengthWriteProperty
         try (final N5ZarrReader n5 = new N5ZarrReader(path)) {
 
 
@@ -172,27 +43,43 @@ public class VarLengthPlayground {
             printAttributes(n5, missingDataset);
             printAttributes(n5, dataDataset);
 
-            final RandomAccessibleInterval<UnsignedLongType> values = N5Utils.open(n5, valuesDataset);
-            final RandomAccessibleInterval<BoolType> missings = Converters.convert2(
-                    N5Utils.<UnsignedByteType>open(n5, missingDataset),
-                    (u, b) -> b.set(u.get() != 0),
-                    BoolType::new);
-            final RandomAccessibleInterval<UnsignedLongType> data = N5Utils.open(n5, dataDataset);
+            final ElementIndex readIndex = new ElementIndex();
+            final GeffProperty<UnsignedLongType> readProperty;
+            {
+                final RandomAccessibleInterval<UnsignedLongType> values = N5Utils.open(n5, valuesDataset);
+                final RandomAccessibleInterval<BoolType> missings = Converters.convert2(
+                        N5Utils.<UnsignedByteType>open(n5, missingDataset),
+                        (u, b) -> b.set(u.get() != 0),
+                        BoolType::new);
+                final RandomAccessibleInterval<UnsignedLongType> data = N5Utils.open(n5, dataDataset);
+                readProperty = new VarLengthProperty<>("var_length", values, data, missings, readIndex);
+            }
 
-            VarLengthData<UnsignedLongType> varlength = new VarLengthData<>(values, missings, data);
-            System.out.println("varlength.size() = " + varlength.size());
-            System.out.println("varlength.numDimensions() = " + varlength.numDimensions());
+            final long numDimensions = readProperty.numDimensions();
+            final long numElements = readProperty.numElements();
 
-            for (int i = 0; i < varlength.size(); i++) {
+            final ElementIndex writeIndex = new ElementIndex();
+            final RandomAccessibleInterval<UnsignedLongType> writeValues = ArrayImgs.unsignedLongs(numDimensions + 1, numElements);
+            final RandomAccessibleInterval<? extends BooleanType<?>> writeMissings = ArrayImgs.booleans(numElements);
+            final VarLengthData<UnsignedLongType, ?> writeData = new VarLengthData<>(new UnsignedLongType());
+            final GeffProperty<UnsignedLongType> writeProperty = new VarLengthWriteProperty<>("var_length", writeValues, writeData, writeMissings, writeIndex);
+
+
+            for (int i = 0; i < numElements; i++) {
+                readIndex.index(i);
                 System.out.println("node " + i + ":");
-                varlength.nodeIndex(i);
-                varlength.print();
+                System.out.println("  missing = " + readProperty.isMissing());
+                System.out.println("  dimensions = " + Arrays.toString(readProperty.dimensions().dimensionsAsLongArray()));
 
-                final RandomAccess<UnsignedLongType> ra = varlength.randomAccess();
-                RandomAccessibleInterval<Localizable> positions = Intervals.positions(new FinalInterval(varlength.dimensions()));
-                positions.forEach(r -> {
-                    System.out.println(r + ": " + ra.setPositionAndGet(r));
-                });
+
+                writeIndex.index(i);
+                writeProperty.set(readProperty);
+
+//                final RandomAccess<UnsignedLongType> ra = readProperty.randomAccess();
+//                RandomAccessibleInterval<Localizable> positions = Intervals.positions(new FinalInterval(readProperty.dimensions()));
+//                positions.forEach(r -> {
+//                    System.out.println(r + ": " + ra.setPositionAndGet(r));
+//                });
             }
         }
     }
@@ -204,8 +91,5 @@ public class VarLengthPlayground {
         System.out.println("  dimensions=\"" + Arrays.toString(attributes.getDimensions()) + "\"");
     }
 
-    private static void print(final List<Vertex> nodes) {
-        nodes.forEach(System.out::println);
-    }
 
 }
