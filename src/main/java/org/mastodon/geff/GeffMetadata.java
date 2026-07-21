@@ -31,6 +31,7 @@ package org.mastodon.geff;
 import static org.mastodon.geff.GeffUtils.checkSupportedVersion;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -97,6 +98,8 @@ public class GeffMetadata
 	private Map< String, Object > extra;
 
 	private DisplayHints displayHints;
+
+	private RelatedObjects relatedObjects;
 
 	/**
 	 * Default constructor
@@ -230,6 +233,16 @@ public class GeffMetadata
 	public void setDisplayHints( final DisplayHints displayHints )
 	{
 		this.displayHints = displayHints;
+	}
+
+	public void setRelatedObjects( final RelatedObjects relatedObjects )
+	{
+		this.relatedObjects = relatedObjects;
+	}
+
+	public RelatedObjects getRelatedObjects()
+	{
+		return relatedObjects;
 	}
 
 	/**
@@ -367,6 +380,17 @@ public class GeffMetadata
 			LOG.debug( "Could not parse geff/display_hints as DisplayHints, setting to null: {}", e.getMessage() );
 		}
 
+		// RelatedObjects
+		RelatedObjects relatedObjects = null;
+		try
+		{
+			relatedObjects = reader.getAttribute( group, "geff/related_objects", RelatedObjects.class );
+		}
+		catch ( final Exception e )
+		{
+			LOG.debug( "Could not parse geff/related_objects as RelatedObjects, setting to null: {}", e.getMessage() );
+		}
+
 		// Extra may be null, so safe-read it
 		Map< String, Object > extra = null;
 		try
@@ -388,6 +412,7 @@ public class GeffMetadata
 		metadata.setEdgePropsMetadata( edgePropsMetadata );
 		metadata.setTrackNodeProps( trackNodeProps );
 		metadata.setDisplayHints( displayHints );
+		metadata.setRelatedObjects( relatedObjects );
 		metadata.setExtra( extra );
 		metadata.validate();
 
@@ -444,6 +469,12 @@ public class GeffMetadata
 		{
 			LOG.debug( "writing geff/display_hints {}", displayHints );
 			writer.setAttribute( group, "geff/display_hints", displayHints );
+		}
+
+		if ( relatedObjects != null )
+		{
+			LOG.debug( "writing geff/related_objects {}", relatedObjects.relatedObjects );
+			writer.setAttribute( group, "geff/related_objects", relatedObjects.relatedObjects );
 		}
 
 		if ( extra != null )
@@ -520,6 +551,59 @@ public class GeffMetadata
 		public DisplayHints displayTime( final String propName )
 		{
 			hints.put( "display_time", propName );
+			return this;
+		}
+	}
+
+	/**
+	 * A set of metadata for data that is associated with the graph. The types
+	 * 'labels' and 'image' should be used for label and image objects,
+	 * respectively. Other types are also allowed.
+	 *
+	 * @see <a
+	 *      href=https://liveimagetrackingtools.org/geff/latest/reference/geff_spec/#geff_spec.RelatedObject>GEFF
+	 *      Specification: RelatedObject</a>
+	 * @author Jean-Yves Tinevez
+	 */
+	public static class RelatedObjects
+	{
+
+		private final List< Map< String, String > > relatedObjects = new ArrayList<>();
+
+		/**
+		 * Add a related object of type 'labels' with the specified path and
+		 * label property.
+		 *
+		 * @param path
+		 *            Path of the labels within the zarr group, relative to the
+		 *            geff zarr-attributes file. It is strongly recommended all
+		 *            related objects are stored as siblings of the geff group
+		 *            within the top-level zarr group.
+		 * @param labelProp
+		 *            Property name for label objects. This is the node property
+		 *            that will be used to identify the labels in the related
+		 *            object.
+		 * @return this RelatedObject instance for method chaining.
+		 */
+		public RelatedObjects labels( final String path, final String labelProp )
+		{
+			relatedObjects.add( Map.of( "type", "labels", "path", path, "label_prop", labelProp ) );
+			return this;
+		}
+
+		/**
+		 * Add a related object of type 'image' with the specified path.
+		 *
+		 * @param path
+		 *            Path of the image within the zarr group, relative to the
+		 *            geff zarr-attributes file. It is strongly recommended all
+		 *            related objects are stored as siblings of the geff group
+		 *            within the top-level zarr group.
+		 * @return this RelatedObject instance for method chaining.
+		 */
+		public RelatedObjects image( final String path )
+		{
+			relatedObjects.add( Map.of( "type", "image", "path", path ) );
 			return this;
 		}
 	}
