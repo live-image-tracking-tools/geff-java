@@ -27,7 +27,7 @@ public interface GeffProperty<T> {
      * Returns the ImgLib2 type of this property
      */
     default T type() {
-        return randomAccess().getType();
+        return values().getType();
     }
 
     /**
@@ -44,9 +44,9 @@ public interface GeffProperty<T> {
      * For {@link #isVarlength() varlength} properties, the dimensions may be different for each node.
      * (However, the {@link #numDimensions()} number of dimensions never changes).
      */
-    // TODO: Revise. This should be default impl to forward to values().dimensions().
-    //       This requires to adapt GeffProperty implementations though ...
-    Dimensions dimensions();
+    default Dimensions dimensions() {
+        return values();
+    }
 
     // TODO optional DType (from geff file, must map to imglib2 type's primitive)
 
@@ -85,7 +85,9 @@ public interface GeffProperty<T> {
      * node/edge but cannot be positioned independently on different nodes.
      */
     // TODO: remove?
-    RandomAccess<T> randomAccess();
+    default RandomAccess<T> randomAccess() {
+        return values().randomAccess();
+    }
 
     /**
      * Returns {@code true} if the property is missing for the current node.
@@ -104,21 +106,25 @@ public interface GeffProperty<T> {
     // ------------------------------------------------------------------------
 
     default T getAt() {
-        return randomAccess().get();
+        final RandomAccess<T> a = values().randomAccess();
+        return a.get();
     }
 
     default T getAt(final int p0) {
-        randomAccess().setPosition(p0, 0);
-        return getAt();
+        final RandomAccess<T> a = values().randomAccess();
+        a.setPosition(p0, 0);
+        return a.get();
     }
 
     default T getAt(final int p0, final int p1) {
-        randomAccess().setPosition(p1, 1);
-        return getAt(p0);
+        final RandomAccess<T> a = values().randomAccess();
+        a.setPosition(p0, 0);
+        a.setPosition(p1, 1);
+        return a.get();
     }
 
     default T getAt(final int... position) {
-        return randomAccess().setPositionAndGet(position);
+        return values().randomAccess().setPositionAndGet(position);
     }
 
     // ------------------------------------------------------------------------

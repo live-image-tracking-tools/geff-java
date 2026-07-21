@@ -15,9 +15,7 @@ class FixedLengthProperty<T extends Type<T>> implements GeffProperty<T> {
 
     private final long numElements;
     private final ElementIndex elementIndex;
-    private final Dimensions dimensions;
 
-    private final RandomAccess<T> valuesAccess;
     private final RandomAccess<? extends BooleanType<?>> missingAccess;
     private final PropertyRAI<T> values;
 
@@ -32,9 +30,9 @@ class FixedLengthProperty<T extends Type<T>> implements GeffProperty<T> {
 
         numElements = propertyValues.dimension(propertyValues.numDimensions() - 1);
         final PropertySlice<T> valuesSlice = new PropertySlice<>(propertyValues, elementIndex);
-        dimensions = new FinalDimensions(valuesSlice);
-        valuesAccess = valuesSlice.randomAccess();
-        values = new PropertyRAI<>(dimensions, valuesAccess);
+        final RandomAccess<T> valuesAccess = valuesSlice.randomAccess();
+        final FinalDimensions valuesDimensions = new FinalDimensions(valuesSlice);
+        values = new PropertyRAI<>(valuesDimensions, valuesAccess);
 
         if (propertyMissing != null) {
             if (propertyMissing.numDimensions() != 1)
@@ -66,11 +64,6 @@ class FixedLengthProperty<T extends Type<T>> implements GeffProperty<T> {
     }
 
     @Override
-    public Dimensions dimensions() {
-        return dimensions;
-    }
-
-    @Override
     public long numElements() {
         return numElements;
     }
@@ -78,11 +71,6 @@ class FixedLengthProperty<T extends Type<T>> implements GeffProperty<T> {
     @Override
     public ElementIndex elementIndex() {
         return elementIndex;
-    }
-
-    @Override
-    public RandomAccess<T> randomAccess() {
-        return valuesAccess;
     }
 
     @Override

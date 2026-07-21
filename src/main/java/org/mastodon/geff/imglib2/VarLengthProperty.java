@@ -9,6 +9,8 @@ import net.imglib2.type.BooleanType;
 import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.util.IntervalIndexer;
 
+import java.util.Random;
+
 class VarLengthProperty<T> implements GeffProperty<T> {
 
     private final String identifier;
@@ -16,7 +18,6 @@ class VarLengthProperty<T> implements GeffProperty<T> {
 
     private final long numElements;
     private final ElementIndex elementIndex;
-    private final Dimensions dimensions;
 
     private final RandomAccess<UnsignedLongType> valuesAccess;
     private final RandomAccess<? extends BooleanType<?>> missingAccess;
@@ -25,7 +26,6 @@ class VarLengthProperty<T> implements GeffProperty<T> {
     // dataOffset[1] is the current offset into the data array
     private final long[] dataOffset;
     private final long[] dataDimensions;
-    private final RA ra;
     private final PropertyRAI<T> values;
 
     VarLengthProperty(
@@ -39,9 +39,7 @@ class VarLengthProperty<T> implements GeffProperty<T> {
         this.elementIndex = sharedElementIndex;
 
         numElements = propertyValues.dimension(propertyValues.numDimensions() - 1);
-        final PropertySlice<UnsignedLongType> valuesSlice = new PropertySlice<>(propertyValues, elementIndex);
-        System.out.println("valuesSlice.numDimensions() = " + valuesSlice.numDimensions());
-        valuesAccess = valuesSlice.randomAccess();
+        valuesAccess = new PropertySlice<>(propertyValues, elementIndex).randomAccess();
 
         if (propertyMissing != null) {
             if (propertyMissing.numDimensions() != 1)
@@ -59,9 +57,12 @@ class VarLengthProperty<T> implements GeffProperty<T> {
         dataOffset = new long[]{-1, -1};
         final int numDimensions = (int) propertyValues.dimension(0) - 1;
         dataDimensions = new long[numDimensions];
-        ra = new RA(propertyData.randomAccess());
-        dimensions = FinalDimensions.wrap(dataDimensions);
-        values = new PropertyRAI<>(this::dimensions, ra);
+        final Dimensions dimensions = FinalDimensions.wrap(dataDimensions);
+        final RandomAccess<T> randomAccess = new RA(propertyData.randomAccess());
+        values = new PropertyRAI<>(() -> {
+            updateDataOffset();
+            return dimensions;
+        }, randomAccess);
     }
 
     @Override
@@ -77,12 +78,6 @@ class VarLengthProperty<T> implements GeffProperty<T> {
     @Override
     public boolean isOptional() {
         return isOptional;
-    }
-
-    @Override
-    public Dimensions dimensions() {
-        updateDataOffset();
-        return dimensions;
     }
 
     @Override
@@ -106,11 +101,6 @@ class VarLengthProperty<T> implements GeffProperty<T> {
                 dataDimensions[n - i] = valuesAccess.setPositionAndGet(i).get();
             }
         }
-    }
-
-    @Override
-    public RandomAccess<T> randomAccess() {
-        return ra;
     }
 
     @Override
