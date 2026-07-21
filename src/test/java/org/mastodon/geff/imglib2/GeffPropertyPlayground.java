@@ -1,5 +1,8 @@
 package org.mastodon.geff.imglib2;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
 import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.Sampler;
@@ -166,14 +169,16 @@ public class GeffPropertyPlayground {
                 nodeData.addVarLengthProperty("var_length", values, data, missings);
             }
 
-
-            final Sampler<UnsignedLongType> id = Cast.unchecked(nodeData.get("id").randomAccess());
-            final Sampler<DoubleType> x = Cast.unchecked(nodeData.get("x").randomAccess());
+            final Sampler<UnsignedLongType> id = nodeData.<UnsignedLongType>get("id").randomAccess();
+            final Sampler<DoubleType> x = nodeData.<DoubleType>get("x").randomAccess();
 
             // convert geff type to type requested by the client ...
             final RandomAccess<DoubleType> tDouble = Cast.unchecked(nodeData.get("t").randomAccess());
             final Converter<DoubleType, IntType> toIntConverter = RealTypeConverters.getConverter(tDouble.getType(), new IntType());
             final Sampler<IntType> t = new ConvertedRandomAccess<>(tDouble, toIntConverter, IntType::new);
+
+            // varlength
+            final GeffProperty<DoubleType> varLengthProp = nodeData.get("var_length");
 
             for (int i = 0; i < nodeData.size(); i++) {
                 nodeData.index(i);
@@ -186,7 +191,7 @@ public class GeffPropertyPlayground {
         }
 
         // write
-        try (final N5ZarrWriter n5 = new N5ZarrWriter(path)) {
+        try (final N5ZarrWriter n5 = new N5ZarrWriter(path, new GsonBuilder().setPrettyPrinting())) {
 
             final RandomAccessibleInterval<UnsignedLongType> ids = ArrayImgs.unsignedLongs(nodes.size());
             final RandomAccessibleInterval<DoubleType> xs = ArrayImgs.doubles(nodes.size());
@@ -217,6 +222,10 @@ public class GeffPropertyPlayground {
             writeDataset(n5, "nodes/ids2", "<u8", ids);
             writeDataset(n5, "nodes/props/x/values2", "<f8", xs);
             writeDataset(n5, "nodes/props/t/values2", "<f8", ts);
+
+            final JsonElement attributes = null;
+            Gson gson = n5.getGson();
+            gson.toJson(attributes).getBytes();
         }
     }
 
