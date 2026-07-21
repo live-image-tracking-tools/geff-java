@@ -26,6 +26,7 @@ class VarLengthProperty<T> implements GeffProperty<T> {
     private final long[] dataOffset;
     private final long[] dataDimensions;
     private final RA ra;
+    private final PropertyRAI<T> values;
 
     VarLengthProperty(
             final String identifier,
@@ -59,9 +60,8 @@ class VarLengthProperty<T> implements GeffProperty<T> {
         final int numDimensions = (int) propertyValues.dimension(0) - 1;
         dataDimensions = new long[numDimensions];
         ra = new RA(propertyData.randomAccess());
-
         dimensions = FinalDimensions.wrap(dataDimensions);
-        updateDataOffset();
+        values = new PropertyRAI<>(this::dimensions, ra);
     }
 
     @Override
@@ -81,11 +81,12 @@ class VarLengthProperty<T> implements GeffProperty<T> {
 
     @Override
     public Dimensions dimensions() {
+        updateDataOffset();
         return dimensions;
     }
 
     @Override
-    public long size() {
+    public long numElements() {
         return numElements;
     }
 
@@ -115,6 +116,11 @@ class VarLengthProperty<T> implements GeffProperty<T> {
     @Override
     public boolean isMissing() {
         return isOptional && missingAccess.get().get();
+    }
+
+    @Override
+    public RandomAccessibleInterval<T> values() {
+        return values;
     }
 
     @Override

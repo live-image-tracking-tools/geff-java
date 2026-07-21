@@ -1,15 +1,11 @@
 package org.mastodon.geff.imglib2;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonElement;
-import net.imglib2.RandomAccess;
+import net.imglib2.Cursor;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.Sampler;
 import net.imglib2.converter.Converter;
 import net.imglib2.converter.Converters;
 import net.imglib2.converter.RealTypeConverters;
-import net.imglib2.converter.read.ConvertedRandomAccess;
 import net.imglib2.img.array.ArrayImgs;
 import net.imglib2.type.BooleanType;
 import net.imglib2.type.NativeType;
@@ -40,7 +36,11 @@ public class GeffPropertyPlayground {
     // -----------------------------------------------------------------------
     // client-side
     //
-    record Vertex(long id, double x, int t) {
+    record Vertex(long id, double x, int t, long[] vl) {
+        @Override
+        public String toString() {
+            return "Vertex[id=" + id + ", x=" + x + ", t=" + t + ", vl=" + Arrays.toString(vl) + "]";
+        }
     }
 
 
@@ -63,7 +63,7 @@ public class GeffPropertyPlayground {
         }
 
         long size() {
-            return id.size();
+            return id.numElements();
         }
 
         long index() {
@@ -169,20 +169,28 @@ public class GeffPropertyPlayground {
                 nodeData.addVarLengthProperty("var_length", values, data, missings);
             }
 
-            final Sampler<UnsignedLongType> id = nodeData.<UnsignedLongType>get("id").randomAccess();
-            final Sampler<DoubleType> x = nodeData.<DoubleType>get("x").randomAccess();
+            final GeffProperty<UnsignedLongType> id = nodeData.get("id");
+            final GeffProperty<DoubleType> x = nodeData.get("x");
 
             // convert geff type to type requested by the client ...
-            final RandomAccess<DoubleType> tDouble = Cast.unchecked(nodeData.get("t").randomAccess());
-            final Converter<DoubleType, IntType> toIntConverter = RealTypeConverters.getConverter(tDouble.getType(), new IntType());
-            final Sampler<IntType> t = new ConvertedRandomAccess<>(tDouble, toIntConverter, IntType::new);
+            final GeffProperty<DoubleType> tDouble = nodeData.get("t");
+            final Converter<DoubleType, IntType> toIntConverter = RealTypeConverters.getConverter(tDouble.type(), new IntType());
+            final RandomAccessibleInterval<IntType> t = Converters.convert2(tDouble.values(), toIntConverter, IntType::new);
 
-            // varlength
-            final GeffProperty<DoubleType> varLengthProp = nodeData.get("var_length");
+            // varlength ...
+            final RandomAccessibleInterval<UnsignedLongType> var_length = nodeData.<UnsignedLongType>get("var_length").values();
 
             for (int i = 0; i < nodeData.size(); i++) {
                 nodeData.index(i);
-                nodes.add(new Vertex(id.get().get(), x.get().get(), t.get().get()));
+
+                // varlength ...
+                final int len = (int) var_length.size();
+                final long[] vldata = new long[len];
+                final Cursor<UnsignedLongType> c = var_length.cursor();
+                for (int j = 0; j < len; j++)
+                    vldata[j] = c.next().get();
+
+                nodes.add(new Vertex(id.getAt().get(), x.getAt().get(), t.getAt().get(), vldata));
             }
 
             print(nodes);
@@ -191,7 +199,7 @@ public class GeffPropertyPlayground {
         }
 
         // write
-        try (final N5ZarrWriter n5 = new N5ZarrWriter(path, new GsonBuilder().setPrettyPrinting())) {
+        try (final N5ZarrWriter n5 = new N5ZarrWriter(path)) {
 
             final RandomAccessibleInterval<UnsignedLongType> ids = ArrayImgs.unsignedLongs(nodes.size());
             final RandomAccessibleInterval<DoubleType> xs = ArrayImgs.doubles(nodes.size());
@@ -222,10 +230,6 @@ public class GeffPropertyPlayground {
             writeDataset(n5, "nodes/ids2", "<u8", ids);
             writeDataset(n5, "nodes/props/x/values2", "<f8", xs);
             writeDataset(n5, "nodes/props/t/values2", "<f8", ts);
-
-            final JsonElement attributes = null;
-            Gson gson = n5.getGson();
-            gson.toJson(attributes).getBytes();
         }
     }
 

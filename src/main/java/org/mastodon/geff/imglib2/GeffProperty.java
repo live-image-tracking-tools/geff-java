@@ -2,6 +2,7 @@ package org.mastodon.geff.imglib2;
 
 import net.imglib2.Dimensions;
 import net.imglib2.RandomAccess;
+import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.util.Intervals;
 
 public interface GeffProperty<T> {
@@ -56,7 +57,7 @@ public interface GeffProperty<T> {
      * queried. This defines the range valid {@link #elementIndex() element
      * indices}.
      */
-    long size();
+    long numElements();
 
     /**
      * Get the {@code ElementIndex}.
@@ -87,6 +88,29 @@ public interface GeffProperty<T> {
      * Returns {@code true} if the property is missing for the current node.
      */
     boolean isMissing();
+
+    /**
+     * TODO: provides dimensions() + randomAccess()
+     */
+    RandomAccessibleInterval<T> values();
+
+    default T getAt() {
+        return randomAccess().get();
+    }
+
+    default T getAt(final int p0) {
+        randomAccess().setPosition(p0, 0);
+        return getAt();
+    }
+
+    default T getAt(final int p0, final int p1) {
+        randomAccess().setPosition(p1, 1);
+        return getAt(p0);
+    }
+
+    default T getAt(final int... position) {
+        return randomAccess().setPositionAndGet(position);
+    }
 
     // ------------------------------------------------------------------------
     // Utilities

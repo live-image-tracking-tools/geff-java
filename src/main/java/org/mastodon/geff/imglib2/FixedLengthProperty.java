@@ -17,6 +17,7 @@ class FixedLengthProperty<T> implements GeffProperty<T> {
 
     private final RandomAccess<T> valuesAccess;
     private final RandomAccess<BooleanType<?>> missingAccess;
+    private final PropertyRAI<T> values;
 
     FixedLengthProperty(
             final String identifier,
@@ -31,6 +32,7 @@ class FixedLengthProperty<T> implements GeffProperty<T> {
         final PropertySlice<T> valuesSlice = new PropertySlice<>(propertyValues, elementIndex);
         dimensions = new FinalDimensions(valuesSlice);
         valuesAccess = valuesSlice.randomAccess();
+        values = new PropertyRAI<>(dimensions, valuesAccess);
 
         if (propertyMissing != null) {
             if (propertyMissing.numDimensions() != 1)
@@ -67,7 +69,7 @@ class FixedLengthProperty<T> implements GeffProperty<T> {
     }
 
     @Override
-    public long size() {
+    public long numElements() {
         return numElements;
     }
 
@@ -84,6 +86,11 @@ class FixedLengthProperty<T> implements GeffProperty<T> {
     @Override
     public boolean isMissing() {
         return isOptional && missingAccess.get().get();
+    }
+
+    @Override
+    public RandomAccessibleInterval<T> values() {
+        return values;
     }
 
     @Override
