@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
@@ -384,7 +385,9 @@ public class GeffMetadata
 		RelatedObjects relatedObjects = null;
 		try
 		{
-			relatedObjects = reader.getAttribute( group, "geff/related_objects", RelatedObjects.class );
+			final List< Map< String, String > > roMap = reader.getAttribute( group, "geff/related_objects", List.class );
+			relatedObjects = new RelatedObjects();
+			relatedObjects.relatedObjects.addAll( roMap );
 		}
 		catch ( final Exception e )
 		{
@@ -605,6 +608,14 @@ public class GeffMetadata
 		{
 			relatedObjects.add( Map.of( "type", "image", "path", path ) );
 			return this;
+		}
+
+		public List< String > getImagePaths()
+		{
+			return relatedObjects.stream()
+					.filter( obj -> "image".equals( obj.get( "type" ) ) )
+					.map( obj -> obj.get( "path" ) )
+					.collect( Collectors.toList() );
 		}
 	}
 }
