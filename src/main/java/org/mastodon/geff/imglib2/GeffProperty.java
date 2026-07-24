@@ -79,30 +79,21 @@ public interface GeffProperty<T> {
     ElementIndex elementIndex();
 
     /**
-     * Get the {@code RandomAccess<T>} through which values of this property can be accessed.
-     * <p>
-     * Note that currently, implementations of this method always return the
-     * same {@code RandomAccess<T>} instance. This is for convenience so that we
-     * don't have to pass around pairs of ({@code GeffProperty<T>} and  {@code
-     * RandomAccess<T>} all the time.
-     * <p>
-     * It is possible to {@link RandomAccess#copy copy} the RandomAccess, but note that
-     * The copy shares the {@code ElementIndex} of this node. That is, copies
-     * can be used for multithreaded access to the property values of the same
-     * node/edge but cannot be positioned independently on different nodes.
-     */
-    // TODO: remove?
-    default RandomAccess<T> randomAccess() {
-        return values().randomAccess();
-    }
-
-    /**
      * Returns {@code true} if the property is missing for the current node.
      */
     boolean isMissing();
 
     /**
-     * TODO: provides dimensions() + randomAccess()
+     * Provides the {@code RandomAccess<T>} through which values of this
+     * property can be accessed, as well as the {@code Dimensions} of the
+     * property.
+     * <p>
+     * Note that currently, {@code values().randomAccess()} always return the
+     * same {@code RandomAccess<T>} instance. It is possible to {@link
+     * RandomAccess#copy copy} the RandomAccess, but note that The copy shares
+     * the {@code ElementIndex} of this node. That is, copies can be used for
+     * multithreaded access to the property values of the same node/edge but
+     * cannot be positioned independently on different nodes.
      */
     RandomAccessibleInterval<T> values();
 
@@ -158,17 +149,6 @@ public interface GeffProperty<T> {
     // ------------------------------------------------------------------------
     // Utilities
     // ------------------------------------------------------------------------
-
-//    /**
-//     * Create independent copy of this {@code }GeffProperty}.
-//     * <p>
-//     * The copy shares the {@code ElementIndex} of this node. That is, copies
-//     * can be used for multithreaded access to the property values of the same
-//     * node/edge but cannot be positioned independently on different nodes.
-//     */
-//    GeffProperty<T> copy();
-    // --> We can just use randomAccess().copy() ... this will have the same effect
-    // TODO copy() with a provided ElementIndex ?
 
     static String toString(final GeffProperty<?> p) {
         final String optional = p.isOptional() ? ", optional" : "";
