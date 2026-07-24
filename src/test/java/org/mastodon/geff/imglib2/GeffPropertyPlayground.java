@@ -14,6 +14,7 @@ import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.type.numeric.real.DoubleType;
 import net.imglib2.util.Cast;
 import net.imglib2.util.Util;
+import org.janelia.saalfeldlab.n5.RawCompression;
 import org.janelia.saalfeldlab.n5.blosc.BloscCompression;
 import org.janelia.saalfeldlab.n5.imglib2.N5Utils;
 import org.janelia.saalfeldlab.n5.zarr.DType;
@@ -198,14 +199,11 @@ public class GeffPropertyPlayground {
         try (final N5ZarrWriter n5 = new N5ZarrWriter(path)) {
 
             // allocate space for property data
-            final RandomAccessibleInterval<UnsignedLongType> ids = ArrayImgs.unsignedLongs(nodes.size());
-            final RandomAccessibleInterval<DoubleType> xs = ArrayImgs.doubles(nodes.size());
-            final RandomAccessibleInterval<DoubleType> ts = ArrayImgs.doubles(nodes.size());
 
             // set up target NodeData
-            final NodeData nodeData = new NodeData(ids);
-            nodeData.addProperty("x", xs);
-            nodeData.addProperty("t", ts);
+            final NodeData nodeData = new NodeData(ArrayImgs.unsignedLongs(nodes.size()));
+            nodeData.addProperty("x", ArrayImgs.doubles(nodes.size()));
+            nodeData.addProperty("t", ArrayImgs.doubles(nodes.size()));
 
             // get target properties
             final GeffProperty<UnsignedLongType> id = nodeData.get("id");
@@ -230,10 +228,10 @@ public class GeffPropertyPlayground {
                 t.set(_t.update(vertex));
             }
 
-            // write populated data
-            writeDataset(n5, "nodes/ids2", "<u8", ids);
-            writeDataset(n5, "nodes/props/x/values2", "<f8", xs);
-            writeDataset(n5, "nodes/props/t/values2", "<f8", ts);
+            final BloscCompression compression = new BloscCompression("lz4", 5, 1, 0, 0);
+            ((FixedLengthProperty<?>) id).write(n5, ElementType.NODE, null, true, compression, null);
+            ((FixedLengthProperty<?>) x).write(n5, ElementType.NODE, null, false, compression, null);
+            ((FixedLengthProperty<?>) t).write(n5, ElementType.NODE, null, false, compression, null);
         }
     }
 

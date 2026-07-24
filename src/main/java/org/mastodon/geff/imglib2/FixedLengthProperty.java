@@ -1,12 +1,21 @@
 package org.mastodon.geff.imglib2;
 
 import net.imglib2.Cursor;
-import net.imglib2.Dimensions;
 import net.imglib2.FinalDimensions;
 import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessibleInterval;
+import net.imglib2.converter.Converters;
 import net.imglib2.type.BooleanType;
+import net.imglib2.type.NativeType;
 import net.imglib2.type.Type;
+import net.imglib2.type.numeric.integer.UnsignedByteType;
+import net.imglib2.util.Cast;
+import net.imglib2.util.Util;
+import org.janelia.saalfeldlab.n5.Compression;
+import org.janelia.saalfeldlab.n5.imglib2.N5Utils;
+import org.janelia.saalfeldlab.n5.zarr.DType;
+import org.janelia.saalfeldlab.n5.zarr.N5ZarrWriter;
+import org.janelia.saalfeldlab.n5.zarr.ZarrDatasetAttributes;
 
 class FixedLengthProperty<T extends Type<T>> implements GeffProperty<T> {
 
@@ -18,6 +27,9 @@ class FixedLengthProperty<T extends Type<T>> implements GeffProperty<T> {
 
     private final RandomAccess<? extends BooleanType<?>> missingAccess;
     private final PropertyRAI<T> values;
+
+    final RandomAccessibleInterval<T> valuesRAI; // for IO
+    final RandomAccessibleInterval<? extends BooleanType<?>> missingRAI; // for IO
 
     FixedLengthProperty(
             final String identifier,
@@ -46,6 +58,10 @@ class FixedLengthProperty<T extends Type<T>> implements GeffProperty<T> {
             missingAccess = null;
             isOptional = false;
         }
+
+        // keep these around for serialization ...
+        valuesRAI = propertyValues;
+        missingRAI = propertyMissing;
     }
 
     @Override
@@ -118,4 +134,79 @@ class FixedLengthProperty<T extends Type<T>> implements GeffProperty<T> {
     public String toString() {
         return GeffProperty.toString(this);
     }
+
+
+
+
+
+    // ------------------------------------------------------------------------
+    // TODO: move to IoUtils class?
+
+
+    // TODO: for testing...
+    //        final Compression compression = new RawCompression();
+    //        final DType dType = new DType(typestr, null);
+
+
+    // TODO. If true, appends "2" to end of evry dataset written.
+    private static boolean DEBUG_WRITING = true;
+
+
+    // TODO: might add int chunkSize argument later (chunking along elementIndex axis only).
+    public void write(
+            final N5ZarrWriter n5,
+            final ElementType elementType, // TODO: maybe add to GeffProperty?
+            final DType optionalDType, // optional, will use default DType corresponding to type()
+            final boolean isIdsProperty, // goes into special "/ids" dataset, not "/props/<identifier>/values"
+            final Compression compression,
+            final String geffGroup) { // geffGroup is optional...
+
+        if (!(type() instanceof NativeType))
+            throw new IllegalArgumentException("Only NativeType supported for writing. (" + type().getClass().getSimpleName() + ")");
+
+        final DType dType = optionalDType != null
+                ? optionalDType
+                : GeffPropertySpec.defaultDType(Cast.unchecked(type()));
+
+        // TODO: This is inherently fragile. We should revisit later, and use N5Path (once that is available).
+        final String group = GeffPropertySpecs.normalizeGroupPath(geffGroup);
+
+        if (isIdsProperty) {
+            final String idsGroup = group + elementType.elementGroup() + "/ids";
+            writeDataset(n5, idsGroup, dType, compression, Cast.unchecked(valuesRAI));
+        } else {
+            final String propsGroup = group + elementType.elementGroup() + "/props/" + identifier;
+            writeDataset(n5, propsGroup + "/values", dType, compression, Cast.unchecked(valuesRAI));
+            if (isOptional) {
+                final RandomAccessibleInterval<UnsignedByteType> missing_uint8 = Converters.convert(missingRAI,
+                        (b, u) -> u.set(b.get() ? 1 : 0),
+                        new UnsignedByteType());
+                final DType uint8 = new DType("|b1", null);
+                writeDataset(n5, propsGroup + "/missing", uint8, compression, missing_uint8);
+            }
+        }
+    }
+
+    // TODO: Move to Utils class
+    private static <T extends NativeType<T>> void writeDataset(
+            final N5ZarrWriter n5,
+            final String dataset,
+            final DType dType,
+            final Compression compression,
+            final RandomAccessibleInterval<T> data) {
+        final long[] dimensions = data.dimensionsAsLongArray();
+        final int[] blockSize = Util.long2int(dimensions);
+        final ZarrDatasetAttributes attributes = new ZarrDatasetAttributes(
+                dimensions,
+                blockSize,
+                dType,
+                compression,
+                true,
+                "0"
+        );
+        final String dataset_ = DEBUG_WRITING ? dataset + "2" : dataset;// TODO ...
+        n5.createDataset(dataset_, attributes);
+        N5Utils.saveRegion(data, n5, dataset_, attributes);
+    }
+
 }

@@ -66,7 +66,7 @@ public class GeffPropertySpecs {
     }
 
     // ------------------------------------------------------------------------
-
+    // TODO: move to IoUtils class?
 
     public static GeffPropertySpecs load(final N5ZarrReader n5, final ElementType elementType) {
         return load(n5, elementType, null);
@@ -89,7 +89,7 @@ public class GeffPropertySpecs {
         final String idValuesDataset = group + elementType.elementGroup() + "/ids";
         final ZarrDatasetAttributes attrIds = attrs(n5, idValuesDataset);
         final DType idDType = attrIds.getDType();
-        final GeffPropertySpec id = new GeffPropertySpec("id", false, false, idDType, 0, new FinalDimensions());
+        final GeffPropertySpec id = new GeffPropertySpec("id", elementType, false, false, idDType, 0, new FinalDimensions());
         if (!(N5Utils.type(id.dType().getDataType()) instanceof IntegerType))
             throw new IllegalArgumentException(idValuesDataset + " must be an integer type");
 
@@ -98,9 +98,8 @@ public class GeffPropertySpecs {
                 elementType.propMetadataAttribute(),
                 new TypeToken<Map<String, PropMetadata>>() {
                 }.getType());
-        propsMetadata.forEach((identifier, metadata) -> {
-            final String propsGroup = group + elementType.elementGroup() + "/props/" + identifier;
-            final GeffPropertySpec spec = loadPropertySpec(n5, propsGroup, metadata);
+        propsMetadata.values().forEach( metadata -> {
+            final GeffPropertySpec spec = loadPropertySpec(n5, group, elementType, metadata);
             properties.add(spec);
         });
 
@@ -113,9 +112,11 @@ public class GeffPropertySpecs {
 
     private static GeffPropertySpec loadPropertySpec(
             final N5ZarrReader n5,
-            final String propsGroup,
+            final String group, // must be either "" or have a trailing slash
+            final ElementType elementType,
             final PropMetadata metadata) {
 
+        final String propsGroup = group + elementType.elementGroup() + "/props/" + metadata.getIdentifier();
         final boolean isVarLength = metadata.getVarlength();
 
         final ZarrDatasetAttributes attrValues = attrs(n5, propsGroup + "/values");
@@ -138,11 +139,12 @@ public class GeffPropertySpecs {
             dimensions = FinalDimensions.wrap(propertyDim);
         }
 
-        return new GeffPropertySpec(metadata.getIdentifier(), isVarLength, isOptional, dType, numDimensions, dimensions);
+        return new GeffPropertySpec(metadata.getIdentifier(), elementType, isVarLength, isOptional, dType, numDimensions, dimensions);
     }
 
     // Non-empty geffGroup path should end with trailing slash.
     // TODO: This is inherently fragile. We should revisit later, and use N5Path (once that is available).
+    // TODO: Move to Utils class
     static String normalizeGroupPath(String geffGroup) {
         final String group;
         if (geffGroup == null || geffGroup.isEmpty()) {

@@ -82,7 +82,7 @@ public class GeffProperties {
 
 
     // ------------------------------------------------------------------------
-
+    // TODO: move to IoUtils class?
 
     public static GeffProperties load(final N5ZarrReader n5, final GeffPropertySpecs specs) {
         return load(n5, specs, null);

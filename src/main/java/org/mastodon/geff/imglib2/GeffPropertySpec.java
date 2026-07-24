@@ -9,22 +9,29 @@ import org.janelia.saalfeldlab.n5.zarr.DType;
 
 import java.util.EnumMap;
 
-public record GeffPropertySpec(String identifier, boolean isVarLength, boolean isOptional, DType dType, int numDimensions, Dimensions dimensions) {
 
-    public static <T extends NativeType<T>> DType defaultDType(final T type) {
-        return new DType(typestrs.get(N5Utils.dataType(type)), null);
-    }
+// TODO: convert record to class (for Java 8)
+public record GeffPropertySpec(String identifier, ElementType elementType, boolean isVarLength, boolean isOptional, DType dType, int numDimensions, Dimensions dimensions) {
 
     @Override
     public String toString() {
         return "GeffPropertySpec[" +
                 "identifier='" + identifier + '\'' +
+                ", elementType=" + elementType +
                 ", isVarLength=" + isVarLength +
                 ", isOptional=" + isOptional +
                 ", dType=" + dType +
                 ", numDimensions=" + numDimensions +
                 ", dimensions=" + (dimensions == null ? "null" : "{" + Intervals.toString(dimensions) + "}") +
                 ']';
+    }
+
+
+    // ------------------------------------------------------------------------
+    // TODO: move to IoUtils class?
+
+    public static <T extends NativeType<T>> DType defaultDType(final T type) {
+        return new DType(typestrs.get(N5Utils.dataType(type)), null);
     }
 
     // copied from DType, modified to use little-endian
