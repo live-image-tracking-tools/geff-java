@@ -137,53 +137,21 @@ public class GeffPropertyPlayground {
         // read
         try (final N5ZarrReader n5 = new N5ZarrReader(path)) {
 
-            printAttributes(n5, "nodes/ids");
-            printAttributes(n5, "nodes/props/x/values");
-            printAttributes(n5, "nodes/props/t/values");
+            final GeffPropertySpecs specs = GeffPropertySpecs.load(n5, ElementType.NODE);
+            final GeffProperties nodeData = GeffProperties.load(n5, specs);
 
-            final RandomAccessibleInterval<UnsignedLongType> ids = N5Utils.open(n5, "nodes/ids");
-            final RandomAccessibleInterval<DoubleType> xs = N5Utils.open(n5, "nodes/props/x/values");
-            final RandomAccessibleInterval<DoubleType> ts = N5Utils.open(n5, "nodes/props/t/values");
+            final GeffProperty<UnsignedLongType> id = nodeData.id();
+            final GeffProperty<DoubleType> x = nodeData.property("x");
+            final GeffProperty<IntType> t = nodeData.property("t").convert(IntType::new);
+            final GeffProperty<UnsignedLongType> var_length = nodeData.property("var_length");
 
-            final NodeData nodeData = new NodeData(ids);
-            nodeData.addProperty("x", xs);
-            nodeData.addProperty("t", ts);
-
-            { // var-length ...
-                final String valuesDataset = "nodes/props/var_length/values";
-                final String missingDataset = "nodes/props/var_length/missing";
-                final String dataDataset = "nodes/props/var_length/data";
-
-                printAttributes(n5, valuesDataset);
-                printAttributes(n5, missingDataset);
-                printAttributes(n5, dataDataset);
-
-                final RandomAccessibleInterval<UnsignedLongType> values = N5Utils.open(n5, valuesDataset);
-                final RandomAccessibleInterval<BoolType> missings = Converters.convert2(
-                        N5Utils.<UnsignedByteType>open(n5, missingDataset),
-                        (u, b) -> b.set(u.get() != 0),
-                        BoolType::new);
-                final RandomAccessibleInterval<UnsignedLongType> data = N5Utils.open(n5, dataDataset);
-
-                nodeData.addVarLengthProperty("var_length", values, data, missings);
-            }
-
-            final GeffProperty<UnsignedLongType> id = nodeData.get("id");
-            final GeffProperty<DoubleType> x = nodeData.get("x");
-
-            // convert geff type to type requested by the client ...
-            final GeffProperty<IntType> t = nodeData.get("t").convert(IntType::new);
-
-            // varlength ...
-            final RandomAccessibleInterval<UnsignedLongType> var_length = nodeData.<UnsignedLongType>get("var_length").values();
-
-            for (int i = 0; i < nodeData.size(); i++) {
-                nodeData.index(i);
+            for (int i = 0; i < nodeData.numElements(); i++) {
+                nodeData.elementIndex().index(i);
 
                 // varlength ...
-                final int len = (int) var_length.size();
+                final int len = (int) var_length.values().size();
                 final long[] vldata = new long[len];
-                final Cursor<UnsignedLongType> c = var_length.cursor();
+                final Cursor<UnsignedLongType> c = var_length.values().cursor();
                 for (int j = 0; j < len; j++)
                     vldata[j] = c.next().get();
 
@@ -192,6 +160,7 @@ public class GeffPropertyPlayground {
 
             print(nodes);
 
+            System.out.println("specs = " + specs);
             System.out.println("nodeData = " + nodeData);
         }
 

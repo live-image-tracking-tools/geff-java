@@ -8,6 +8,8 @@ import net.imglib2.type.logic.BoolType;
 import net.imglib2.type.numeric.IntegerType;
 import net.imglib2.type.numeric.integer.UnsignedByteType;
 import net.imglib2.type.numeric.integer.UnsignedLongType;
+import net.imglib2.type.numeric.real.DoubleType;
+import net.imglib2.util.Cast;
 import org.janelia.saalfeldlab.n5.imglib2.N5Utils;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
 
@@ -60,6 +62,14 @@ public class GeffProperties {
         return elementIndex;
     }
 
+    public <T extends IntegerType<T>> GeffProperty<T> id() {
+        return Cast.unchecked(id);
+    }
+
+    public Map<String, GeffProperty<?>> properties() {
+        return properties;
+    }
+
     @Override
     public String toString() {
         final String nl = System.lineSeparator();
@@ -76,6 +86,13 @@ public class GeffProperties {
                 '}';
     }
 
+
+    // TODO remove?
+    <T> GeffProperty<T> property(final String identifier) {
+        return Cast.unchecked(properties.get(identifier));
+    }
+
+    // TODO remove?
     void put(GeffProperty<?> property) {
         properties.put(property.identifier(), property);
     }
