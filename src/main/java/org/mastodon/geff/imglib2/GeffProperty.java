@@ -178,7 +178,7 @@ public interface GeffProperty<T> {
         } else if ( p.numDimensions() == 0 ) {
             dim = ", scalar";
         } else {
-            dim = ", dimensions=" + Intervals.toString(p.dimensions());
+            dim = ", dimensions={" + Intervals.toString(p.dimensions()) + "}";
         }
         return "GeffProperty<" + p.type().getClass().getSimpleName() + ">{" +
                 "identifier=\"" + p.identifier() + "\"" + dim + optional + '}';

@@ -2,6 +2,7 @@ package org.mastodon.geff.imglib2;
 
 import net.imglib2.Dimensions;
 import net.imglib2.type.NativeType;
+import net.imglib2.util.Intervals;
 import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.imglib2.N5Utils;
 import org.janelia.saalfeldlab.n5.zarr.DType;
@@ -12,6 +13,18 @@ public record GeffPropertySpec(String identifier, boolean isVarLength, boolean i
 
     public static <T extends NativeType<T>> DType defaultDType(final T type) {
         return new DType(typestrs.get(N5Utils.dataType(type)), null);
+    }
+
+    @Override
+    public String toString() {
+        return "GeffPropertySpec[" +
+                "identifier='" + identifier + '\'' +
+                ", isVarLength=" + isVarLength +
+                ", isOptional=" + isOptional +
+                ", dType=" + dType +
+                ", numDimensions=" + numDimensions +
+                ", dimensions=" + (dimensions == null ? "null" : "{" + Intervals.toString(dimensions) + "}") +
+                ']';
     }
 
     // copied from DType, modified to use little-endian

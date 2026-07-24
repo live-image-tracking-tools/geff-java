@@ -67,22 +67,22 @@ public class Playground {
     public static class GeffPropertySpecs {
 
         private final ElementType elementType;
-        private final GeffPropertySpec idSpec;
-        private final Map<String, GeffPropertySpec> propertySpecs;
+        private final GeffPropertySpec id;
+        private final Map<String, GeffPropertySpec> properties;
 
         GeffPropertySpecs(
                 final ElementType elementType,
-                final GeffPropertySpec id,
-                final List<GeffPropertySpec> properties
+                final GeffPropertySpec idSpec,
+                final List<GeffPropertySpec> specs
         ) {
             this.elementType = elementType;
-            idSpec = id;
-            propertySpecs = new LinkedHashMap<>();
-            for (final GeffPropertySpec spec : properties) {
+            this.id = idSpec;
+            properties = new LinkedHashMap<>();
+            for (final GeffPropertySpec spec : specs) {
                 final String identifier = spec.identifier();
-                if (identifier.equals(id.identifier()) || propertySpecs.containsKey(identifier))
+                if (identifier.equals(idSpec.identifier()) || properties.containsKey(identifier))
                     throw new IllegalArgumentException("Duplicate property identifier: " + identifier);
-                propertySpecs.put(identifier, spec);
+                properties.put(identifier, spec);
             }
         }
 
@@ -90,6 +90,19 @@ public class Playground {
             return elementType;
         }
 
+        @Override
+        public String toString() {
+            final String nl = System.lineSeparator();
+            final String cnl = "," + nl;
+            final String props = properties.values().stream().map(p ->
+                    nl + "    " + p.identifier() + "=" + p
+            ).collect(Collectors.joining());
+            return "GeffPropertySpecs{" + nl +
+                    "  elementType=" + elementType + cnl +
+                    "  id=" + id + cnl +
+                    "  properties={" + props + "}" + nl +
+                    '}';
+        }
 
         // ------------------------------------------------------------------------
 
@@ -115,7 +128,7 @@ public class Playground {
             final String idValuesDataset = group + elementType.elementGroup() + "/ids";
             final ZarrDatasetAttributes attrIds = attrs(n5, idValuesDataset);
             final DType idDType = attrIds.getDType();
-            final GeffPropertySpec id = new GeffPropertySpec("id", false, false, idDType, 0, null);
+            final GeffPropertySpec id = new GeffPropertySpec("id", false, false, idDType, 0, new FinalDimensions());
             if (!(N5Utils.type(id.dType().getDataType()) instanceof IntegerType))
                 throw new IllegalArgumentException(idValuesDataset + " must be an integer type");
 
@@ -273,7 +286,7 @@ public class Playground {
             final GeffProperty<? extends IntegerType<?>> id = loadProperty(n5, "id", index, idValuesDataset, null);
 
             final List< GeffProperty<?> > properties = new ArrayList<>();
-            specs.propertySpecs.forEach((identifier, spec) -> {
+            specs.properties.forEach((identifier, spec) -> {
                 final String propsGroup = group + elementType.elementGroup() + "/props/" + identifier;
                 final GeffProperty<?> property;
                 if (spec.isVarLength()) {
@@ -371,30 +384,21 @@ public class Playground {
 
         // read
         try (final N5ZarrReader n5 = new N5ZarrReader(path)) {
-            final GeffProperties nodeProperties = loadGeffProperties(n5, ElementType.NODE);
+
+            final GeffPropertySpecs nodePropertySpecs = GeffPropertySpecs.load(n5, ElementType.NODE);
+            final GeffProperties nodeProperties = GeffProperties.load(n5, nodePropertySpecs);
+
+            final GeffPropertySpecs edgePropertySpecs = GeffPropertySpecs.load(n5, ElementType.EDGE);
+            final GeffProperties edgeProperties = GeffProperties.load(n5, edgePropertySpecs);
+
+            System.out.println("nodePropertySpecs = " + nodePropertySpecs);
+            System.out.println();
             System.out.println("nodeProperties = " + nodeProperties);
+            System.out.println();
+            System.out.println("nodePropertySpecs = " + edgePropertySpecs);
+            System.out.println();
+            System.out.println("edgeProperties = " + edgeProperties);
         }
-    }
-
-    private static GeffProperties loadGeffProperties(
-            final N5ZarrReader n5,
-            final ElementType elementType) {
-        return loadGeffProperties(n5, elementType, null);
-    }
-
-    /**
-     * @param n5
-     * @param elementType
-     * @param geffGroup   optional (if geff is not at the root of the container)
-     * @return
-     */
-    private static GeffProperties loadGeffProperties(
-            final N5ZarrReader n5,
-            final ElementType elementType,
-            final String geffGroup) {
-        final GeffPropertySpecs specs = GeffPropertySpecs.load(n5, elementType);
-        System.out.println("specs = " + specs);
-        return GeffProperties.load(n5, specs);
     }
 
     private static ZarrDatasetAttributes attrs(final N5ZarrReader n5, final String dataset) {
