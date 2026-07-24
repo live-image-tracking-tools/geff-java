@@ -94,7 +94,7 @@ public class GeffProperties {
             final String geffGroup) {
 
         // TODO: This is inherently fragile. We should revisit later, and use N5Path (once that is available).
-        final String group = normalizeGroupPath(geffGroup);
+        final String group = GeffPropertySpecs.normalizeGroupPath(geffGroup);
 
         final ElementType elementType = specs.elementType();
 
