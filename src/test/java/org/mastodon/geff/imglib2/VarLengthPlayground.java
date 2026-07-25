@@ -1,11 +1,5 @@
 package org.mastodon.geff.imglib2;
 
-import net.imglib2.Dimensions;
-import net.imglib2.FinalDimensions;
-import net.imglib2.FinalInterval;
-import net.imglib2.Localizable;
-import net.imglib2.Point;
-import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.converter.Converters;
 import net.imglib2.img.array.ArrayImgs;
@@ -13,16 +7,11 @@ import net.imglib2.type.BooleanType;
 import net.imglib2.type.logic.BoolType;
 import net.imglib2.type.numeric.integer.UnsignedByteType;
 import net.imglib2.type.numeric.integer.UnsignedLongType;
-import net.imglib2.util.IntervalIndexer;
-import net.imglib2.util.Intervals;
 import org.janelia.saalfeldlab.n5.imglib2.N5Utils;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
 import org.janelia.saalfeldlab.n5.zarr.ZarrDatasetAttributes;
-import org.mastodon.geff.imglib2.Slice.SlicePosition;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 
 public class VarLengthPlayground {
 
@@ -61,7 +50,7 @@ public class VarLengthPlayground {
             final ElementIndex writeIndex = new ElementIndex();
             final RandomAccessibleInterval<UnsignedLongType> writeValues = ArrayImgs.unsignedLongs(numDimensions + 1, numElements);
             final RandomAccessibleInterval<? extends BooleanType<?>> writeMissings = ArrayImgs.booleans(numElements);
-            final VarLengthData<UnsignedLongType, ?> writeData = new VarLengthData<>(new UnsignedLongType());
+            final VarLengthData<UnsignedLongType> writeData = new VarLengthDataImpl<>(new UnsignedLongType());
             final GeffProperty<UnsignedLongType> writeProperty = new VarLengthWriteProperty<>("var_length", writeValues, writeData, writeMissings, writeIndex);
 
 
@@ -74,6 +63,9 @@ public class VarLengthPlayground {
 
                 writeIndex.index(i);
                 writeProperty.set(readProperty);
+
+                System.out.println("  (w)missing = " + writeProperty.isMissing());
+                System.out.println("  (w)dimensions = " + Arrays.toString(writeProperty.dimensions().dimensionsAsLongArray()));
 
 //                final RandomAccess<UnsignedLongType> ra = readProperty.randomAccess();
 //                RandomAccessibleInterval<Localizable> positions = Intervals.positions(new FinalInterval(readProperty.dimensions()));

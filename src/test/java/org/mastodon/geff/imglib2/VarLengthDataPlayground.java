@@ -9,7 +9,7 @@ import java.util.Arrays;
 public class VarLengthDataPlayground {
 
     public static void main(String[] args) {
-        final VarLengthData<UnsignedLongType, ?> v = new VarLengthData<>(new UnsignedLongType());
+        final VarLengthData<UnsignedLongType> v = new VarLengthDataImpl<>(new UnsignedLongType());
         final RandomAccess<UnsignedLongType> a = v.randomAccess();
 
         print(v);
@@ -39,7 +39,7 @@ public class VarLengthDataPlayground {
         print(v);
     }
 
-    private static void print(VarLengthData<UnsignedLongType, ?> data) {
+    private static void print(VarLengthData<UnsignedLongType> data) {
 
         final int size = (int) data.size();
         System.out.println("data.size() = " + size);

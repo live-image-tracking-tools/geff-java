@@ -6,10 +6,11 @@ import net.imglib2.Point;
 import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.type.BooleanType;
+import net.imglib2.type.Type;
 import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.util.IntervalIndexer;
 
-class VarLengthProperty<T> implements GeffProperty<T> {
+class VarLengthProperty<T extends Type<T>> implements GeffProperty<T> {
 
     private final String identifier;
     private final boolean isOptional;
@@ -17,14 +18,18 @@ class VarLengthProperty<T> implements GeffProperty<T> {
     private final long numElements;
     private final ElementIndex elementIndex;
 
-    private final RandomAccess<UnsignedLongType> valuesAccess;
-    private final RandomAccess<? extends BooleanType<?>> missingAccess;
+    protected final RandomAccess<UnsignedLongType> valuesAccess;
+    protected final RandomAccess<? extends BooleanType<?>> missingAccess;
 
     // dataOffset[0] is the elementIndex for which dataOffset and dataDimensions are currently configured
     // dataOffset[1] is the current offset into the data array
-    private final long[] dataOffset;
+    protected final long[] dataOffset;
     private final long[] dataDimensions;
     private final PropertyRAI<T> values;
+
+    final RandomAccessibleInterval<UnsignedLongType> valuesRAI; // for IO
+    final RandomAccessibleInterval<? extends BooleanType<?>> missingRAI; // for IO
+    final RandomAccessibleInterval<T> dataRAI; // for IO
 
     VarLengthProperty(
             final String identifier,
@@ -61,6 +66,11 @@ class VarLengthProperty<T> implements GeffProperty<T> {
             updateDataOffset();
             return dimensions;
         }, randomAccess);
+
+        // keep these around for serialization ...
+        valuesRAI = propertyValues;
+        missingRAI = propertyMissing;
+        dataRAI = propertyData;
     }
 
     @Override
@@ -88,15 +98,15 @@ class VarLengthProperty<T> implements GeffProperty<T> {
         return elementIndex;
     }
 
-    private void updateDataOffset() {
+    protected void updateDataOffset() {
         final long index = elementIndex.index();
         final long previousIndex = dataOffset[0];
         if (previousIndex != index) {
             dataOffset[0] = index;
             dataOffset[1] = valuesAccess.setPositionAndGet(0).get();
             final int n = dataDimensions.length;
-            for (int i = 1; i < n + 1; i++) {
-                dataDimensions[n - i] = valuesAccess.setPositionAndGet(i).get();
+            for (int i = 0; i < n; i++) {
+                dataDimensions[n - 1 - i] = valuesAccess.setPositionAndGet(i + 1).get();
             }
         }
     }
