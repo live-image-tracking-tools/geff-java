@@ -17,7 +17,7 @@ import org.janelia.saalfeldlab.n5.Compression;
 import org.janelia.saalfeldlab.n5.zarr.DType;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrWriter;
 
-import static org.mastodon.geff.imglib2.FixedLengthProperty.writeDataset;
+import static org.mastodon.geff.imglib2.IoUtils.writeDataset;
 
 class VarLengthProperty<T extends Type<T>> implements GeffProperty<T> {
 

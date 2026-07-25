@@ -190,9 +190,9 @@ public class GeffPropertyPlayground {
             }
 
             final BloscCompression compression = new BloscCompression("lz4", 5, 1, 0, 0);
-            ((FixedLengthProperty<?>) id).write(n5, ElementType.NODE, null, true, compression, null);
-            ((FixedLengthProperty<?>) x).write(n5, ElementType.NODE, null, false, compression, null);
-            ((FixedLengthProperty<?>) t).write(n5, ElementType.NODE, null, false, compression, null);
+            IoUtils.writeProperty(n5, (FixedLengthProperty<?>) id, ElementType.NODE, null, true, compression, null);
+            IoUtils.writeProperty(n5, (FixedLengthProperty<?>) x, ElementType.NODE, null, false, compression, null);
+            IoUtils.writeProperty(n5, (FixedLengthProperty<?>) t, ElementType.NODE, null, false, compression, null);
         }
     }
 

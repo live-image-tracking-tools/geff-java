@@ -7,14 +7,19 @@ import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.cache.img.CachedCellImg;
 import net.imglib2.converter.Converters;
 import net.imglib2.type.NativeType;
+import net.imglib2.type.Type;
 import net.imglib2.type.logic.BoolType;
 import net.imglib2.type.numeric.IntegerType;
 import net.imglib2.type.numeric.integer.UnsignedByteType;
 import net.imglib2.type.numeric.integer.UnsignedLongType;
+import net.imglib2.util.Cast;
+import net.imglib2.util.Util;
+import org.janelia.saalfeldlab.n5.Compression;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.imglib2.N5Utils;
 import org.janelia.saalfeldlab.n5.zarr.DType;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
+import org.janelia.saalfeldlab.n5.zarr.N5ZarrWriter;
 import org.janelia.saalfeldlab.n5.zarr.ZarrDatasetAttributes;
 import org.mastodon.geff.PropMetadata;
 
@@ -27,6 +32,15 @@ import java.util.Map;
  * Reading/writing from/to Zarr
  */
 public class IoUtils {
+
+    // TODO. If true, appends "2" to end of every dataset written.
+    private static boolean DEBUG_WRITING = true;
+
+
+
+    // ------------------------------------------------------------------------
+    //   READ
+    // ------------------------------------------------------------------------
 
     /**
      * Read all {@link GeffPropertySpecs} for edges or nodes of a geff hierarchy
@@ -53,7 +67,7 @@ public class IoUtils {
             final ElementType elementType,
             final String geffGroup) {
 
-        final String group = IoUtils.normalizeGroupPath(geffGroup);
+        final String group = normalizeGroupPath(geffGroup);
         final String idValuesDataset = group + elementType.elementGroup() + "/ids";
         final ZarrDatasetAttributes attrIds = attrs(n5, idValuesDataset);
         final DType idDType = attrIds.getDType();
@@ -142,7 +156,7 @@ public class IoUtils {
             final GeffPropertySpecs specs,
             final String geffGroup) {
 
-        final String group = IoUtils.normalizeGroupPath(geffGroup);
+        final String group = normalizeGroupPath(geffGroup);
         final ElementType elementType = specs.elementType();
         final String idValuesDataset = group + elementType.elementGroup() + "/ids";
         final ElementIndex index = new ElementIndex();
@@ -243,6 +257,76 @@ public class IoUtils {
 
 
 
+    // ------------------------------------------------------------------------
+    //   WRITE
+    // ------------------------------------------------------------------------
+
+    /**
+     * Write fixed-length property
+     * TODO ...
+     * TODO ...
+     * TODO ...
+     * TODO ...
+     * TODO ...
+     * TODO ...
+     * TODO ...
+     * TODO ...
+     * TODO ...
+     * TODO ...
+     *
+     * @param n5
+     * @param property
+     * @param elementType
+     * @param optionalDType
+     * @param isIdsProperty
+     * @param compression
+     * @param geffGroup
+     * @param <T>
+     */
+    // TODO: might add int chunkSize argument later (chunking along elementIndex axis only).
+    static <T extends Type<T>> void writeProperty(
+            final N5ZarrWriter n5,
+            final FixedLengthProperty<T> property,
+            final ElementType elementType, // TODO: maybe add to GeffProperty?
+            final DType optionalDType, // optional, will use default DType corresponding to type()
+            final boolean isIdsProperty, // goes into special "/ids" dataset, not "/props/<identifier>/values"
+            final Compression compression,
+            final String geffGroup) { // geffGroup is optional...
+
+        final T type = property.type();
+        if (!(type instanceof NativeType))
+            throw new IllegalArgumentException("Only NativeType supported for writing. (" + type.getClass().getSimpleName() + ")");
+
+        final DType dType = optionalDType != null
+                ? optionalDType
+                : GeffPropertySpec.defaultDType(Cast.unchecked(type));
+
+        final String group = normalizeGroupPath(geffGroup);
+        if (isIdsProperty) {
+            final String idsGroup = group + elementType.elementGroup() + "/ids";
+            writeDataset(n5, idsGroup, dType, compression, Cast.unchecked(property.valuesRAI));
+        } else {
+            final String propsGroup = group + elementType.elementGroup() + "/props/" + property.identifier();
+            writeDataset(n5, propsGroup + "/values", dType, compression, Cast.unchecked(property.valuesRAI));
+            if (property.isOptional()) {
+                final RandomAccessibleInterval<UnsignedByteType> missing_uint8 = Converters.convert(property.missingRAI,
+                        (b, u) -> u.set(b.get() ? 1 : 0),
+                        new UnsignedByteType());
+                final DType uint8 = new DType("|b1", null);
+                writeDataset(n5, propsGroup + "/missing", uint8, compression, missing_uint8);
+            }
+        }
+    }
+
+
+
+
+
+
+    // ------------------------------------------------------------------------
+    //   UTILITIES
+    // ------------------------------------------------------------------------
+
     /**
      * Normalize {@code geffGroup} path such that it can be prepended to a
      * dataset path within the geff.
@@ -274,5 +358,26 @@ public class IoUtils {
     // TODO: make private (?)
     static ZarrDatasetAttributes attrs(final N5Reader n5, final String dataset) {
         return (ZarrDatasetAttributes) n5.getDatasetAttributes(dataset);
+    }
+
+    static <T extends NativeType<T>> void writeDataset(
+            final N5ZarrWriter n5,
+            final String dataset,
+            final DType dType,
+            final Compression compression,
+            final RandomAccessibleInterval<T> data) {
+        final long[] dimensions = data.dimensionsAsLongArray();
+        final int[] blockSize = Util.long2int(dimensions);
+        final ZarrDatasetAttributes attributes = new ZarrDatasetAttributes(
+                dimensions,
+                blockSize,
+                dType,
+                compression,
+                true,
+                "0"
+        );
+        final String dataset_ = DEBUG_WRITING ? dataset + "2" : dataset;// TODO ...
+        n5.createDataset(dataset_, attributes);
+        N5Utils.saveRegion(data, n5, dataset_, attributes);
     }
 }
