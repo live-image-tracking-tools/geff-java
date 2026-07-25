@@ -148,7 +148,7 @@ class FixedLengthProperty<T extends Type<T>> implements GeffProperty<T> {
     //        final DType dType = new DType(typestr, null);
 
 
-    // TODO. If true, appends "2" to end of evry dataset written.
+    // TODO. If true, appends "2" to end of every dataset written.
     private static boolean DEBUG_WRITING = true;
 
 
@@ -188,7 +188,7 @@ class FixedLengthProperty<T extends Type<T>> implements GeffProperty<T> {
     }
 
     // TODO: Move to Utils class
-    private static <T extends NativeType<T>> void writeDataset(
+    static <T extends NativeType<T>> void writeDataset(
             final N5ZarrWriter n5,
             final String dataset,
             final DType dType,

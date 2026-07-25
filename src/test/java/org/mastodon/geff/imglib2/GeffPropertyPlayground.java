@@ -204,27 +204,6 @@ public class GeffPropertyPlayground {
         }
     }
 
-    private static <T extends NativeType<T>> void writeDataset(
-            final N5ZarrWriter n5,
-            final String dataset,
-            final String typestr,
-            final RandomAccessibleInterval<T> data) {
-        final long[] dimensions = data.dimensionsAsLongArray();
-        final int[] blockSize = Util.long2int(dimensions);
-//        final ZstandardCompression compression = new ZstandardCompression(0);
-        final BloscCompression compression = new BloscCompression("lz4", 5, 1, 0, 0);
-        final ZarrDatasetAttributes attributes = new ZarrDatasetAttributes(
-                dimensions,
-                blockSize,
-                new DType(typestr, null),
-                compression,
-                true,
-                "0"
-        );
-        n5.createDataset(dataset, attributes);
-        N5Utils.saveRegion(data, n5, dataset, attributes);
-    }
-
     private static void printAttributes(final N5ZarrReader n5, final String dataset) {
         final ZarrDatasetAttributes attributes = (ZarrDatasetAttributes) n5.getDatasetAttributes(dataset);
         System.out.println(dataset + ":");

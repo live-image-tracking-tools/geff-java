@@ -5,10 +5,19 @@ import net.imglib2.FinalDimensions;
 import net.imglib2.Point;
 import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessibleInterval;
+import net.imglib2.converter.Converters;
 import net.imglib2.type.BooleanType;
+import net.imglib2.type.NativeType;
 import net.imglib2.type.Type;
+import net.imglib2.type.numeric.integer.UnsignedByteType;
 import net.imglib2.type.numeric.integer.UnsignedLongType;
+import net.imglib2.util.Cast;
 import net.imglib2.util.IntervalIndexer;
+import org.janelia.saalfeldlab.n5.Compression;
+import org.janelia.saalfeldlab.n5.zarr.DType;
+import org.janelia.saalfeldlab.n5.zarr.N5ZarrWriter;
+
+import static org.mastodon.geff.imglib2.FixedLengthProperty.writeDataset;
 
 class VarLengthProperty<T extends Type<T>> implements GeffProperty<T> {
 
@@ -149,6 +158,44 @@ class VarLengthProperty<T extends Type<T>> implements GeffProperty<T> {
         @Override
         public RA copy() {
             return new RA(dataAccess.copy());
+        }
+    }
+
+
+
+
+
+    // ------------------------------------------------------------------------
+    // TODO: move to IoUtils class?
+
+    // TODO: might add int chunkSize argument later (chunking along elementIndex axis only).
+    public void write(
+            final N5ZarrWriter n5,
+            final ElementType elementType, // TODO: maybe add to GeffProperty?
+            final DType optionalDType, // optional, will use default DType corresponding to type()
+            final Compression compression,
+            final String geffGroup) { // geffGroup is optional...
+
+        if (!(type() instanceof NativeType))
+            throw new IllegalArgumentException("Only NativeType supported for writing. (" + type().getClass().getSimpleName() + ")");
+
+        final DType dType = optionalDType != null
+                ? optionalDType
+                : GeffPropertySpec.defaultDType(Cast.unchecked(type()));
+
+        // TODO: This is inherently fragile. We should revisit later, and use N5Path (once that is available).
+        final String group = GeffPropertySpecs.normalizeGroupPath(geffGroup);
+
+        final String propsGroup = group + elementType.elementGroup() + "/props/" + identifier;
+        final DType uint64 = new DType("<u8", null);
+        writeDataset(n5, propsGroup + "/values", uint64, compression, Cast.unchecked(valuesRAI));
+        writeDataset(n5, propsGroup + "/data", dType, compression, Cast.unchecked(dataRAI));
+        if (isOptional) {
+            final RandomAccessibleInterval<UnsignedByteType> missing_uint8 = Converters.convert(missingRAI,
+                    (b, u) -> u.set(b.get() ? 1 : 0),
+                    new UnsignedByteType());
+            final DType uint8 = new DType("|b1", null);
+            writeDataset(n5, propsGroup + "/missing", uint8, compression, missing_uint8);
         }
     }
 }
