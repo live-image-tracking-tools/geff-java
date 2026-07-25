@@ -184,7 +184,7 @@ class VarLengthProperty<T extends Type<T>> implements GeffProperty<T> {
                 : GeffPropertySpec.defaultDType(Cast.unchecked(type()));
 
         // TODO: This is inherently fragile. We should revisit later, and use N5Path (once that is available).
-        final String group = GeffPropertySpecs.normalizeGroupPath(geffGroup);
+        final String group = IoUtils.normalizeGroupPath(geffGroup);
 
         final String propsGroup = group + elementType.elementGroup() + "/props/" + identifier;
         final DType uint64 = new DType("<u8", null);

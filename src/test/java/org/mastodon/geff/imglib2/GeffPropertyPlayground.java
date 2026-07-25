@@ -2,22 +2,14 @@ package org.mastodon.geff.imglib2;
 
 import net.imglib2.Cursor;
 import net.imglib2.RandomAccessibleInterval;
-import net.imglib2.converter.Converters;
 import net.imglib2.img.array.ArrayImgs;
 import net.imglib2.type.BooleanType;
-import net.imglib2.type.NativeType;
 import net.imglib2.type.Type;
-import net.imglib2.type.logic.BoolType;
 import net.imglib2.type.numeric.integer.IntType;
-import net.imglib2.type.numeric.integer.UnsignedByteType;
 import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.type.numeric.real.DoubleType;
 import net.imglib2.util.Cast;
-import net.imglib2.util.Util;
-import org.janelia.saalfeldlab.n5.RawCompression;
 import org.janelia.saalfeldlab.n5.blosc.BloscCompression;
-import org.janelia.saalfeldlab.n5.imglib2.N5Utils;
-import org.janelia.saalfeldlab.n5.zarr.DType;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrWriter;
 import org.janelia.saalfeldlab.n5.zarr.ZarrDatasetAttributes;
@@ -137,7 +129,7 @@ public class GeffPropertyPlayground {
         // read
         try (final N5ZarrReader n5 = new N5ZarrReader(path)) {
 
-            final GeffPropertySpecs specs = GeffPropertySpecs.load(n5, ElementType.NODE);
+            final GeffPropertySpecs specs = IoUtils.loadPropertySpecs(n5, ElementType.NODE);
             final GeffProperties nodeData = GeffProperties.load(n5, specs);
 
             final GeffProperty<UnsignedLongType> id = nodeData.id();

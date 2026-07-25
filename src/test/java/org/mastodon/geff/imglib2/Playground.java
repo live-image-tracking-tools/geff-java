@@ -22,10 +22,10 @@ public class Playground {
         // read
         try (final N5ZarrReader n5 = new N5ZarrReader(path)) {
 
-            final GeffPropertySpecs nodePropertySpecs = GeffPropertySpecs.load(n5, ElementType.NODE);
+            final GeffPropertySpecs nodePropertySpecs = IoUtils.loadPropertySpecs(n5, ElementType.NODE);
             final GeffProperties nodeProperties = GeffProperties.load(n5, nodePropertySpecs);
 
-            final GeffPropertySpecs edgePropertySpecs = GeffPropertySpecs.load(n5, ElementType.EDGE);
+            final GeffPropertySpecs edgePropertySpecs = IoUtils.loadPropertySpecs(n5, ElementType.EDGE);
             final GeffProperties edgeProperties = GeffProperties.load(n5, edgePropertySpecs);
 
             System.out.println("nodePropertySpecs = " + nodePropertySpecs);

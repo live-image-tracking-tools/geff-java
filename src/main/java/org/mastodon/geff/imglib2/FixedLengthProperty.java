@@ -169,7 +169,7 @@ class FixedLengthProperty<T extends Type<T>> implements GeffProperty<T> {
                 : GeffPropertySpec.defaultDType(Cast.unchecked(type()));
 
         // TODO: This is inherently fragile. We should revisit later, and use N5Path (once that is available).
-        final String group = GeffPropertySpecs.normalizeGroupPath(geffGroup);
+        final String group = IoUtils.normalizeGroupPath(geffGroup);
 
         if (isIdsProperty) {
             final String idsGroup = group + elementType.elementGroup() + "/ids";

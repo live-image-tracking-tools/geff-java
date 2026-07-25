@@ -8,7 +8,6 @@ import net.imglib2.type.logic.BoolType;
 import net.imglib2.type.numeric.IntegerType;
 import net.imglib2.type.numeric.integer.UnsignedByteType;
 import net.imglib2.type.numeric.integer.UnsignedLongType;
-import net.imglib2.type.numeric.real.DoubleType;
 import net.imglib2.util.Cast;
 import org.janelia.saalfeldlab.n5.imglib2.N5Utils;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
@@ -18,8 +17,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-
-import static org.mastodon.geff.imglib2.GeffPropertySpecs.normalizeGroupPath;
 
 public class GeffProperties {
 
@@ -111,7 +108,7 @@ public class GeffProperties {
             final String geffGroup) {
 
         // TODO: This is inherently fragile. We should revisit later, and use N5Path (once that is available).
-        final String group = GeffPropertySpecs.normalizeGroupPath(geffGroup);
+        final String group = IoUtils.normalizeGroupPath(geffGroup);
 
         final ElementType elementType = specs.elementType();
 
