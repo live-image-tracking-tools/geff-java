@@ -130,7 +130,7 @@ public class GeffPropertyPlayground {
         try (final N5ZarrReader n5 = new N5ZarrReader(path)) {
 
             final GeffPropertySpecs specs = IoUtils.loadPropertySpecs(n5, ElementType.NODE);
-            final GeffProperties nodeData = GeffProperties.load(n5, specs);
+            final GeffProperties nodeData = IoUtils.loadProperties(n5, specs);
 
             final GeffProperty<UnsignedLongType> id = nodeData.id();
             final GeffProperty<DoubleType> x = nodeData.property("x");

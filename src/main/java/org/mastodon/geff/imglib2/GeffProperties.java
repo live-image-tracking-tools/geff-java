@@ -1,18 +1,8 @@
 package org.mastodon.geff.imglib2;
 
-import net.imglib2.RandomAccessibleInterval;
-import net.imglib2.cache.img.CachedCellImg;
-import net.imglib2.converter.Converters;
-import net.imglib2.type.NativeType;
-import net.imglib2.type.logic.BoolType;
 import net.imglib2.type.numeric.IntegerType;
-import net.imglib2.type.numeric.integer.UnsignedByteType;
-import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.util.Cast;
-import org.janelia.saalfeldlab.n5.imglib2.N5Utils;
-import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
 
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -92,87 +82,5 @@ public class GeffProperties {
     // TODO remove?
     void put(GeffProperty<?> property) {
         properties.put(property.identifier(), property);
-    }
-
-
-    // ------------------------------------------------------------------------
-    // TODO: move to IoUtils class?
-
-    public static GeffProperties load(final N5ZarrReader n5, final GeffPropertySpecs specs) {
-        return load(n5, specs, null);
-    }
-
-    public static GeffProperties load(
-            final N5ZarrReader n5,
-            final GeffPropertySpecs specs,
-            final String geffGroup) {
-
-        // TODO: This is inherently fragile. We should revisit later, and use N5Path (once that is available).
-        final String group = IoUtils.normalizeGroupPath(geffGroup);
-
-        final ElementType elementType = specs.elementType();
-
-        final String idValuesDataset = group + elementType.elementGroup() + "/ids";
-        final ElementIndex index = new ElementIndex();
-        final GeffProperty<? extends IntegerType<?>> id = loadProperty(n5, "id", index, idValuesDataset, null);
-
-        final List<GeffProperty<?>> properties = new ArrayList<>();
-        specs.properties().forEach((identifier, spec) -> {
-            final String propsGroup = group + elementType.elementGroup() + "/props/" + identifier;
-            final GeffProperty<?> property;
-            if (spec.isVarLength()) {
-                property = loadProperty(n5, identifier, index,
-                        propsGroup + "/values",
-                        spec.isOptional() ? propsGroup + "/missing" : null,
-                        propsGroup + "/data");
-            } else {
-                property = loadProperty(n5, identifier, index,
-                        propsGroup + "/values",
-                        spec.isOptional() ? propsGroup + "/missing" : null);
-            }
-            properties.add(property);
-        });
-
-        return new GeffProperties(elementType, id, properties);
-    }
-
-    // fixed-length
-    private static <T extends NativeType<T>> GeffProperty<T> loadProperty(
-            final N5ZarrReader n5,
-            final String identifier,
-            final ElementIndex sharedElementIndex,
-            final String valuesPath,
-            final String missingPath) {
-
-        final RandomAccessibleInterval<T> values = N5Utils.open(n5, valuesPath);
-        final RandomAccessibleInterval<BoolType> missing;
-        if (missingPath != null) {
-            final CachedCellImg<UnsignedByteType, ?> missing_uint8 = N5Utils.open(n5, missingPath);
-            missing = Converters.convert(missing_uint8, (u, b) -> b.set(u.get() != 0), new BoolType());
-        } else {
-            missing = null;
-        }
-        return new FixedLengthProperty<>(identifier, values, missing, sharedElementIndex);
-    }
-
-    // var-length
-    private static <T extends NativeType<T>> GeffProperty<T> loadProperty(
-            final N5ZarrReader n5,
-            final String identifier,
-            final ElementIndex sharedElementIndex,
-            final String valuesPath,
-            final String missingPath,
-            final String dataPath) {
-
-        final RandomAccessibleInterval<UnsignedLongType> values = N5Utils.open(n5, valuesPath);
-        final RandomAccessibleInterval<BoolType> missing;
-        if (missingPath != null) {
-            final CachedCellImg<UnsignedByteType, ?> missing_uint8 = N5Utils.open(n5, missingPath);
-            missing = Converters.convert(missing_uint8, (u, b) -> b.set(u.get() != 0), new BoolType());
-        } else {
-            missing = null;
-        }
-        final RandomAccessibleInterval<T> data = N5Utils.open(n5, dataPath);
-        return new VarLengthProperty<>(identifier, values, data, missing, sharedElementIndex);
     }
 }

@@ -3,10 +3,18 @@ package org.mastodon.geff.imglib2;
 import com.google.gson.reflect.TypeToken;
 import net.imglib2.Dimensions;
 import net.imglib2.FinalDimensions;
+import net.imglib2.RandomAccessibleInterval;
+import net.imglib2.cache.img.CachedCellImg;
+import net.imglib2.converter.Converters;
+import net.imglib2.type.NativeType;
+import net.imglib2.type.logic.BoolType;
 import net.imglib2.type.numeric.IntegerType;
+import net.imglib2.type.numeric.integer.UnsignedByteType;
+import net.imglib2.type.numeric.integer.UnsignedLongType;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.imglib2.N5Utils;
 import org.janelia.saalfeldlab.n5.zarr.DType;
+import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
 import org.janelia.saalfeldlab.n5.zarr.ZarrDatasetAttributes;
 import org.mastodon.geff.PropMetadata;
 
@@ -19,16 +27,6 @@ import java.util.Map;
  * Reading/writing from/to Zarr
  */
 public class IoUtils {
-
-
-
-
-
-
-
-
-
-
 
     /**
      * Read all {@link GeffPropertySpecs} for edges or nodes of a geff hierarchy
@@ -55,9 +53,7 @@ public class IoUtils {
             final ElementType elementType,
             final String geffGroup) {
 
-        // TODO: This is inherently fragile. We should revisit later, and use N5Path (once that is available).
         final String group = IoUtils.normalizeGroupPath(geffGroup);
-
         final String idValuesDataset = group + elementType.elementGroup() + "/ids";
         final ZarrDatasetAttributes attrIds = attrs(n5, idValuesDataset);
         final DType idDType = attrIds.getDType();
@@ -118,6 +114,134 @@ public class IoUtils {
 
         return new GeffPropertySpec(metadata.getIdentifier(), elementType, isVarLength, isOptional, dType, numDimensions, dimensions);
     }
+
+
+
+    /**
+     * Read all {@link GeffProperties} for edges or nodes of a geff hierarchy at
+     * the root of {@code n5}.
+     *
+     * @param n5 the {@code N5Reader}
+     * @param specs specs for all properties to read
+     * @return the {@code GeffPropertySpecs} for the given {@code ElementType}
+     */
+    public static GeffProperties loadProperties(final N5ZarrReader n5, final GeffPropertySpecs specs) {
+        return loadProperties(n5, specs, null);
+    }
+
+    /**
+     * Read all {@link GeffProperties} for edges or nodes of a geff hierarchy.
+     *
+     * @param n5 the {@code N5Reader}
+     * @param specs specs for all properties to read
+     * @param geffGroup path to the geff hierarchy (relative to container root)
+     * @return the {@code GeffPropertySpecs} for the given {@code ElementType}
+     */
+    public static GeffProperties loadProperties(
+            final N5ZarrReader n5,
+            final GeffPropertySpecs specs,
+            final String geffGroup) {
+
+        final String group = IoUtils.normalizeGroupPath(geffGroup);
+        final ElementType elementType = specs.elementType();
+        final String idValuesDataset = group + elementType.elementGroup() + "/ids";
+        final ElementIndex index = new ElementIndex();
+        final GeffProperty<? extends IntegerType<?>> id = loadFixedLengthProperty(n5, "id", index, idValuesDataset, null);
+
+        final List<GeffProperty<?>> properties = new ArrayList<>();
+        specs.properties().forEach((identifier, spec) -> {
+            final String propsGroup = group + elementType.elementGroup() + "/props/" + identifier;
+            final GeffProperty<?> property;
+            if (spec.isVarLength()) {
+                property = loadVarLengthProperty(n5, identifier, index,
+                        propsGroup + "/values",
+                        spec.isOptional() ? propsGroup + "/missing" : null,
+                        propsGroup + "/data");
+            } else {
+                property = loadFixedLengthProperty(n5, identifier, index,
+                        propsGroup + "/values",
+                        spec.isOptional() ? propsGroup + "/missing" : null);
+            }
+            properties.add(property);
+        });
+
+        return new GeffProperties(elementType, id, properties);
+    }
+
+    /**
+     * Create a fixed-length {@code GeffProperty} tied to the datasets at {@code
+     * valuesPath} and (optionally) {@code missingPath}.
+     * <p>
+     * The last dimension of the values dataset is the element (node/edge)
+     * index, the remaining dimensions are property dimensions. That is, a
+     * scalar property has a 1D values dataset, a vector property has a 2D
+     * values dataset, and so on.
+     *
+     * @param n5 the {@code N5Reader}
+     * @param identifier the identifier of the property (e.g. "x")
+     * @param sharedElementIndex the shared {@code ElementIndex} of the property, specifying for which element the property values are currently exposed.
+     * @param valuesPath path to the dataset containing the property values (relative to the container root, e.g. "nodes/props/x/values")
+     * @param missingPath path to the dataset containing the properties missing information (for optional properties, or {@code null} if property values must be present for all elements
+     * @return a {@code GeffProperty}
+     * @param <T> the imglib2 type of the property values
+     */
+    private static <T extends NativeType<T>> GeffProperty<T> loadFixedLengthProperty(
+            final N5Reader n5,
+            final String identifier,
+            final ElementIndex sharedElementIndex,
+            final String valuesPath,
+            final String missingPath) {
+
+        final RandomAccessibleInterval<T> values = N5Utils.open(n5, valuesPath);
+        final RandomAccessibleInterval<BoolType> missing;
+        if (missingPath != null) {
+            final CachedCellImg<UnsignedByteType, ?> missing_uint8 = N5Utils.open(n5, missingPath);
+            missing = Converters.convert(missing_uint8, (u, b) -> b.set(u.get() != 0), new BoolType());
+        } else {
+            missing = null;
+        }
+        return new FixedLengthProperty<>(identifier, values, missing, sharedElementIndex);
+    }
+
+    /**
+     * Create a fixed-length {@code GeffProperty} tied to the datasets at {@code
+     * valuesPath}, (optionally) {@code missingPath}, and {@code da}.
+     * <p>
+     * The last dimension of the values dataset is the element (node/edge)
+     * index, the first dimensions specifies the offset and shape of the
+     * property for any given element (the length the first dimension {@code -1}
+     * is the number property dimensions}.
+     *
+     * @param n5 the {@code N5Reader}
+     * @param identifier the identifier of the property (e.g. "var_length")
+     * @param sharedElementIndex the shared {@code ElementIndex} of the property, specifying for which element the property values are currently exposed.
+     * @param valuesPath path to the dataset containing the property offset and shape values (relative to the container root, e.g. "nodes/props/var_length/values")
+     * @param missingPath path to the dataset containing the properties missing information (for optional properties, or {@code null} if property values must be present for all elements
+     * @param dataPath path to the dataset containing the property data (what offset and shape point to)
+     * @return a {@code GeffProperty}
+     * @param <T> the imglib2 type of the property values
+     */
+    private static <T extends NativeType<T>> GeffProperty<T> loadVarLengthProperty(
+            final N5Reader n5,
+            final String identifier,
+            final ElementIndex sharedElementIndex,
+            final String valuesPath,
+            final String missingPath,
+            final String dataPath) {
+
+        final RandomAccessibleInterval<UnsignedLongType> values = N5Utils.open(n5, valuesPath);
+        final RandomAccessibleInterval<BoolType> missing;
+        if (missingPath != null) {
+            final CachedCellImg<UnsignedByteType, ?> missing_uint8 = N5Utils.open(n5, missingPath);
+            missing = Converters.convert(missing_uint8, (u, b) -> b.set(u.get() != 0), new BoolType());
+        } else {
+            missing = null;
+        }
+        final RandomAccessibleInterval<T> data = N5Utils.open(n5, dataPath);
+        return new VarLengthProperty<>(identifier, values, data, missing, sharedElementIndex);
+    }
+
+
 
     /**
      * Normalize {@code geffGroup} path such that it can be prepended to a
