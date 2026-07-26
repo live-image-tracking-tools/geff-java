@@ -16,6 +16,7 @@ import net.imglib2.util.Cast;
 import net.imglib2.util.Util;
 import org.janelia.saalfeldlab.n5.Compression;
 import org.janelia.saalfeldlab.n5.N5Reader;
+import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.imglib2.N5Utils;
 import org.janelia.saalfeldlab.n5.zarr.DType;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
@@ -262,24 +263,32 @@ public class IoUtils {
     // ------------------------------------------------------------------------
 
     /**
-     * Write fixed-length property
-     * TODO ...
-     * TODO ...
-     * TODO ...
-     * TODO ...
+     * Write a {@code FixedLengthProperty} into a geff hierarchy rooted at
+     * {@code geffGroup}.
+     * <p>
+     * This will write the {@code "/props/<identifier>/values"} dataset, and the
+     * {@code "/props/<identifier>/missing"} dataset if the property is {@link
+     * GeffProperty#isOptional() optional}.
+     * <p>
+     * The {@code optionalDType} allows to specify the endianness of the data
+     * type "values" dataset. It must correspond to the imglib2 type {@code T} of
+     * the property. If ({@code optionalDType==null}), the default DType for
+     * {@code T} is used.
+     * <p>
+     * The "missing" dataset is always written as {@code "|b1"}.
      *
-     * @param n5
-     * @param property
-     * @param elementType
-     * @param optionalDType
-     * @param isIdsProperty
-     * @param compression
-     * @param geffGroup
-     * @param <T>
+     * @param n5 the {@code N5Writer}
+     * @param property the property to write
+     * @param elementType which type of element ({@code NODE} or {@code EDGE}) the property refers to
+     * @param optionalDType the exact {@link DType} of the values dataset to write, or {@code null}
+     * @param isIdsProperty {@code true} if the property is the special "nodes/ids" property
+     * @param compression compression to use
+     * @param geffGroup path to the geff hierarchy (relative to container root)
+     * @param <T> the imglib2 type of the property values
      */
     // TODO: might add int chunkSize argument later (chunking along elementIndex axis only).
     static <T extends Type<T>> void writeProperty(
-            final N5ZarrWriter n5,
+            final N5Writer n5,
             final FixedLengthProperty<T> property,
             final ElementType elementType, // TODO: maybe add to GeffProperty?
             final DType optionalDType, // optional, will use default DType corresponding to type()
@@ -313,26 +322,36 @@ public class IoUtils {
     }
 
     /**
-     * Write var-length property
-     * TODO ...
-     * TODO ...
-     * TODO ...
-     * TODO ...
+     * Write a {@code VarLengthProperty} into a geff hierarchy rooted at
+     * {@code geffGroup}.
+     * <p>
+     * This will write the {@code "/props/<identifier>/values"} and {@code
+     * "/props/<identifier>/data"} datasets, and the {@code
+     * "/props/<identifier>/missing"} dataset if the property is {@link
+     * GeffProperty#isOptional() optional}.
+     * <p>
+     * The {@code optionalDType} allows to specify the endianness of the data
+     * type "data" dataset. It must correspond to the imglib2 type {@code T} of
+     * the property. If ({@code optionalDType==null}), the default DType for
+     * {@code T} is used.
+     * <p>
+     * The "values" dataset is always written as {@code "<u8"}.
+     * The "missing" dataset is always written as {@code "|b1"}.
      *
-     * @param n5
-     * @param property
-     * @param elementType
-     * @param optionalDType
-     * @param compression
-     * @param geffGroup
-     * @param <T>
+     * @param n5 the {@code N5Writer}
+     * @param property the property to write
+     * @param elementType which type of element ({@code NODE} or {@code EDGE}) the property refers to
+     * @param optionalDType the exact {@link DType} of the data dataset to write, or {@code null}
+     * @param compression compression to use
+     * @param geffGroup path to the geff hierarchy (relative to container root)
+     * @param <T> the imglib2 type of the property values
      */
     // TODO: might add int chunkSize argument later (chunking along elementIndex axis only).
     static <T extends Type<T>> void writeProperty(
-            final N5ZarrWriter n5,
+            final N5Writer n5,
             final VarLengthProperty<T> property,
             final ElementType elementType, // TODO: maybe add to GeffProperty?
-            final DType optionalDType, // optional, will use default DType corresponding to type()
+            final DType optionalDType,
             final Compression compression,
             final String geffGroup) { // geffGroup is optional...
 
@@ -402,7 +421,7 @@ public class IoUtils {
     }
 
     static <T extends NativeType<T>> void writeDataset(
-            final N5ZarrWriter n5,
+            final N5Writer n5,
             final String dataset,
             final DType dType,
             final Compression compression,
