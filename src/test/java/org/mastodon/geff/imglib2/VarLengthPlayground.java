@@ -89,8 +89,7 @@ public class VarLengthPlayground {
             }
 
             final BloscCompression compression = new BloscCompression("lz4", 5, 1, 0, 0);
-            ((VarLengthProperty<?>)writeProperty).write(n5, ElementType.NODE, null, compression, null);
-
+            IoUtils.writeProperty(n5, (VarLengthProperty<?>) writeProperty, ElementType.NODE, null, compression, null);
         }
     }
 

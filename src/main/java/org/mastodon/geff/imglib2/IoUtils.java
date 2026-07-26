@@ -267,12 +267,6 @@ public class IoUtils {
      * TODO ...
      * TODO ...
      * TODO ...
-     * TODO ...
-     * TODO ...
-     * TODO ...
-     * TODO ...
-     * TODO ...
-     * TODO ...
      *
      * @param n5
      * @param property
@@ -318,6 +312,53 @@ public class IoUtils {
         }
     }
 
+    /**
+     * Write var-length property
+     * TODO ...
+     * TODO ...
+     * TODO ...
+     * TODO ...
+     *
+     * @param n5
+     * @param property
+     * @param elementType
+     * @param optionalDType
+     * @param compression
+     * @param geffGroup
+     * @param <T>
+     */
+    // TODO: might add int chunkSize argument later (chunking along elementIndex axis only).
+    static <T extends Type<T>> void writeProperty(
+            final N5ZarrWriter n5,
+            final VarLengthProperty<T> property,
+            final ElementType elementType, // TODO: maybe add to GeffProperty?
+            final DType optionalDType, // optional, will use default DType corresponding to type()
+            final Compression compression,
+            final String geffGroup) { // geffGroup is optional...
+
+        final T type = property.type();
+        if (!(type instanceof NativeType))
+            throw new IllegalArgumentException("Only NativeType supported for writing. (" + type.getClass().getSimpleName() + ")");
+
+        final DType dType = optionalDType != null
+                ? optionalDType
+                : GeffPropertySpec.defaultDType(Cast.unchecked(type));
+
+        // TODO: This is inherently fragile. We should revisit later, and use N5Path (once that is available).
+        final String group = IoUtils.normalizeGroupPath(geffGroup);
+
+        final String propsGroup = group + elementType.elementGroup() + "/props/" + property.identifier();
+        final DType uint64 = new DType("<u8", null);
+        writeDataset(n5, propsGroup + "/values", uint64, compression, Cast.unchecked(property.valuesRAI));
+        writeDataset(n5, propsGroup + "/data", dType, compression, Cast.unchecked(property.dataRAI));
+        if (property.isOptional()) {
+            final RandomAccessibleInterval<UnsignedByteType> missing_uint8 = Converters.convert(property.missingRAI,
+                    (b, u) -> u.set(b.get() ? 1 : 0),
+                    new UnsignedByteType());
+            final DType uint8 = new DType("|b1", null);
+            writeDataset(n5, propsGroup + "/missing", uint8, compression, missing_uint8);
+        }
+    }
 
 
 
