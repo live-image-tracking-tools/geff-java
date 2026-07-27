@@ -72,7 +72,7 @@ public class IoUtils {
         final String idValuesDataset = group + elementType.elementGroup() + "/ids";
         final ZarrDatasetAttributes attrIds = attrs(n5, idValuesDataset);
         final DType idDType = attrIds.getDType();
-        final GeffPropertySpec id = new GeffPropertySpec("id", elementType, false, false, idDType, 0, new FinalDimensions());
+        final GeffPropertySpec id = new GeffPropertySpec("id", elementType, false, false, idDType, new FinalDimensions());
         if (!(N5Utils.type(id.dType().getDataType()) instanceof IntegerType))
             throw new IllegalArgumentException(idValuesDataset + " must be an integer type");
 
@@ -114,20 +114,18 @@ public class IoUtils {
         final DType dType = isVarLength ? attrData.getDType() : attrValues.getDType();
         final boolean isOptional = attrMissing != null;
 
-        final int numDimensions;
         final Dimensions dimensions;
         if (isVarLength) {
             final long[] valuesDim = attrValues.getDimensions();
-            numDimensions = (int) (valuesDim[0] - 1);
-            dimensions = null;
+            final int numDimensions = (int) (valuesDim[0] - 1);
+            dimensions = FinalDimensions.wrap(new long[numDimensions]);
         } else {
             final long[] valuesDim = attrValues.getDimensions();
             final long[] propertyDim = Arrays.copyOf(valuesDim, valuesDim.length - 1);
-            numDimensions = propertyDim.length;
             dimensions = FinalDimensions.wrap(propertyDim);
         }
 
-        return new GeffPropertySpec(metadata.getIdentifier(), elementType, isVarLength, isOptional, dType, numDimensions, dimensions);
+        return new GeffPropertySpec(metadata.getIdentifier(), elementType, isVarLength, isOptional, dType, dimensions);
     }
 
 

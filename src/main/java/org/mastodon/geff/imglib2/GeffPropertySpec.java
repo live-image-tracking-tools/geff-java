@@ -18,7 +18,6 @@ import java.util.EnumMap;
  * @param isVarLength
  * @param isOptional
  * @param dType
- * @param numDimensions
  * @param dimensions
  */
 // TODO: convert record to class (for Java 8)
@@ -28,7 +27,6 @@ public record GeffPropertySpec(
         boolean isVarLength,
         boolean isOptional,
         DType dType,
-        int numDimensions,
         Dimensions dimensions) {
 
     @Override
@@ -39,8 +37,12 @@ public record GeffPropertySpec(
                 ", isVarLength=" + isVarLength +
                 ", isOptional=" + isOptional +
                 ", dType=" + dType +
-                ", numDimensions=" + numDimensions +
+                ", numDimensions=" + numDimensions() +
                 ", dimensions=" + (dimensions == null ? "null" : "{" + Intervals.toString(dimensions) + "}") +
                 ']';
+    }
+
+    public int numDimensions() {
+        return dimensions.numDimensions();
     }
 }
