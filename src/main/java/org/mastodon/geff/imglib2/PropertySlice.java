@@ -6,21 +6,16 @@ import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.util.Intervals;
 
-final class PropertySlice<T> implements Slice<T> {
+final class PropertySlice<T> implements RandomAccessibleInterval<T> {
 
     private final RandomAccessibleInterval<T> delegate;
-
     private final ElementIndex elementIndex;
-
     private final int n;
-
-    private final SP slicePosition;
 
     PropertySlice(final RandomAccessibleInterval<T> parent, final ElementIndex elementIndex) {
         n = parent.numDimensions() - 1;
         delegate = parent;
         this.elementIndex = elementIndex;
-        slicePosition = new SP(this.elementIndex.slicePos);
     }
 
     private PropertySlice(final PropertySlice<T> slice) {
@@ -28,17 +23,10 @@ final class PropertySlice<T> implements Slice<T> {
         elementIndex = new ElementIndex();
         elementIndex.index(slice.elementIndex.index());
         n = slice.n;
-        slicePosition = new SP(elementIndex.slicePos);
     }
 
-    @Override
-    public Slice<T> copy() {
+    public PropertySlice<T> copy() {
         return new PropertySlice<>(this);
-    }
-
-    @Override
-    public SlicePosition slicePosition() {
-        return slicePosition;
     }
 
     @Override
@@ -65,12 +53,6 @@ final class PropertySlice<T> implements Slice<T> {
     @Override
     public long max(final int d) {
         return delegate.max(d);
-    }
-
-    private static class SP extends Point implements SlicePosition {
-        SP(final long[] pos) {
-            super(pos, false); // wrap pos
-        }
     }
 
     private static class RA<T> extends Point implements RandomAccess<T> {
