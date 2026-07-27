@@ -10,8 +10,26 @@ import org.janelia.saalfeldlab.n5.zarr.DType;
 import java.util.EnumMap;
 
 
+/**
+ * Describes a property type.
+ *
+ * @param identifier the identifier of the property
+ * @param elementType whether the
+ * @param isVarLength
+ * @param isOptional
+ * @param dType
+ * @param numDimensions
+ * @param dimensions
+ */
 // TODO: convert record to class (for Java 8)
-public record GeffPropertySpec(String identifier, ElementType elementType, boolean isVarLength, boolean isOptional, DType dType, int numDimensions, Dimensions dimensions) {
+public record GeffPropertySpec(
+        String identifier,
+        ElementType elementType,
+        boolean isVarLength,
+        boolean isOptional,
+        DType dType,
+        int numDimensions,
+        Dimensions dimensions) {
 
     @Override
     public String toString() {
@@ -24,31 +42,5 @@ public record GeffPropertySpec(String identifier, ElementType elementType, boole
                 ", numDimensions=" + numDimensions +
                 ", dimensions=" + (dimensions == null ? "null" : "{" + Intervals.toString(dimensions) + "}") +
                 ']';
-    }
-
-
-    // ------------------------------------------------------------------------
-    // TODO: move to IoUtils class?
-
-    public static <T extends NativeType<T>> DType defaultDType(final T type) {
-        return new DType(typestrs.get(N5Utils.dataType(type)), null);
-    }
-
-    // copied from DType, modified to use little-endian
-    private static final EnumMap<DataType, String> typestrs = new EnumMap<>(DataType.class);
-
-    static {
-        typestrs.put(DataType.INT8, "|i1");
-        typestrs.put(DataType.UINT8, "|u1");
-        typestrs.put(DataType.INT16, "<i2");
-        typestrs.put(DataType.UINT16, "<u2");
-        typestrs.put(DataType.INT32, "<i4");
-        typestrs.put(DataType.UINT32, "<u4");
-        typestrs.put(DataType.INT64, "<i8");
-        typestrs.put(DataType.UINT64, "<u8");
-        typestrs.put(DataType.FLOAT32, "<f4");
-        typestrs.put(DataType.FLOAT64, "<f8");
-        typestrs.put(DataType.STRING, "|O");
-        typestrs.put(DataType.OBJECT, "|O");
     }
 }

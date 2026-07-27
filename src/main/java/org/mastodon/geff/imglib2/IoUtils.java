@@ -15,6 +15,7 @@ import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.util.Cast;
 import net.imglib2.util.Util;
 import org.janelia.saalfeldlab.n5.Compression;
+import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.imglib2.N5Utils;
@@ -24,6 +25,7 @@ import org.mastodon.geff.PropMetadata;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 
@@ -327,7 +329,7 @@ public class IoUtils {
 
         final DType dType = optionalDType != null
                 ? optionalDType
-                : GeffPropertySpec.defaultDType(Cast.unchecked(type));
+                : defaultDType(Cast.unchecked(type));
 
         final String group = normalizeGroupPath(geffGroup);
         if (isIdsProperty) {
@@ -386,10 +388,10 @@ public class IoUtils {
 
         final DType dType = optionalDType != null
                 ? optionalDType
-                : GeffPropertySpec.defaultDType(Cast.unchecked(type));
+                : defaultDType(Cast.unchecked(type));
 
         // TODO: This is inherently fragile. We should revisit later, and use N5Path (once that is available).
-        final String group = IoUtils.normalizeGroupPath(geffGroup);
+        final String group = normalizeGroupPath(geffGroup);
 
         final String propsGroup = group + elementType.elementGroup() + "/props/" + property.identifier();
         final DType uint64 = new DType("<u8", null);
@@ -464,5 +466,37 @@ public class IoUtils {
         final String dataset_ = DEBUG_WRITING ? dataset + "2" : dataset;// TODO ...
         n5.createDataset(dataset_, attributes);
         N5Utils.saveRegion(data, n5, dataset_, attributes);
+    }
+
+    /**
+     * Get the default Zarr {@code DType} to use for writing datasets of the
+     * given ImgLib2 {@code type}.
+     * <p>
+     * For compatibility with python geff the default Zarr DTypes are
+     * little-endian (in contrast to n5-zarr which uses big-endian by default).
+     *
+     * @param type ImgLib2 type
+     * @return corresponding default DType
+     */
+    public static <T extends NativeType<T>> DType defaultDType(final T type) {
+        return new DType(typestrs.get(N5Utils.dataType(type)), null);
+    }
+
+    // copied from DType, modified to use little-endian
+    private static final EnumMap<DataType, String> typestrs = new EnumMap<>(DataType.class);
+
+    static {
+        typestrs.put(DataType.INT8, "|i1");
+        typestrs.put(DataType.UINT8, "|u1");
+        typestrs.put(DataType.INT16, "<i2");
+        typestrs.put(DataType.UINT16, "<u2");
+        typestrs.put(DataType.INT32, "<i4");
+        typestrs.put(DataType.UINT32, "<u4");
+        typestrs.put(DataType.INT64, "<i8");
+        typestrs.put(DataType.UINT64, "<u8");
+        typestrs.put(DataType.FLOAT32, "<f4");
+        typestrs.put(DataType.FLOAT64, "<f8");
+        typestrs.put(DataType.STRING, "|O");
+        typestrs.put(DataType.OBJECT, "|O");
     }
 }
