@@ -6,6 +6,7 @@ import net.imglib2.util.Cast;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 
 public class GeffProperties {
@@ -73,10 +74,21 @@ public class GeffProperties {
                 '}';
     }
 
+    public void rename(final String identifier, final String newIdentifier) {
+        if (properties.containsKey(newIdentifier))
+            throw new IllegalArgumentException("A property with the given identifier \"" + newIdentifier + "\" already exists");
+        final GeffProperty<?> property = properties.remove(identifier);
+        if (property == null)
+            throw new NoSuchElementException("No property \"" + identifier + "\" found");
+        properties.put(newIdentifier, new RenamedProperty<>(property, newIdentifier));
+    }
 
     // TODO remove?
     <T> GeffProperty<T> property(final String identifier) {
-        return Cast.unchecked(properties.get(identifier));
+        final GeffProperty<?> property = properties.get(identifier);
+        if (property == null)
+            throw new NoSuchElementException("No property \"" + identifier + "\" found");
+        return Cast.unchecked(property);
     }
 
     // TODO remove?

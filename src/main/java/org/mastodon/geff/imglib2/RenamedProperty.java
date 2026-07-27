@@ -1,28 +1,20 @@
 package org.mastodon.geff.imglib2;
 
-import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessibleInterval;
-import net.imglib2.converter.Converter;
-import net.imglib2.converter.read.ConvertedRandomAccess;
 
-import java.util.function.Supplier;
+class RenamedProperty<T> implements GeffProperty<T> {
 
-class ConvertedProperty<S, T> implements GeffProperty<T> {
+    private final GeffProperty<T> parent;
+    private final String identifier;
 
-    private final GeffProperty<S> parent;
-    private final PropertyRAI<T> values;
-
-    ConvertedProperty(final GeffProperty<S> parent, final Converter<S, T> converter, final Supplier<T> typeSupplier) {
+    RenamedProperty(final GeffProperty<T> parent, final String identifier) {
         this.parent = parent;
-
-        final RandomAccessibleInterval<S> parentValues = parent.values();
-        final RandomAccess<T> randomAccess = new ConvertedRandomAccess<>(parentValues.randomAccess(), converter, typeSupplier);
-        values = new PropertyRAI<>(parentValues, randomAccess );
+        this.identifier = identifier;
     }
 
     @Override
     public String identifier() {
-        return parent.identifier();
+        return identifier;
     }
 
     @Override
@@ -52,7 +44,7 @@ class ConvertedProperty<S, T> implements GeffProperty<T> {
 
     @Override
     public RandomAccessibleInterval<T> values() {
-        return values;
+        return parent.values();
     }
 
     @Override
