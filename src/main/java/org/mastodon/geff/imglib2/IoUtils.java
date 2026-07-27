@@ -136,11 +136,38 @@ public class IoUtils {
      * Read all {@link GeffProperties} for edges or nodes of a geff hierarchy at
      * the root of {@code n5}.
      *
-     * @param n5 the {@code N5Reader}
-     * @param specs specs for all properties to read
-     * @return the {@code GeffPropertySpecs} for the given {@code ElementType}
+     * @param n5    the {@code N5Reader}
+     * @param elementType for which type of element ({@code NODE} or {@code EDGE}) to read the properties
+     * @return the {@code GeffProperties} for the given {@code ElementType}
      */
-    public static GeffProperties loadProperties(final N5ZarrReader n5, final GeffPropertySpecs specs) {
+    public static GeffProperties loadProperties(final N5Reader n5, final ElementType elementType) {
+        return loadProperties(n5, elementType, null);
+    }
+
+    /**
+     * Read all {@link GeffProperties} for edges or nodes of a geff hierarchy.
+     *
+     * @param n5 the {@code N5Reader}
+     * @param elementType for which type of element ({@code NODE} or {@code EDGE}) to read the properties
+     * @param geffGroup path to the geff hierarchy (relative to container root)
+     * @return the {@code GeffProperties} for the given {@code ElementType}
+     */
+    public static GeffProperties loadProperties(
+            final N5Reader n5,
+            final ElementType elementType,
+            final String geffGroup) {
+        return loadProperties(n5, loadPropertySpecs(n5, elementType, geffGroup), geffGroup);
+    }
+
+    /**
+     * Read all {@link GeffProperties} for edges or nodes of a geff hierarchy at
+     * the root of {@code n5}.
+     *
+     * @param n5    the {@code N5Reader}
+     * @param specs specs for all properties to read
+     * @return the {@code GeffProperties} for the given specs
+     */
+    public static GeffProperties loadProperties(final N5Reader n5, final GeffPropertySpecs specs) {
         return loadProperties(n5, specs, null);
     }
 
@@ -150,10 +177,10 @@ public class IoUtils {
      * @param n5 the {@code N5Reader}
      * @param specs specs for all properties to read
      * @param geffGroup path to the geff hierarchy (relative to container root)
-     * @return the {@code GeffPropertySpecs} for the given {@code ElementType}
+     * @return the {@code GeffProperties} for the given specs
      */
     public static GeffProperties loadProperties(
-            final N5ZarrReader n5,
+            final N5Reader n5,
             final GeffPropertySpecs specs,
             final String geffGroup) {
 
