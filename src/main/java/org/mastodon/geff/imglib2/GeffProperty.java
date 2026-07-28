@@ -1,6 +1,7 @@
 package org.mastodon.geff.imglib2;
 
 import net.imglib2.Dimensions;
+import net.imglib2.FinalDimensions;
 import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.converter.Converter;
@@ -144,6 +145,14 @@ public interface GeffProperty<T> {
                     u.getClass().getSimpleName() +
                     " (both must be RealType<?>)");
         }
+    }
+
+    // TODO: exploratory. probably should be overridden by implementations such that it is not frequently re-created.
+    default GeffPropertyType propertyType() {
+        final Dimensions dimensions = isVarlength()
+                ? FinalDimensions.wrap(new long[numDimensions()])
+                : new FinalDimensions(dimensions());
+        return new GeffPropertyType(type().getClass(), isVarlength(), isOptional(), dimensions);
     }
 
     // ------------------------------------------------------------------------
