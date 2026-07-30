@@ -5,19 +5,10 @@ import net.imglib2.FinalDimensions;
 import net.imglib2.Point;
 import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessibleInterval;
-import net.imglib2.converter.Converters;
 import net.imglib2.type.BooleanType;
-import net.imglib2.type.NativeType;
 import net.imglib2.type.Type;
-import net.imglib2.type.numeric.integer.UnsignedByteType;
 import net.imglib2.type.numeric.integer.UnsignedLongType;
-import net.imglib2.util.Cast;
 import net.imglib2.util.IntervalIndexer;
-import org.janelia.saalfeldlab.n5.Compression;
-import org.janelia.saalfeldlab.n5.zarr.DType;
-import org.janelia.saalfeldlab.n5.zarr.N5ZarrWriter;
-
-import static org.mastodon.geff.imglib2.IoUtils.writeDataset;
 
 class VarLengthProperty<T extends Type<T>> implements GeffProperty<T> {
 
