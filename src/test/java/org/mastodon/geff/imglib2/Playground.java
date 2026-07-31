@@ -17,7 +17,8 @@ public class Playground {
     public static void main(String[] args) {
 //        final String path = "cross-language-tests/data/basic_3d_original.zarr";
 //        final String path = "cross-language-tests/data/covariance_original.zarr";
-        final String path = "cross-language-tests/data/varlength_original.zarr";
+//        final String path = "cross-language-tests/data/varlength_original.zarr";
+        final String path = "/Users/pietzsch/Desktop/data/JYT/TrackMate-GEFF-examples/MAX_Merged.geff";
 
         // read
         try (final N5ZarrReader n5 = new N5ZarrReader(path)) {

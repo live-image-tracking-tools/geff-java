@@ -6,12 +6,9 @@ import net.imglib2.type.numeric.real.DoubleType;
 import net.imglib2.util.Cast;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
+import org.mastodon.geff.imglib2.Construction.AttributeParam;
 
 import java.lang.annotation.Annotation;
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.AnnotatedType;
@@ -34,12 +31,13 @@ public class MethodHandlePlayground {
 
     static class MyBuilder {
         public void addVertex(
-                @FromId() long id,
-                @FromProperty("x") double x,
-                @FromProperty("y") double y,
-                @FromProperty("z") double z,
-                @FromProperty("t") long t) {
-            System.out.println("addVertex(id=" + id + ", x=" + x + ", y=" + y + ", z=" + z + ", t=" + t + ")");
+                @Construction.FromId() long id,
+                @Construction.FromProperty("my_x") double x,
+                @Construction.FromProperty("y") double y,
+                @Construction.FromProperty("z") double z,
+                @Construction.FromProperty(value = "covariance2d") double[] cov2d,
+                @Construction.FromProperty("t") long t) {
+            System.out.println("addVertex(id=" + id + ", x=" + x + ", y=" + y + ", z=" + z + ", cov2d=" + Arrays.toString(cov2d) + ", t=" + t + ")");
         }
     }
 
@@ -49,6 +47,8 @@ public class MethodHandlePlayground {
 
         try (final N5Reader n5 = new N5ZarrReader(path)) {
             final GeffProperties props = IoUtils.loadProperties(n5, NODE);
+            props.rename("x", "my_x");
+            System.out.println("props = " + props);
             final MyBuilder nodeBuilder = new MyBuilder();
             buildNodes( nodeBuilder, props);
         }
@@ -57,12 +57,12 @@ public class MethodHandlePlayground {
     static class MyAdvancedBuilder {
 
         public void addVertex(
-                @FromId() long id,
-                @FromProperty("x") double x,
-                @FromProperty("y") GeffProperty<DoubleType> y, // escape hatch for stuff we have not implemented yet.
-                @FromProperty("t") long t, // automatically type-converted
-                @FromProperty("covariance2d") double[] cov2d,
-                @FromProperty("covariance3d") Optional<double[]> cov3d) { // for properties that could be missing
+                @Construction.FromId() long id,
+                @Construction.FromProperty("x") double x,
+                @Construction.FromProperty("y") GeffProperty<DoubleType> y, // escape hatch for stuff we have not implemented yet.
+                @Construction.FromProperty("t") long t, // automatically type-converted
+                @Construction.FromProperty("covariance2d") double[] cov2d,
+                @Construction.FromProperty("covariance3d") Optional<double[]> cov3d) { // for properties that could be missing
 
             System.out.println("addVertex(id=" + id + ", x=" + x + ", y=" + y.getAt().get() + ", t=" + t + ", cov2d=" + Arrays.toString(cov2d) + ", cov32=" + Arrays.toString(cov3d.orElse(null)) + ")");
         }
@@ -73,18 +73,6 @@ public class MethodHandlePlayground {
 
     // -------------------------------
 
-
-
-    @Retention(RetentionPolicy.RUNTIME)
-    @Target(ElementType.PARAMETER)
-    public @interface FromProperty {
-        String value();
-    }
-
-    @Retention(RetentionPolicy.RUNTIME)
-    @Target(ElementType.PARAMETER)
-    public @interface FromId {
-    }
 
     public static void buildNodes(final Object target, final GeffProperties properties) throws Throwable {
 
@@ -97,6 +85,11 @@ public class MethodHandlePlayground {
         final AttributeParam[] attributeParams = getAttributes(method);
         System.out.println("attributeParams = " + Arrays.toString(attributeParams));
 
+        for ( AttributeParam param : attributeParams ) {
+            System.out.println("param = " + param);
+            System.out.println("propertyType(param) = " + Construction.propertyType(param));
+            System.out.println();
+        }
 
         final MethodHandles.Lookup lk = MethodHandles.lookup();
         MethodHandle mh = lk.unreflect(method).bindTo(target);
@@ -156,14 +149,6 @@ public class MethodHandlePlayground {
         throw new IllegalArgumentException("TODO");
     }
 
-    private static Class<?> getRawType(Type t) {
-        if (t instanceof Class<?>)
-            return (Class<?>)t;
-        if (t instanceof ParameterizedType)
-            return (Class<?>) ((ParameterizedType) t).getRawType();
-        throw new IllegalArgumentException("TODO");
-    }
-
     private static <T extends GenericLongType<T>> LongSupplier asLongSupplier(final GeffProperty<T> property) {
         return () -> property.getAt().getLong();
     }
@@ -200,40 +185,25 @@ public class MethodHandlePlayground {
     }
 
 
+    private static Class<?> getRawType(Type t) {
+        if (t instanceof Class<?>)
+            return (Class<?>)t;
+        if (t instanceof ParameterizedType)
+            return (Class<?>) ((ParameterizedType) t).getRawType();
+        throw new IllegalArgumentException("TODO");
+    }
 
 
-    record AttributeParam(Type type, String identifier, boolean isId) {}
+
+
+
 
     private static AttributeParam[] getAttributes(final Method method) {
         final Type[] types = method.getGenericParameterTypes();
         final Annotation[][] annotations = method.getParameterAnnotations();
         final AttributeParam[] params = new AttributeParam[types.length];
-        Arrays.setAll(params, i -> resolveParameter(types[i], annotations[i]));
+        Arrays.setAll(params, i -> Construction.resolveParameter(types[i], annotations[i]));
         return params;
-    }
-
-    private static AttributeParam resolveParameter(
-            final Type parameterType,
-            final Annotation[] parameterAnnotations) {
-
-        final String error = "Every parameter must have exactly one @FromProperty or @FromId annotation";
-        AttributeParam result = null;
-        for (Annotation a : parameterAnnotations) {
-            if (a instanceof FromProperty) {
-                if (result != null)
-                    throw new IllegalStateException(error);
-                result = new AttributeParam(parameterType, ((FromProperty) a).value(), false);
-            }
-            else if (a instanceof FromId) {
-                if (result != null)
-                    throw new IllegalStateException(error);
-                result = new AttributeParam(parameterType, "id", true);
-            }
-        }
-        if (result == null) {
-            throw new IllegalStateException(error);
-        }
-        return result;
     }
 
 
