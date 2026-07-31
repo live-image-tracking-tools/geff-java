@@ -32,4 +32,8 @@ public record GeffPropertyType(
     public int numDimensions() {
         return dimensions.numDimensions();
     }
+
+    public GeffPropertyType withOptional(boolean isOptional) {
+        return new GeffPropertyType(type, isVarLength, isOptional, dimensions);
+    }
 }

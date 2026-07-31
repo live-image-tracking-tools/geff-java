@@ -1,29 +1,36 @@
 package org.mastodon.geff.imglib2;
 
+import net.imglib2.type.numeric.integer.GenericByteType;
+import net.imglib2.type.numeric.integer.GenericIntType;
 import net.imglib2.type.numeric.integer.GenericLongType;
-import net.imglib2.type.numeric.integer.LongType;
+import net.imglib2.type.numeric.integer.GenericShortType;
 import net.imglib2.type.numeric.real.DoubleType;
+import net.imglib2.type.numeric.real.FloatType;
 import net.imglib2.util.Cast;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
-import org.mastodon.geff.imglib2.Construction.AttributeParam;
+import org.mastodon.geff.imglib2.Construction.ConstructorParameter;
+import org.mastodon.geff.imglib2.Construction.GeffBindError;
+import org.mastodon.geff.imglib2.Construction.ResolvedConstructorParameter;
 
 import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.lang.reflect.AnnotatedType;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
-import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.function.DoubleSupplier;
+import java.util.function.IntSupplier;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
 import static java.lang.invoke.MethodHandles.collectArguments;
 import static java.lang.invoke.MethodType.methodType;
+import static org.mastodon.geff.imglib2.Construction.ESCAPE_HATCH;
 import static org.mastodon.geff.imglib2.ElementType.NODE;
 
 
@@ -47,9 +54,9 @@ public class MethodHandlePlayground {
 
         try (final N5Reader n5 = new N5ZarrReader(path)) {
             final GeffProperties props = IoUtils.loadProperties(n5, NODE);
-            props.rename("x", "my_x");
-            System.out.println("props = " + props);
-            final MyBuilder nodeBuilder = new MyBuilder();
+//            props.rename("x", "my_x");
+//            final MyBuilder nodeBuilder = new MyBuilder();
+            final MyAdvancedBuilder nodeBuilder = new MyAdvancedBuilder();
             buildNodes( nodeBuilder, props);
         }
     }
@@ -82,20 +89,19 @@ public class MethodHandlePlayground {
 
         System.out.println("method = " + method);
 
-        final AttributeParam[] attributeParams = getAttributes(method);
-        System.out.println("attributeParams = " + Arrays.toString(attributeParams));
-
-        for ( AttributeParam param : attributeParams ) {
-            System.out.println("param = " + param);
-            System.out.println("propertyType(param) = " + Construction.propertyType(param));
-            System.out.println();
-        }
+        final ConstructorParameter[] constructorParameters = getAttributes(method);
+        System.out.println("attributeParams = " + Arrays.toString(constructorParameters));
 
         final MethodHandles.Lookup lk = MethodHandles.lookup();
         MethodHandle mh = lk.unreflect(method).bindTo(target);
 
-        for (int i = 0; i < attributeParams.length; i++) {
-            final MethodHandle supplier = propertyHandle(lk, properties, attributeParams[i]);
+        for (int i = 0; i < constructorParameters.length; i++) {
+            final ConstructorParameter param = constructorParameters[i];
+            System.out.println();
+            System.out.println("param = " + param);
+            System.out.println("resolved = " + Construction.resolveConstructorParameter(param));
+
+            final MethodHandle supplier = propertyHandle(lk, properties, param);
             mh = collectArguments(mh, 0, supplier);
         }
 
@@ -105,104 +111,212 @@ public class MethodHandlePlayground {
         }
     }
 
+
+
     private static MethodHandle propertyHandle(
             final MethodHandles.Lookup lookup,
             final GeffProperties properties,
-            final AttributeParam param
-    ) throws NoSuchMethodException, IllegalAccessException {
+            final ConstructorParameter param
+    ) throws NoSuchMethodException, IllegalAccessException, GeffBindError {
 
-        final GeffProperty<?> property = param.isId()
+
+        final ResolvedConstructorParameter resolved = Construction.resolveConstructorParameter(param);
+        final GeffPropertyType targetType = resolved.propertyType();
+        final GeffProperty<?> sourceProperty = param.isId()
                 ? properties.id()
                 : properties.property(param.identifier());
-        final Type rawType = getRawType(param.type());
-        if (rawType == long.class) {
-            final GeffProperty<?> longProperty = property.type() instanceof GenericLongType ? property : property.convert(LongType::new);
-//            checkTypeMatch(property.type().getClass(), UnsignedLongType.class);
-            final LongSupplier s = asLongSupplier(Cast.unchecked(longProperty));
-            return lookup.findVirtual(LongSupplier.class, "getAsLong", methodType(long.class)).bindTo(s);
-        } else if (rawType == double.class) {
-            checkTypeMatch(property.type().getClass(), DoubleType.class);
-            final DoubleSupplier s = asDoubleSupplier(Cast.unchecked(property));
-            return lookup.findVirtual(DoubleSupplier.class, "getAsDouble", methodType(double.class)).bindTo(s);
-        } else if (rawType == double[].class) {
-            checkTypeMatch(property.type().getClass(), DoubleType.class);
-            final Supplier<double[]> s = asDoubleArraySupplier(Cast.unchecked(property));
-            return lookup.findVirtual(Supplier.class, "get", methodType(Object.class)).bindTo(s)
-                    .asType(methodType(double[].class));
-        } else if (rawType == GeffProperty.class) {
+        final GeffProperty<?> property = Construction.convertToMatch(sourceProperty, targetType);
+
+        if (targetType == ESCAPE_HATCH) {
             final Supplier<GeffProperty<?>> s = () -> property;
             return lookup.findVirtual(Supplier.class, "get", methodType(Object.class)).bindTo(s)
                     .asType(methodType(GeffProperty.class));
-        } else if (rawType == Optional.class) {
-            final Type type = ((ParameterizedType) param.type()).getActualTypeArguments()[0];
-            if (type == double[].class) {
-                checkTypeMatch(property.type().getClass(), DoubleType.class);
-                final Supplier<Optional<double[]>> s = asOptionalDoubleArraySupplier(Cast.unchecked(property));
-                return lookup.findVirtual(Supplier.class, "get", methodType(Object.class)).bindTo(s)
-                        .asType(methodType(Optional.class));
-
-            }
-
         }
 
-        System.out.println("param = " + param);
-        throw new IllegalArgumentException("TODO");
+        if (targetType.isOptional()) {
+            final Class<?> rawOptionalType = resolved.rawOptionalType();
+            final MethodType mt = methodType(rawOptionalType);
+
+            if (rawOptionalType == Optional.class) {
+                final Class<?> rawType = resolved.rawType();
+                if( targetType.numDimensions() == 0 ) { // scalars
+                    // TODO: support boxed Optional<Double> etc
+                    throw new UnsupportedOperationException("TODO: support boxed Optional<Double> etc");
+
+                } else if (targetType.numDimensions() == 1) { // vectors
+
+                    if (rawType == double[].class) {
+                        final Supplier<Optional<double[]>> s = asOptionalDoubleArraySupplier(property);
+                        return lookup.findVirtual(Supplier.class, "get", methodType(Object.class)).bindTo(s)
+                            .asType(mt);
+                    } else {
+                        throw new UnsupportedOperationException("TODO!");
+                    }
+
+                }
+            } else {
+                // TODO: support OptionalInt, OptionalLong, OptionalDouble (and maybe add OptionalByte, etc)
+                throw new UnsupportedOperationException("TODO: support OptionalInt, OptionalLong, OptionalDouble (and maybe add OptionalByte, etc)");
+            }
+
+        } else { // !isOptional
+            final Class<?> rawType = resolved.rawType();
+            final MethodType mt = methodType(rawType);
+
+            if (targetType.numDimensions() == 0) { // scalars
+                if (rawType == byte.class) {
+                    return lookup
+                            .findVirtual(ByteSupplier.class, "getAsByte", mt)
+                            .bindTo(asByteSupplier(property));
+                } else if (rawType == short.class) {
+                    return lookup
+                            .findVirtual(ShortSupplier.class, "getAsShort", mt)
+                            .bindTo(asShortSupplier(property));
+                } else if (rawType == int.class) {
+                    return lookup
+                            .findVirtual(IntSupplier.class, "getAsInt", mt)
+                            .bindTo(asIntSupplier(property));
+                } else if (rawType == long.class) {
+                    return lookup
+                            .findVirtual(LongSupplier.class, "getAsLong", mt)
+                            .bindTo(asLongSupplier(property));
+                } else if (rawType == float.class) {
+                    return lookup
+                            .findVirtual(FloatSupplier.class, "getAsFloat", mt)
+                            .bindTo(asFloatSupplier(property));
+                } else if (rawType == double.class) {
+                    return lookup
+                            .findVirtual(DoubleSupplier.class, "getAsDouble", mt)
+                            .bindTo(asDoubleSupplier(property));
+                }
+
+            } else if (targetType.numDimensions() == 1) { // vectors
+                if (rawType == double[].class) {
+                    return lookup
+                            .findVirtual(Supplier.class, "get", methodType(Object.class))
+                            .bindTo(asDoubleArraySupplier(property))
+                            .asType(mt);
+                } else {
+                    // TODO: support byte[].class, short[].class, etc...
+                    throw new UnsupportedOperationException("TODO: support byte[].class, short[].class, etc...");
+                }
+
+            }
+        }
+
+        throw new IllegalArgumentException("TODO? " + param);
     }
 
-    private static <T extends GenericLongType<T>> LongSupplier asLongSupplier(final GeffProperty<T> property) {
-        return () -> property.getAt().getLong();
+
+    // ------------------------------------------------------------------------
+    //
+    //   Scalar, Non-Optional
+    //
+    // ------------------------------------------------------------------------
+
+    @FunctionalInterface
+    interface ByteSupplier {
+        byte getAsByte();
     }
 
-    private static DoubleSupplier asDoubleSupplier(final GeffProperty<DoubleType> property) {
-        return () -> property.getAt().get();
+    private static <T extends GenericByteType<T>> ByteSupplier asByteSupplier(final GeffProperty<?> property) {
+        final GeffProperty<T> p = Cast.unchecked(property);
+        return () -> p.getAt().getByte();
     }
 
-    private static Supplier<double[]> asDoubleArraySupplier(final GeffProperty<DoubleType> property) {
+    @FunctionalInterface
+    interface ShortSupplier {
+        short getAsShort();
+    }
+
+    private static <T extends GenericShortType<T>> ShortSupplier asShortSupplier(final GeffProperty<?> property) {
+        final GeffProperty<T> p = Cast.unchecked(property);
+        return () -> p.getAt().getShort();
+    }
+
+    private static <T extends GenericIntType<T>> IntSupplier asIntSupplier(final GeffProperty<?> property) {
+        final GeffProperty<T> p = Cast.unchecked(property);
+        return () -> p.getAt().getInt();
+    }
+
+    private static <T extends GenericLongType<T>> LongSupplier asLongSupplier(final GeffProperty<?> property) {
+        final GeffProperty<T> p = Cast.unchecked(property);
+        return () -> p.getAt().getLong();
+    }
+
+    @FunctionalInterface
+    interface FloatSupplier {
+        float getAsFloat();
+    }
+
+    private static FloatSupplier asFloatSupplier(final GeffProperty<?> property) {
+        final GeffProperty<FloatType> p = Cast.unchecked(property);
+        return () -> p.getAt().get();
+    }
+
+    private static DoubleSupplier asDoubleSupplier(final GeffProperty<?> property) {
+        final GeffProperty<DoubleType> p = Cast.unchecked(property);
+        return () -> p.getAt().get();
+    }
+
+
+
+    // ------------------------------------------------------------------------
+    //
+    //   Vector, Non-Optional
+    //
+    // ------------------------------------------------------------------------
+
+    private static Supplier<double[]> asDoubleArraySupplier(final GeffProperty<?> property) {
+        final GeffProperty<DoubleType> p = Cast.unchecked(property);
         return () -> {
-            final int len = (int) property.values().dimension(0);
+            final int len = (int) p.values().dimension(0);
             final double[] array = new double[len];
             for (int i = 0; i < len; i++)
-                array[i] = property.getAt(i).get();
+                array[i] = p.getAt(i).get();
             return array;
         };
     }
 
-    private static Supplier<Optional<double[]>> asOptionalDoubleArraySupplier(final GeffProperty<DoubleType> property) {
+
+
+    // ------------------------------------------------------------------------
+    //
+    //   Vector, Optional
+    //
+    // ------------------------------------------------------------------------
+
+    private static Supplier<Optional<double[]>> asOptionalDoubleArraySupplier(final GeffProperty<?> property) {
+        final GeffProperty<DoubleType> p = Cast.unchecked(property);
         return () -> {
-            if (property.isMissing())
+            if (p.isMissing())
                 return Optional.empty();
-            final int len = (int) property.values().dimension(0);
+            final int len = (int) p.values().dimension(0);
             final double[] array = new double[len];
             for (int i = 0; i < len; i++)
-                array[i] = property.getAt(i).get();
+                array[i] = p.getAt(i).get();
             return Optional.of(array);
         };
     }
 
-    private static void checkTypeMatch(final Class<?> expected, final Class<?> actual) {
-        if (!expected.isAssignableFrom(actual))
-            throw new IllegalArgumentException("wrong property type: " + actual.getSimpleName() + " (expected " + expected.getSimpleName() + ")");
-    }
-
-
-    private static Class<?> getRawType(Type t) {
-        if (t instanceof Class<?>)
-            return (Class<?>)t;
-        if (t instanceof ParameterizedType)
-            return (Class<?>) ((ParameterizedType) t).getRawType();
-        throw new IllegalArgumentException("TODO");
-    }
 
 
 
 
 
 
-    private static AttributeParam[] getAttributes(final Method method) {
+
+
+
+
+
+
+
+    private static ConstructorParameter[] getAttributes(final Method method) {
         final Type[] types = method.getGenericParameterTypes();
         final Annotation[][] annotations = method.getParameterAnnotations();
-        final AttributeParam[] params = new AttributeParam[types.length];
-        Arrays.setAll(params, i -> Construction.resolveParameter(types[i], annotations[i]));
+        final ConstructorParameter[] params = new ConstructorParameter[types.length];
+        Arrays.setAll(params, i -> ConstructorParameter.from(types[i], annotations[i]));
         return params;
     }
 

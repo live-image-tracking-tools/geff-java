@@ -3,12 +3,18 @@ package org.mastodon.geff.imglib2;
 import net.imglib2.Dimensions;
 import net.imglib2.FinalDimensions;
 import net.imglib2.type.BooleanType;
+import net.imglib2.type.logic.BoolType;
 import net.imglib2.type.numeric.integer.GenericByteType;
 import net.imglib2.type.numeric.integer.GenericIntType;
 import net.imglib2.type.numeric.integer.GenericLongType;
 import net.imglib2.type.numeric.integer.GenericShortType;
+import net.imglib2.type.numeric.integer.UnsignedByteType;
+import net.imglib2.type.numeric.integer.UnsignedIntType;
+import net.imglib2.type.numeric.integer.UnsignedLongType;
+import net.imglib2.type.numeric.integer.UnsignedShortType;
 import net.imglib2.type.numeric.real.DoubleType;
 import net.imglib2.type.numeric.real.FloatType;
+import net.imglib2.util.Intervals;
 
 import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
@@ -18,6 +24,10 @@ import java.lang.annotation.Target;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.Optional;
+import java.util.OptionalDouble;
+import java.util.OptionalInt;
+import java.util.OptionalLong;
+import java.util.function.Supplier;
 
 public class Construction {
 
@@ -39,76 +49,79 @@ public class Construction {
     }
 
 
+    /**
+     *
+     * @param type
+     * @param identifier
+     * @param isId
+     * @param length
+     */
     // TODO: convert record to class (for Java 8)
-    record AttributeParam(Type type, String identifier, boolean isId, int length) {
-    }
+    record ConstructorParameter(Type type, String identifier, boolean isId, int length) {
 
-    static AttributeParam resolveParameter(
-            final Type parameterType,
-            final Annotation[] parameterAnnotations) {
-
-        final String error = "Every parameter must have exactly one @FromProperty or @FromId annotation";
-        AttributeParam result = null;
-        for (Annotation a : parameterAnnotations) {
-            if (a instanceof FromProperty) {
-                if (result != null)
-                    throw new IllegalStateException(error);
-                result = new AttributeParam(parameterType, ((FromProperty) a).value(), false, ((FromProperty) a).length());
-            }
-            else if (a instanceof FromId) {
-                if (result != null)
-                    throw new IllegalStateException(error);
-                result = new AttributeParam(parameterType, "id", true, -1);
-            }
+        public ConstructorParameter withType(final Type type) {
+            return new ConstructorParameter(type, identifier, isId, length);
         }
-        if (result == null) {
-            throw new IllegalStateException(error);
+
+        /**
+         * Validate an annotated parameter of a constructor method and collect
+         * information into {@code ConstructorParameter}.
+         * <p>
+         * The {@code annotations} of a constructor parameter must contain exactly
+         * one {@code @FromProperty} or {@code @FromId} annotation.
+         *
+         * @param type the type of the parameter
+         * @param annotations the annotations on the parameter
+         * @return a new {@code ConstructorParameter} instance
+         */
+        public static ConstructorParameter from(
+                final Type type,
+                final Annotation[] annotations) {
+
+            final String error = "Every parameter must have exactly one @FromProperty or @FromId annotation";
+            ConstructorParameter result = null;
+            for (Annotation a : annotations) {
+                if (a instanceof FromProperty) {
+                    if (result != null)
+                        throw new IllegalStateException(error);
+                    result = new ConstructorParameter(type, ((FromProperty) a).value(), false, ((FromProperty) a).length());
+                } else if (a instanceof FromId) {
+                    if (result != null)
+                        throw new IllegalStateException(error);
+                    result = new ConstructorParameter(type, "id", true, -1);
+                }
+            }
+            if (result == null) {
+                throw new IllegalStateException(error);
+            }
+            return result;
         }
-        return result;
+    }
+
+    /**
+     *
+     * @param propertyType
+     * @param rawType
+     * @param rawOptionalType
+     */
+    // TODO: convert record to class (for Java 8)
+    record ResolvedConstructorParameter(GeffPropertyType propertyType, Class<?> rawType, Class<?> rawOptionalType) {
+
+        public ResolvedConstructorParameter(GeffPropertyType propertyType, Class<?> rawType) {
+            this(propertyType, rawType, null);
+        }
+
+        public ResolvedConstructorParameter withOptionalType(Class<?> rawOptionalType) {
+            return new ResolvedConstructorParameter(propertyType.withOptional(true), rawType, rawOptionalType);
+        }
     }
 
 
 
+    static ResolvedConstructorParameter resolveConstructorParameter(final ConstructorParameter param) {
 
+        final Class<?> rawType = getRawType(param.type());
 
-
-
-    static GeffProperty<?> convertToMatch(final GeffProperty<?> property, final GeffPropertyType targetType) {
-
-        final GeffPropertyType sourceType = property.propertyType();
-
-
-        // TODO CONTINUE HERE
-        // TODO CONTINUE HERE
-        // TODO CONTINUE HERE
-        // TODO CONTINUE HERE
-        // TODO CONTINUE HERE
-        // TODO CONTINUE HERE
-        // TODO CONTINUE HERE
-        // TODO CONTINUE HERE
-        // TODO CONTINUE HERE
-
-
-        // TODO:
-        //    [ ] create GeffConvertError extends GeffBindError extends GeffException extends Exception
-        //        should contain description what went wrong, so that client can log it to the user later
-        //    [ ] implement convertToMatch()
-        //        [ ] check isOptional
-        //        [ ] check numDimensions
-        //        [ ] check isVarLength
-        //        [ ] check dimensions
-        //        [ ] convert property type
-        //    [ ] use convertToMatch() in MethodHandlePlayground
-
-
-
-
-    }
-
-
-    static GeffPropertyType propertyType(final AttributeParam param) {
-
-        final Type rawType = getRawType(param.type());
         if (rawType == boolean.class
                 || rawType == byte.class
                 || rawType == short.class
@@ -116,43 +129,44 @@ public class Construction {
                 || rawType == long.class
                 || rawType == float.class
                 || rawType == double.class) {
-            final Class<?> type = primitiveToImgLibType((Class<?>) rawType);
-            final boolean varLength = false;
-            final boolean optional = false;
+            final Class<?> type = primitiveToImgLibType(rawType);
             final Dimensions dimensions = new FinalDimensions(new long[0]);
-            return new GeffPropertyType(type, varLength, optional, dimensions);
+            final GeffPropertyType propertyType = new GeffPropertyType(type, false, false, dimensions);
+            return new ResolvedConstructorParameter(propertyType, rawType);
+
         } else if (rawType == byte[].class
                 || rawType == short[].class
                 || rawType == int[].class
                 || rawType == long[].class
                 || rawType == float[].class
                 || rawType == double[].class) {
-            final Class<?> type = ((Class<?>) rawType).getComponentType();
-            // NB: is no expected length is specified in the annotation a
+            final Class<?> type = primitiveToImgLibType(rawType.getComponentType());
+            // NB: if no expected length is specified in the annotation a
             // var-length property will also be accepted. (Or fixed-length,
             // which can always be treated as var-length.)
             boolean varLength = param.length() < 0;
-            final boolean optional = false;
             final Dimensions dimensions = new FinalDimensions(new long[]{varLength ? 0 : param.length()});
-            return new GeffPropertyType(type, varLength, optional, dimensions);
+            final GeffPropertyType propertyType = new GeffPropertyType(type, varLength, false, dimensions);
+            return new ResolvedConstructorParameter(propertyType, rawType);
+
         } else if (rawType == Optional.class) {
+            final Type inner = ((ParameterizedType) param.type()).getActualTypeArguments()[0];
+            final ResolvedConstructorParameter resolved = resolveConstructorParameter(param.withType(inner));
+            return resolved.withOptionalType(rawType);
 
-            // TODO
-//            Optional
-//            OptionalLong
-//            OptionalInt
-//            OptionalDouble
+        } else if (rawType == OptionalDouble.class
+                || rawType == OptionalLong.class
+                || rawType == OptionalInt.class) {
+            final Class<?> type = primitiveToImgLibType(rawType);
+            final Dimensions dimensions = new FinalDimensions(new long[0]);
+            final GeffPropertyType propertyType = new GeffPropertyType(type, false, true, dimensions);
+            return new ResolvedConstructorParameter(propertyType, rawType, rawType);
 
-//            TODO: [ ] add OptionalFloat (or find impl (Guava?)
-//            TODO: [ ] add OptionalByte (or find impl (Guava?)
-//            TODO: [ ] add OptionalShort (or find impl (Guava?)
-//            TODO: [ ] add OptionalBoolean (or find impl (Guava?)
-
-            throw new UnsupportedOperationException();
+        } else if (rawType == GeffProperty.class) {
+            // escape hatch for stuff we have not implemented yet.
+            return new ResolvedConstructorParameter(ESCAPE_HATCH, rawType);
         }
-
-        // TODO
-        throw new UnsupportedOperationException();
+        throw new IllegalArgumentException("TODO? " + param);
     }
 
     private static Class<?> getRawType(Type t) {
@@ -170,17 +184,127 @@ public class Construction {
             return GenericByteType.class;
         } else if (primitive == short.class) {
             return GenericShortType.class;
-        } else if (primitive == int.class) {
+        } else if (primitive == int.class || primitive == OptionalInt.class) {
             return GenericIntType.class;
-        } else if (primitive == long.class) {
+        } else if (primitive == long.class || primitive == OptionalLong.class) {
             return GenericLongType.class;
         } else if (primitive == float.class) {
             return FloatType.class;
-        } else if (primitive == double.class) {
+        } else if (primitive == double.class || primitive == OptionalDouble.class) {
             return DoubleType.class;
         }
-        throw new IllegalArgumentException();
+        throw new IllegalArgumentException("TODO? " + primitive);
     }
 
+
+
+    // We allow to take GeffProperty<?> as a constructor type for a field.
+    // This will just match anything, so we bypass conversion checks.
+    // This is intended to allow clients to adapt to weird edge cases that break our standard type matching.
+    // Ideally, these edge cases should be incorporated into geff-java, but we don't want to block clients while we work on that ...
+    static final GeffPropertyType ESCAPE_HATCH = new GeffPropertyType(null, false, false, new FinalDimensions(new long[0]));
+
+    static GeffProperty<?> convertToMatch(
+            final GeffProperty<?> sourceProperty,
+            final GeffPropertyType targetType)
+            throws GeffBindError {
+
+        System.out.println("Construction.convertToMatch");
+        System.out.println("  sourceProperty = " + sourceProperty);
+        System.out.println("  targetType     = " + targetType);
+
+        if (targetType == ESCAPE_HATCH) {
+            return sourceProperty;
+        }
+
+        final GeffPropertyType sourceType = sourceProperty.propertyType();
+
+        if (sourceType.isOptional() && !targetType.isOptional()) {
+            // If the target property is expected to always be present but the
+            // source property may be missing, then the source property does not
+            // match.
+            throw new GeffConvertError(sourceType, targetType, "Source type is optional but target type is not.");
+        }
+
+        if (sourceType.numDimensions() != targetType.numDimensions()) {
+            throw new GeffConvertError(sourceType, targetType, "Dimensionality mismatch.");
+        }
+
+        if (!targetType.isVarLength()) {
+            if (sourceType.isVarLength()) {
+                // If the target property is expected to be fixed-length but the
+                // source property is var-length, then the source property does
+                // not match.
+                throw new GeffConvertError(sourceType, targetType, "Var-length property cannot be converted to fixed-length target type.");
+            } else if (!Intervals.equalDimensions(sourceType.dimensions(), targetType.dimensions())) {
+                // If both source and target are fixed-length but with different
+                // dimensions, then the source property does not match.
+                throw new GeffConvertError(sourceType, targetType, "Source and target dimensions don't match.");
+            }
+        }
+
+        if (targetType.type().isAssignableFrom(sourceType.type())) {
+            return sourceProperty;
+        } else {
+            // NB: we have to convert to a concrete type (e.g., UnsignedLongType instead of GenericLongType).
+            return sourceProperty.convert(convertTargetSupplier(targetType.type()));
+
+            // TODO: warn if type conversion loses precision or range?
+        }
+    }
+
+    private static Supplier<?> convertTargetSupplier(Class<?> targetType) {
+        if (targetType == BooleanType.class) {
+            return BoolType::new;
+        } else if (targetType == GenericByteType.class) {
+            return UnsignedByteType::new;
+        } else if (targetType == GenericShortType.class) {
+            return UnsignedShortType::new;
+        } else if (targetType == GenericIntType.class) {
+            return UnsignedIntType::new;
+        } else if (targetType == GenericLongType.class) {
+            return UnsignedLongType::new;
+        } else if (targetType == FloatType.class) {
+            return FloatType::new;
+        } else if (targetType == DoubleType.class) {
+            return DoubleType::new;
+        }
+        throw new IllegalArgumentException(targetType.toString());
+    }
+
+
+
+
+
+    // ------ exceptions. TODO revise --------
+
+    public static class GeffException extends Exception {
+
+        public GeffException(String message) {
+            super(message);
+        }
+
+        public GeffException(String message, Throwable cause) {
+            super(message, cause);
+        }
+    }
+
+    public static class GeffBindError extends GeffException {
+
+        public GeffBindError(String message) {
+            super(message);
+        }
+
+        public GeffBindError(String message, Throwable cause) {
+            super(message, cause);
+        }
+    }
+
+    public static class GeffConvertError extends GeffBindError {
+
+        public GeffConvertError(GeffPropertyType sourceType, GeffPropertyType targetType, String explanation) {
+            super("Cannot convert " + sourceType + " to " + targetType + ": " + explanation);
+        }
+    }
 
 }
