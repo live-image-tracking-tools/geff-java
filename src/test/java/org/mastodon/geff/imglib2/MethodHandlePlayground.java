@@ -23,6 +23,9 @@ import java.lang.reflect.Parameter;
 import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.Optional;
+import java.util.OptionalDouble;
+import java.util.OptionalInt;
+import java.util.OptionalLong;
 import java.util.function.DoubleSupplier;
 import java.util.function.IntSupplier;
 import java.util.function.LongSupplier;
@@ -119,7 +122,6 @@ public class MethodHandlePlayground {
             final ConstructorParameter param
     ) throws NoSuchMethodException, IllegalAccessException, GeffBindError {
 
-
         final ResolvedConstructorParameter resolved = Construction.resolveConstructorParameter(param);
         final GeffPropertyType targetType = resolved.propertyType();
         final GeffProperty<?> sourceProperty = param.isId()
@@ -137,26 +139,63 @@ public class MethodHandlePlayground {
             final Class<?> rawOptionalType = resolved.rawOptionalType();
             final MethodType mt = methodType(rawOptionalType);
 
-            if (rawOptionalType == Optional.class) {
+            if (rawOptionalType == OptionalInt.class) {
+                return lookup
+                        .findVirtual(OptionalInt.class, "getAsInt", mt)
+                        .bindTo(asOptionalIntSupplier(property));
+            } else if (rawOptionalType == OptionalLong.class) {
+                return lookup
+                        .findVirtual(OptionalLong.class, "getAsLong", mt)
+                        .bindTo(asOptionalLongSupplier(property));
+            } else if (rawOptionalType == OptionalDouble.class) {
+                return lookup
+                        .findVirtual(OptionalDouble.class, "getAsDouble", mt)
+                        .bindTo(asOptionalDoubleSupplier(property));
+            } else if (rawOptionalType == Optional.class) {
                 final Class<?> rawType = resolved.rawType();
                 if( targetType.numDimensions() == 0 ) { // scalars
                     // TODO: support boxed Optional<Double> etc
                     throw new UnsupportedOperationException("TODO: support boxed Optional<Double> etc");
 
                 } else if (targetType.numDimensions() == 1) { // vectors
+                    final MethodType omt = methodType(Object.class);
 
-                    if (rawType == double[].class) {
-                        final Supplier<Optional<double[]>> s = asOptionalDoubleArraySupplier(property);
-                        return lookup.findVirtual(Supplier.class, "get", methodType(Object.class)).bindTo(s)
-                            .asType(mt);
-                    } else {
-                        throw new UnsupportedOperationException("TODO!");
+                    if (false) {
+                    } else if (rawType == byte[].class) {
+                        return lookup
+                                .findVirtual(Supplier.class, "get", omt)
+                                .bindTo(asOptionalByteArraySupplier(property))
+                                .asType(mt);
+                    } else if (rawType == short[].class) {
+                        return lookup
+                                .findVirtual(Supplier.class, "get", omt)
+                                .bindTo(asOptionalShortArraySupplier(property))
+                                .asType(mt);
+                    } else if (rawType == int[].class) {
+                        return lookup
+                                .findVirtual(Supplier.class, "get", omt)
+                                .bindTo(asOptionalIntArraySupplier(property))
+                                .asType(mt);
+                    } else if (rawType == long[].class) {
+                        return lookup
+                                .findVirtual(Supplier.class, "get", omt)
+                                .bindTo(asOptionalLongArraySupplier(property))
+                                .asType(mt);
+                    } else if (rawType == float[].class) {
+                        return lookup
+                                .findVirtual(Supplier.class, "get", omt)
+                                .bindTo(asOptionalFloatArraySupplier(property))
+                                .asType(mt);
+                    } else if (rawType == double[].class) {
+                        return lookup
+                                .findVirtual(Supplier.class, "get", omt)
+                                .bindTo(asOptionalDoubleArraySupplier(property))
+                                .asType(mt);
                     }
-
                 }
             } else {
-                // TODO: support OptionalInt, OptionalLong, OptionalDouble (and maybe add OptionalByte, etc)
-                throw new UnsupportedOperationException("TODO: support OptionalInt, OptionalLong, OptionalDouble (and maybe add OptionalByte, etc)");
+                // TODO: maybe add OptionalByte, etc?
+                throw new UnsupportedOperationException("TODO: maybe add OptionalByte, etc?");
             }
 
         } else { // !isOptional
@@ -191,16 +230,38 @@ public class MethodHandlePlayground {
                 }
 
             } else if (targetType.numDimensions() == 1) { // vectors
-                if (rawType == double[].class) {
+                final MethodType omt = methodType(Object.class);
+                if (rawType == byte[].class) {
                     return lookup
-                            .findVirtual(Supplier.class, "get", methodType(Object.class))
+                            .findVirtual(Supplier.class, "get", omt)
+                            .bindTo(asByteArraySupplier(property))
+                            .asType(mt);
+                } else if (rawType == short[].class) {
+                    return lookup
+                            .findVirtual(Supplier.class, "get", omt)
+                            .bindTo(asShortArraySupplier(property))
+                            .asType(mt);
+                } else if (rawType == int[].class) {
+                    return lookup
+                            .findVirtual(Supplier.class, "get", omt)
+                            .bindTo(asIntArraySupplier(property))
+                            .asType(mt);
+                } else if (rawType == long[].class) {
+                    return lookup
+                            .findVirtual(Supplier.class, "get", omt)
+                            .bindTo(asLongArraySupplier(property))
+                            .asType(mt);
+                } else if (rawType == float[].class) {
+                    return lookup
+                            .findVirtual(Supplier.class, "get", omt)
+                            .bindTo(asFloatArraySupplier(property))
+                            .asType(mt);
+                } else if (rawType == double[].class) {
+                    return lookup
+                            .findVirtual(Supplier.class, "get", omt)
                             .bindTo(asDoubleArraySupplier(property))
                             .asType(mt);
-                } else {
-                    // TODO: support byte[].class, short[].class, etc...
-                    throw new UnsupportedOperationException("TODO: support byte[].class, short[].class, etc...");
                 }
-
             }
         }
 
@@ -213,6 +274,8 @@ public class MethodHandlePlayground {
     //   Scalar, Non-Optional
     //
     // ------------------------------------------------------------------------
+
+    // TODO: asBooleanSupplier?
 
     @FunctionalInterface
     interface ByteSupplier {
@@ -267,6 +330,63 @@ public class MethodHandlePlayground {
     //
     // ------------------------------------------------------------------------
 
+    // TODO: asBooleanArraySupplier?
+
+    private static <T extends GenericByteType<T>> Supplier<byte[]> asByteArraySupplier(final GeffProperty<?> property) {
+        final GeffProperty<T> p = Cast.unchecked(property);
+        return () -> {
+            final int len = (int) p.values().dimension(0);
+            final byte[] array = new byte[len];
+            for (int i = 0; i < len; i++)
+                array[i] = p.getAt(i).getByte();
+            return array;
+        };
+    }
+
+    private static <T extends GenericShortType<T>> Supplier<short[]> asShortArraySupplier(final GeffProperty<?> property) {
+        final GeffProperty<T> p = Cast.unchecked(property);
+        return () -> {
+            final int len = (int) p.values().dimension(0);
+            final short[] array = new short[len];
+            for (int i = 0; i < len; i++)
+                array[i] = p.getAt(i).getShort();
+            return array;
+        };
+    }
+
+    private static <T extends GenericIntType<T>> Supplier<int[]> asIntArraySupplier(final GeffProperty<?> property) {
+        final GeffProperty<T> p = Cast.unchecked(property);
+        return () -> {
+            final int len = (int) p.values().dimension(0);
+            final int[] array = new int[len];
+            for (int i = 0; i < len; i++)
+                array[i] = p.getAt(i).getInt();
+            return array;
+        };
+    }
+
+    private static <T extends GenericLongType<T>> Supplier<long[]> asLongArraySupplier(final GeffProperty<?> property) {
+        final GeffProperty<T> p = Cast.unchecked(property);
+        return () -> {
+            final int len = (int) p.values().dimension(0);
+            final long[] array = new long[len];
+            for (int i = 0; i < len; i++)
+                array[i] = p.getAt(i).getLong();
+            return array;
+        };
+    }
+
+    private static Supplier<float[]> asFloatArraySupplier(final GeffProperty<?> property) {
+        final GeffProperty<FloatType> p = Cast.unchecked(property);
+        return () -> {
+            final int len = (int) p.values().dimension(0);
+            final float[] array = new float[len];
+            for (int i = 0; i < len; i++)
+                array[i] = p.getAt(i).get();
+            return array;
+        };
+    }
+
     private static Supplier<double[]> asDoubleArraySupplier(final GeffProperty<?> property) {
         final GeffProperty<DoubleType> p = Cast.unchecked(property);
         return () -> {
@@ -279,12 +399,106 @@ public class MethodHandlePlayground {
     }
 
 
+    // ------------------------------------------------------------------------
+    //
+    //   Scalar, Optional
+    //
+    // ------------------------------------------------------------------------
+
+    private static <T extends GenericIntType<T>> Supplier<OptionalInt> asOptionalIntSupplier(final GeffProperty<?> property) {
+        final GeffProperty<T> p = Cast.unchecked(property);
+        return () -> p.isMissing() ? OptionalInt.empty() : OptionalInt.of(p.getAt().getInt());
+    }
+
+    private static <T extends GenericLongType<T>> Supplier<OptionalLong> asOptionalLongSupplier(final GeffProperty<?> property) {
+        final GeffProperty<T> p = Cast.unchecked(property);
+        return () -> p.isMissing() ? OptionalLong.empty() : OptionalLong.of(p.getAt().getLong());
+    }
+
+    private static Supplier<OptionalDouble> asOptionalDoubleSupplier(final GeffProperty<?> property) {
+        final GeffProperty<DoubleType> p = Cast.unchecked(property);
+        return () -> p.isMissing() ? OptionalDouble.empty() : OptionalDouble.of(p.getAt().get());
+    }
+
+    // TODO: OptionalBoolean ???
+    // TODO: OptionalByte ???
+    // TODO: OptionalShort ???
+    // TODO: OptionalFloat ???
+
+
 
     // ------------------------------------------------------------------------
     //
     //   Vector, Optional
     //
     // ------------------------------------------------------------------------
+
+    // TODO: asOptionalBooleanArraySupplier?
+
+    private static <T extends GenericByteType<T>> Supplier<Optional<byte[]>> asOptionalByteArraySupplier(final GeffProperty<?> property) {
+        final GeffProperty<T> p = Cast.unchecked(property);
+        return () -> {
+            if (p.isMissing())
+                return Optional.empty();
+            final int len = (int) p.values().dimension(0);
+            final byte[] array = new byte[len];
+            for (int i = 0; i < len; i++)
+                array[i] = p.getAt(i).getByte();
+            return Optional.of(array);
+        };
+    }
+
+    private static <T extends GenericShortType<T>> Supplier<Optional<short[]>> asOptionalShortArraySupplier(final GeffProperty<?> property) {
+        final GeffProperty<T> p = Cast.unchecked(property);
+        return () -> {
+            if (p.isMissing())
+                return Optional.empty();
+            final int len = (int) p.values().dimension(0);
+            final short[] array = new short[len];
+            for (int i = 0; i < len; i++)
+                array[i] = p.getAt(i).getShort();
+            return Optional.of(array);
+        };
+    }
+
+    private static <T extends GenericIntType<T>> Supplier<Optional<int[]>> asOptionalIntArraySupplier(final GeffProperty<?> property) {
+        final GeffProperty<T> p = Cast.unchecked(property);
+        return () -> {
+            if (p.isMissing())
+                return Optional.empty();
+            final int len = (int) p.values().dimension(0);
+            final int[] array = new int[len];
+            for (int i = 0; i < len; i++)
+                array[i] = p.getAt(i).getInt();
+            return Optional.of(array);
+        };
+    }
+
+    private static <T extends GenericLongType<T>> Supplier<Optional<long[]>> asOptionalLongArraySupplier(final GeffProperty<?> property) {
+        final GeffProperty<T> p = Cast.unchecked(property);
+        return () -> {
+            if (p.isMissing())
+                return Optional.empty();
+            final int len = (int) p.values().dimension(0);
+            final long[] array = new long[len];
+            for (int i = 0; i < len; i++)
+                array[i] = p.getAt(i).getLong();
+            return Optional.of(array);
+        };
+    }
+
+    private static Supplier<Optional<float[]>> asOptionalFloatArraySupplier(final GeffProperty<?> property) {
+        final GeffProperty<FloatType> p = Cast.unchecked(property);
+        return () -> {
+            if (p.isMissing())
+                return Optional.empty();
+            final int len = (int) p.values().dimension(0);
+            final float[] array = new float[len];
+            for (int i = 0; i < len; i++)
+                array[i] = p.getAt(i).get();
+            return Optional.of(array);
+        };
+    }
 
     private static Supplier<Optional<double[]>> asOptionalDoubleArraySupplier(final GeffProperty<?> property) {
         final GeffProperty<DoubleType> p = Cast.unchecked(property);
