@@ -7,22 +7,13 @@ import net.imglib2.type.numeric.integer.GenericShortType;
 import net.imglib2.type.numeric.real.DoubleType;
 import net.imglib2.type.numeric.real.FloatType;
 import net.imglib2.util.Cast;
-import org.janelia.saalfeldlab.n5.N5Reader;
-import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
-import org.mastodon.geff.imglib2.Construction.NodeConstructor;
-import org.mastodon.geff.imglib2.Construction.FromId;
-import org.mastodon.geff.imglib2.Construction.FromProperty;
-import org.mastodon.geff.imglib2.Construction.GeffBindError;
-import org.mastodon.geff.imglib2.Construction.ResolvedConstructorParameter;
+import org.mastodon.geff.imglib2.Construction.ByteSupplier;
+import org.mastodon.geff.imglib2.Construction.FloatSupplier;
+import org.mastodon.geff.imglib2.Construction.ShortSupplier;
 
-import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
-import java.lang.reflect.AnnotatedType;
-import java.lang.reflect.Method;
-import java.lang.reflect.Parameter;
-import java.util.Arrays;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalInt;
@@ -32,101 +23,30 @@ import java.util.function.IntSupplier;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
-import static java.lang.invoke.MethodHandles.collectArguments;
 import static java.lang.invoke.MethodType.methodType;
 import static org.mastodon.geff.imglib2.Construction.ESCAPE_HATCH;
-import static org.mastodon.geff.imglib2.ElementType.NODE;
 
+class ConstructorBinding {
 
-public class MethodHandlePlayground {
-
-    static class MyBuilder {
-        @NodeConstructor
-        public void addVertex(
-                @FromId() long id,
-                @FromProperty("my_x") double x,
-                @FromProperty("y") double y,
-                @FromProperty("z") double z,
-                @FromProperty(value = "covariance2d") double[] cov2d,
-                @FromProperty("t") long t) {
-            System.out.println("addVertex(id=" + id + ", x=" + x + ", y=" + y + ", z=" + z + ", cov2d=" + Arrays.toString(cov2d) + ", t=" + t + ")");
-        }
-    }
-
-    static class MyBuilderWithStrings {
-        @NodeConstructor
-        public void createNode(
-                @FromId() int id,
-                @FromProperty("POSITION_X") double x,
-                @FromProperty("POSITION_X") double y,
-                @FromProperty("name") Optional<String> name
-        ) {
-            System.out.println("id = " + id + ", x = " + x + ", y = " + y + ", name = " + name);
-        }
-    }
-
-    public static void main(String[] args) throws Throwable {
-
-        final String path = "/Users/pietzsch/Desktop/data/JYT/TrackMate-GEFF-examples/MAX_Merged.geff";
-//        final String path = "cross-language-tests/data/covariance_original.zarr";
-
-        try (final N5Reader n5 = new N5ZarrReader(path)) {
-            final GeffProperties props = IoUtils.loadProperties(n5, NODE);
-            System.out.println("props = " + props);
-//            props.rename("x", "my_x");
-//            final MyBuilder nodeBuilder = new MyBuilder();
-            final MyBuilderWithStrings nodeBuilder = new MyBuilderWithStrings();
-            buildNodes( nodeBuilder, props);
-        }
-    }
-
-    static class MyAdvancedBuilder {
-
-        @NodeConstructor
-        public void addVertex(
-                @FromId() long id,
-                @FromProperty("x") double x,
-                @FromProperty("y") GeffProperty<DoubleType> y, // escape hatch for stuff we have not implemented yet.
-                @FromProperty("t") long t, // automatically type-converted
-                @FromProperty("covariance2d") double[] cov2d,
-                @FromProperty("covariance3d") Optional<double[]> cov3d) { // for properties that could be missing
-
-            System.out.println("addVertex(id=" + id + ", x=" + x + ", y=" + y.getAt().get() + ", t=" + t + ", cov2d=" + Arrays.toString(cov2d) + ", cov32=" + Arrays.toString(cov3d.orElse(null)) + ")");
-        }
-    }
-
-
-
-
-    // -------------------------------
-
-    public static void buildNodes(final Object target, final GeffProperties properties) throws Throwable {
-
-        final Method method = Construction.getAnnotatedMethod(target.getClass(), NodeConstructor.class);
-        final ResolvedConstructorParameter[] params = Construction.resolveConstructorParameters(method);
-
-        final MethodHandles.Lookup lk = MethodHandles.lookup();
-        MethodHandle mh = lk.unreflect(method).bindTo(target);
-
-        for (int i = 0; i < params.length; i++) {
-            final ResolvedConstructorParameter param = params[i];
-            final MethodHandle supplier = propertyHandle(lk, properties, param);
-            mh = collectArguments(mh, 0, supplier);
-        }
-
-        for (int i = 0; i < properties.numElements(); i++) {
-            properties.elementIndex().set(i);
-            mh.invokeExact();
-        }
-    }
-
-
-
-    private static MethodHandle propertyHandle(
+    /**
+     * Create a {@code T() MethodHandle} where {@code T} is the type of the
+     * provided constructor-method {@code param}. The returned method-handle can
+     * be used as a filter to bind that constructor parameter in the
+     * constructor-method handle.
+     *
+     * @param lookup the {@code MethodHandles.Lookup} to use
+     * @param properties all properties, the property identified by {@code param} will be extracted and converted to the required type if possible
+     * @param param describes one parameter of the constructor method
+     * @return a method handle of type {@code T()}
+     * @throws NoSuchMethodException
+     * @throws IllegalAccessException
+     * @throws Construction.GeffBindError
+     */
+    static MethodHandle propertyHandle(
             final MethodHandles.Lookup lookup,
             final GeffProperties properties,
-            final ResolvedConstructorParameter param
-    ) throws NoSuchMethodException, IllegalAccessException, GeffBindError {
+            final Construction.ResolvedConstructorParameter param
+    ) throws NoSuchMethodException, IllegalAccessException, Construction.GeffBindError {
 
         final GeffPropertyType targetType = param.propertyType();
         final GeffProperty<?> sourceProperty = param.isId()
@@ -290,19 +210,9 @@ public class MethodHandlePlayground {
 
     // TODO: asBooleanSupplier?
 
-    @FunctionalInterface
-    interface ByteSupplier {
-        byte getAsByte();
-    }
-
     private static <T extends GenericByteType<T>> ByteSupplier asByteSupplier(final GeffProperty<?> property) {
         final GeffProperty<T> p = Cast.unchecked(property);
         return () -> p.getAt().getByte();
-    }
-
-    @FunctionalInterface
-    interface ShortSupplier {
-        short getAsShort();
     }
 
     private static <T extends GenericShortType<T>> ShortSupplier asShortSupplier(final GeffProperty<?> property) {
@@ -318,11 +228,6 @@ public class MethodHandlePlayground {
     private static <T extends GenericLongType<T>> LongSupplier asLongSupplier(final GeffProperty<?> property) {
         final GeffProperty<T> p = Cast.unchecked(property);
         return () -> p.getAt().getLong();
-    }
-
-    @FunctionalInterface
-    interface FloatSupplier {
-        float getAsFloat();
     }
 
     private static FloatSupplier asFloatSupplier(final GeffProperty<?> property) {
@@ -530,23 +435,4 @@ public class MethodHandlePlayground {
             return Optional.of(array);
         };
     }
-
-
-    static void printMethodInfo() throws NoSuchMethodException {
-        Method method = MyBuilder.class.getMethod("addVertex", long.class);
-        System.out.println("method = " + method);
-
-        final Parameter[] parameters = method.getParameters();
-        System.out.println("parameters = " + Arrays.toString(parameters));
-
-        final Annotation[][] parameterAnnotations = method.getParameterAnnotations();
-        System.out.println("parameterAnnotations = " + Arrays.deepToString(parameterAnnotations));
-
-        final Class<?>[] parameterTypes = method.getParameterTypes();
-        System.out.println("parameterTypes = " + Arrays.toString(parameterTypes));
-
-        final AnnotatedType[] annotatedParameterTypes = method.getAnnotatedParameterTypes();
-        System.out.println("annotatedParameterTypes = " + Arrays.toString(annotatedParameterTypes));
-    }
-
 }

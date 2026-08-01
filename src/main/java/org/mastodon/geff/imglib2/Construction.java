@@ -34,6 +34,16 @@ import java.util.function.Supplier;
 public class Construction {
 
     @Retention(RetentionPolicy.RUNTIME)
+    @Target(ElementType.METHOD)
+    public @interface NodeConstructor {
+    }
+
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target(ElementType.METHOD)
+    public @interface EdgeConstructor {
+    }
+
+    @Retention(RetentionPolicy.RUNTIME)
     @Target(ElementType.PARAMETER)
     public @interface FromProperty {
         String value();
@@ -50,10 +60,21 @@ public class Construction {
     public @interface FromId {
     }
 
-    @Retention(RetentionPolicy.RUNTIME)
-    @Target(ElementType.METHOD)
-    public @interface NodeConstructor {
+    @FunctionalInterface
+    public interface ByteSupplier {
+        byte getAsByte();
     }
+
+    @FunctionalInterface
+    public interface ShortSupplier {
+        short getAsShort();
+    }
+
+    @FunctionalInterface
+    public interface FloatSupplier {
+        float getAsFloat();
+    }
+
 
 
     /**
@@ -343,18 +364,6 @@ public class Construction {
 
 
     // ------ exceptions. TODO revise --------
-
-    // TODO: move to separate file
-    public static class GeffException extends Exception {
-
-        public GeffException(String message) {
-            super(message);
-        }
-
-        public GeffException(String message, Throwable cause) {
-            super(message, cause);
-        }
-    }
 
     // TODO: move to separate file
     public static class GeffBindError extends GeffException {
