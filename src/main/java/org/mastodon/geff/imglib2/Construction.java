@@ -21,6 +21,7 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.Optional;
@@ -48,6 +49,49 @@ public class Construction {
     public @interface FromId {
     }
 
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target(ElementType.METHOD)
+    public @interface NodeConstructor {
+    }
+
+
+    /**
+     * Find the method (there must be exactly one) in {@code targetClass} annotated with the given {@code annotationClass}.
+     * @param targetClass
+     * @param annotationClass
+     * @return
+     */
+    static Method getAnnotatedMethod(final Class<?> targetClass, final Class<? extends Annotation> annotationClass) {
+
+        Method result = null;
+        for (final Method method : targetClass.getMethods()) {
+            if (method.getAnnotation(annotationClass) != null) {
+                if (result != null )
+                    throw new IllegalArgumentException("Multiple methods are annotated with @" + annotationClass.getSimpleName());
+                result = method;
+            }
+        }
+        if (result == null )
+            throw new IllegalArgumentException("No method annotated with @" + annotationClass.getSimpleName() + " found");
+        return result;
+    }
+
+    /**
+     * Extract {@code ConstructorParameter} parameters of the given {@code method}.
+     */
+    static ResolvedConstructorParameter[] resolveConstructorParameters(final Method method) {
+        final Type[] types = method.getGenericParameterTypes();
+        final Annotation[][] annotations = method.getParameterAnnotations();
+        final ResolvedConstructorParameter[] params = new ResolvedConstructorParameter[types.length];
+        for (int i = 0; i < params.length; i++) {
+            final ConstructorParameter param = ConstructorParameter.from(types[i], annotations[i]);
+            params[i] = resolveConstructorParameter(param);
+        }
+        return params;
+    }
+
+
+
 
     /**
      *
@@ -56,8 +100,9 @@ public class Construction {
      * @param isId
      * @param length
      */
+    // TODO: Keep this internal and just return ResolvedConstructorParameter[] for target method directly
     // TODO: convert record to class (for Java 8)
-    record ConstructorParameter(Type type, String identifier, boolean isId, int length) {
+    private record ConstructorParameter(Type type, String identifier, boolean isId, int length) {
 
         public ConstructorParameter withType(final Type type) {
             return new ConstructorParameter(type, identifier, isId, length);
@@ -100,26 +145,29 @@ public class Construction {
 
     /**
      *
+     * @param identifier
      * @param propertyType
      * @param rawType
      * @param rawOptionalType
      */
     // TODO: convert record to class (for Java 8)
-    record ResolvedConstructorParameter(GeffPropertyType propertyType, Class<?> rawType, Class<?> rawOptionalType) {
+    record ResolvedConstructorParameter(String identifier, boolean isId, GeffPropertyType propertyType, Class<?> rawType, Class<?> rawOptionalType) {
 
-        public ResolvedConstructorParameter(GeffPropertyType propertyType, Class<?> rawType) {
-            this(propertyType, rawType, null);
+        public ResolvedConstructorParameter(String identifier, boolean isId, GeffPropertyType propertyType, Class<?> rawType) {
+            this(identifier, isId, propertyType, rawType, null);
         }
 
         public ResolvedConstructorParameter withOptionalType(Class<?> rawOptionalType) {
-            return new ResolvedConstructorParameter(propertyType.withOptional(true), rawType, rawOptionalType);
+            return new ResolvedConstructorParameter(identifier, isId, propertyType.withOptional(true), rawType, rawOptionalType);
         }
     }
 
 
 
-    static ResolvedConstructorParameter resolveConstructorParameter(final ConstructorParameter param) {
+    private static ResolvedConstructorParameter resolveConstructorParameter(final ConstructorParameter param) {
 
+        final String identifier = param.identifier();
+        final boolean isId = param.isId();
         final Class<?> rawType = getRawType(param.type());
 
         if (rawType == boolean.class
@@ -132,7 +180,7 @@ public class Construction {
             final Class<?> type = primitiveToImgLibType(rawType);
             final Dimensions dimensions = new FinalDimensions(new long[0]);
             final GeffPropertyType propertyType = new GeffPropertyType(type, false, false, dimensions);
-            return new ResolvedConstructorParameter(propertyType, rawType);
+            return new ResolvedConstructorParameter(identifier, isId, propertyType, rawType);
 
         } else if (rawType == byte[].class
                 || rawType == short[].class
@@ -147,7 +195,7 @@ public class Construction {
             boolean varLength = param.length() < 0;
             final Dimensions dimensions = new FinalDimensions(new long[]{varLength ? 0 : param.length()});
             final GeffPropertyType propertyType = new GeffPropertyType(type, varLength, false, dimensions);
-            return new ResolvedConstructorParameter(propertyType, rawType);
+            return new ResolvedConstructorParameter(identifier, isId, propertyType, rawType);
 
         } else if (rawType == Optional.class) {
             final Type inner = ((ParameterizedType) param.type()).getActualTypeArguments()[0];
@@ -160,11 +208,11 @@ public class Construction {
             final Class<?> type = primitiveToImgLibType(rawType);
             final Dimensions dimensions = new FinalDimensions(new long[0]);
             final GeffPropertyType propertyType = new GeffPropertyType(type, false, true, dimensions);
-            return new ResolvedConstructorParameter(propertyType, rawType, rawType);
+            return new ResolvedConstructorParameter(identifier, isId, propertyType, rawType, rawType);
 
         } else if (rawType == GeffProperty.class) {
             // escape hatch for stuff we have not implemented yet.
-            return new ResolvedConstructorParameter(ESCAPE_HATCH, rawType);
+            return new ResolvedConstructorParameter(identifier, isId, ESCAPE_HATCH, rawType);
         }
         throw new IllegalArgumentException("TODO? " + param);
     }
