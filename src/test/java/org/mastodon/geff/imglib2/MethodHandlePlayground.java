@@ -53,15 +53,29 @@ public class MethodHandlePlayground {
         }
     }
 
+    static class MyBuilderWithStrings {
+        @NodeConstructor
+        public void createNode(
+                @FromId() int id,
+                @FromProperty("POSITION_X") double x,
+                @FromProperty("POSITION_X") double y,
+                @FromProperty("name") Optional<String> name
+        ) {
+            System.out.println("id = " + id + ", x = " + x + ", y = " + y + ", name = " + name);
+        }
+    }
+
     public static void main(String[] args) throws Throwable {
 
-        final String path = "cross-language-tests/data/covariance_original.zarr";
+        final String path = "/Users/pietzsch/Desktop/data/JYT/TrackMate-GEFF-examples/MAX_Merged.geff";
+//        final String path = "cross-language-tests/data/covariance_original.zarr";
 
         try (final N5Reader n5 = new N5ZarrReader(path)) {
             final GeffProperties props = IoUtils.loadProperties(n5, NODE);
+            System.out.println("props = " + props);
 //            props.rename("x", "my_x");
 //            final MyBuilder nodeBuilder = new MyBuilder();
-            final MyAdvancedBuilder nodeBuilder = new MyAdvancedBuilder();
+            final MyBuilderWithStrings nodeBuilder = new MyBuilderWithStrings();
             buildNodes( nodeBuilder, props);
         }
     }
@@ -145,14 +159,22 @@ public class MethodHandlePlayground {
             } else if (rawOptionalType == Optional.class) {
                 final Class<?> rawType = param.rawType();
                 if( targetType.numDimensions() == 0 ) { // scalars
-                    // TODO: support boxed Optional<Double> etc
-                    throw new UnsupportedOperationException("TODO: support boxed Optional<Double> etc");
+                    final MethodType omt = methodType(Object.class);
+
+                    if (rawType == String.class) {
+                        return lookup
+                                .findVirtual(Supplier.class, "get", omt)
+                                .bindTo(asOptionalSupplier(property))
+                                .asType(mt);
+                    } else {
+                        // TODO: support boxed Optional<Double> etc
+                        throw new UnsupportedOperationException("TODO: support boxed Optional<Double> etc");
+                    }
 
                 } else if (targetType.numDimensions() == 1) { // vectors
                     final MethodType omt = methodType(Object.class);
 
-                    if (false) {
-                    } else if (rawType == byte[].class) {
+                    if (rawType == byte[].class) {
                         return lookup
                                 .findVirtual(Supplier.class, "get", omt)
                                 .bindTo(asOptionalByteArraySupplier(property))
@@ -415,6 +437,11 @@ public class MethodHandlePlayground {
     // TODO: OptionalByte ???
     // TODO: OptionalShort ???
     // TODO: OptionalFloat ???
+
+    private static <T> Supplier<Optional<T>> asOptionalSupplier(final GeffProperty<?> property) {
+        final GeffProperty<T> p = Cast.unchecked(property);
+        return () -> p.isMissing() ? Optional.empty() : Optional.of(p.getAt());
+    }
 
 
 

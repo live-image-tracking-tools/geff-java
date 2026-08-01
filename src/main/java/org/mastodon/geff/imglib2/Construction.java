@@ -14,6 +14,7 @@ import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.type.numeric.integer.UnsignedShortType;
 import net.imglib2.type.numeric.real.DoubleType;
 import net.imglib2.type.numeric.real.FloatType;
+import net.imglib2.util.Cast;
 import net.imglib2.util.Intervals;
 
 import java.lang.annotation.Annotation;
@@ -210,6 +211,11 @@ public class Construction {
             final GeffPropertyType propertyType = new GeffPropertyType(type, false, true, dimensions);
             return new ResolvedConstructorParameter(identifier, isId, propertyType, rawType, rawType);
 
+        } else if (rawType == String.class) {
+            final Dimensions dimensions = new FinalDimensions(new long[0]);
+            final GeffPropertyType propertyType = new GeffPropertyType(rawType, false, false, dimensions);
+            return new ResolvedConstructorParameter(identifier, isId, propertyType, rawType, rawType);
+
         } else if (rawType == GeffProperty.class) {
             // escape hatch for stuff we have not implemented yet.
             return new ResolvedConstructorParameter(identifier, isId, ESCAPE_HATCH, rawType);
@@ -261,11 +267,14 @@ public class Construction {
         System.out.println("  sourceProperty = " + sourceProperty);
         System.out.println("  targetType     = " + targetType);
 
+        final GeffPropertyType sourceType = sourceProperty.propertyType();
+
+        // special cases ...
         if (targetType == ESCAPE_HATCH) {
             return sourceProperty;
+        } else if (isVarLengthUInt8Vector(sourceType) && isString(targetType)) {
+            return new VarLengthAsStringProperty(Cast.unchecked(sourceProperty));
         }
-
-        final GeffPropertyType sourceType = sourceProperty.propertyType();
 
         if (sourceType.isOptional() && !targetType.isOptional()) {
             // If the target property is expected to always be present but the
@@ -299,6 +308,15 @@ public class Construction {
 
             // TODO: warn if type conversion loses precision or range?
         }
+    }
+
+    private static boolean isString(GeffPropertyType propertyType) {
+        return propertyType.numDimensions() == 0 && propertyType.type() == String.class;
+    }
+
+    // TODO: maybe doesn't even need to be var-length?
+    private static boolean isVarLengthUInt8Vector(final GeffPropertyType propertyType) {
+        return propertyType.isVarLength() && propertyType.numDimensions() == 1 && propertyType.type() == UnsignedByteType.class;
     }
 
     private static Supplier<?> convertTargetSupplier(Class<?> targetType) {
