@@ -1,7 +1,5 @@
 package org.mastodon.geff.imglib2;
 
-import java.util.Arrays;
-
 public final class ElementIndex {
 
     final long[] slicePos = new long[1];

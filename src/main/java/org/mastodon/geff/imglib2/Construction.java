@@ -326,6 +326,7 @@ public class Construction {
 
     // ------ exceptions. TODO revise --------
 
+    // TODO: move to separate file
     public static class GeffException extends Exception {
 
         public GeffException(String message) {
@@ -337,6 +338,7 @@ public class Construction {
         }
     }
 
+    // TODO: move to separate file
     public static class GeffBindError extends GeffException {
 
         public GeffBindError(String message) {
@@ -348,6 +350,7 @@ public class Construction {
         }
     }
 
+    // TODO: move to separate file
     public static class GeffConvertError extends GeffBindError {
 
         public GeffConvertError(GeffPropertyType sourceType, GeffPropertyType targetType, String explanation) {

@@ -7,6 +7,12 @@ import net.imglib2.RandomAccessibleInterval;
 
 import java.util.function.Supplier;
 
+/**
+ * A {@code RandomAccessibleInterval} that always returns the same {@code
+ * RandomAccess} instance (provided on construction) and forwards all
+ * interval-related methods to a {@code Supplier<Dimensions>} (also provided on
+ * construction).
+ */
 class PropertyRAI<T> implements RandomAccessibleInterval<T> {
 
     final Supplier<Dimensions> dimensions;

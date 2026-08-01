@@ -6,7 +6,6 @@ import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.converter.Converter;
 import net.imglib2.converter.RealTypeConverters;
-import net.imglib2.converter.read.ConvertedRandomAccess;
 import net.imglib2.type.numeric.RealType;
 import net.imglib2.util.Cast;
 import net.imglib2.util.Intervals;
