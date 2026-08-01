@@ -41,7 +41,7 @@ public class StringPlayground {
             final GeffProperty<String> converted = new VarLengthAsStringProperty(name);
 
             for (int i = 0; i < Math.min(nodeProperties.numElements(), 5); i++) {
-                nodeProperties.elementIndex().index(i);
+                nodeProperties.elementIndex().set(i);
 
                 System.out.println("name.values().dimensionsAsLongArray() = " + Arrays.toString(name.values().dimensionsAsLongArray()));
 

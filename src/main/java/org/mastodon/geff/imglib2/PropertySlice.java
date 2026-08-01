@@ -21,7 +21,7 @@ final class PropertySlice<T> implements RandomAccessibleInterval<T> {
     private PropertySlice(final PropertySlice<T> slice) {
         delegate = slice.delegate;
         elementIndex = new ElementIndex();
-        elementIndex.index(slice.elementIndex.index());
+        elementIndex.set(slice.elementIndex.get());
         n = slice.n;
     }
 

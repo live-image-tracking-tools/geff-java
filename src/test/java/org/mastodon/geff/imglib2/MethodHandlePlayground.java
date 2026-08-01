@@ -115,7 +115,7 @@ public class MethodHandlePlayground {
         }
 
         for (int i = 0; i < properties.numElements(); i++) {
-            properties.elementIndex().index(i);
+            properties.elementIndex().set(i);
             mh.invokeExact();
         }
     }

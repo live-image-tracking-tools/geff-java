@@ -58,13 +58,13 @@ public class GeffPropertyPlayground {
         }
 
         long index() {
-            return elementIndex.index();
+            return elementIndex.get();
         }
 
         void index(long index) {
             if (index < 0 || index >= size())
                 throw new IndexOutOfBoundsException(index + "(numNodes=" + size() + ")");
-            elementIndex.index(index);
+            elementIndex.set(index);
         }
 
         <T> GeffProperty<T> get(final String property) {
@@ -138,7 +138,7 @@ public class GeffPropertyPlayground {
             final GeffProperty<UnsignedLongType> var_length = nodeData.property("var_length");
 
             for (int i = 0; i < nodeData.numElements(); i++) {
-                nodeData.elementIndex().index(i);
+                nodeData.elementIndex().set(i);
 
                 // varlength ...
                 final int len = (int) var_length.values().size();

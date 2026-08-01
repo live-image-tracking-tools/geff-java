@@ -60,13 +60,13 @@ public class VarLengthPlayground {
             final GeffProperty<UnsignedLongType> writeProperty = new VarLengthWriteProperty<>("var_length", writeValues, writeData, writeMissings, writeIndex);
 
             for (int i = 0; i < numElements; i++) {
-                readIndex.index(i);
+                readIndex.set(i);
                 System.out.println("node " + i + ":");
                 System.out.println("  missing = " + readProperty.isMissing());
                 System.out.println("  dimensions = " + Arrays.toString(readProperty.dimensions().dimensionsAsLongArray()));
 
 
-                writeIndex.index(i);
+                writeIndex.set(i);
                 writeProperty.set(readProperty);
 
                 System.out.println("  (w)missing = " + writeProperty.isMissing());

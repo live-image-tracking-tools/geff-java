@@ -99,7 +99,7 @@ class VarLengthProperty<T extends Type<T>> implements GeffProperty<T> {
     }
 
     protected void updateDataOffset() {
-        final long index = elementIndex.index();
+        final long index = elementIndex.get();
         final long previousIndex = dataOffset[0];
         if (previousIndex != index) {
             dataOffset[0] = index;
