@@ -15,32 +15,32 @@ import java.util.function.ToDoubleFunction;
 import java.util.function.ToIntFunction;
 import java.util.function.ToLongFunction;
 
-public class Wrappers {
+public class PropertyAdapters {
 
     @FunctionalInterface
     public interface TypeUpdate<O, T> {
         void update(T type, O obj);
     }
 
-    public static <O> PropertySupplier<O, UnsignedLongType> wrap(final String identifier, final ToLongFunction<O> supplier) {
+    public static <O> PropertyAdapter<O, UnsignedLongType> wrap(final String identifier, final ToLongFunction<O> supplier) {
         return scalar(identifier, UnsignedLongType::new, (type, obj) -> type.set(supplier.applyAsLong(obj)));
     }
 
-    public static <O> PropertySupplier<O, DoubleType> wrap(final String identifier, final ToDoubleFunction<O> supplier) {
+    public static <O> PropertyAdapter<O, DoubleType> wrap(final String identifier, final ToDoubleFunction<O> supplier) {
         return scalar(identifier, DoubleType::new, (type, obj) -> type.set(supplier.applyAsDouble(obj)));
     }
 
-    public static <O> PropertySupplier<O, IntType> wrap(final String identifier, final ToIntFunction<O> supplier) {
+    public static <O> PropertyAdapter<O, IntType> wrap(final String identifier, final ToIntFunction<O> supplier) {
         return scalar(identifier, IntType::new, (type, obj) -> type.set(supplier.applyAsInt(obj)));
     }
 
-    public static <O> PropertySupplier<O, String> wrap(final String identifier, final Function<O, String> supplier) {
+    public static <O> PropertyAdapter<O, String> wrap(final String identifier, final Function<O, String> supplier) {
         final ValueRandomAccess<String> a = new ValueRandomAccess<>("");
         final ScalarRandomAccessibleInterval<String> values = new ScalarRandomAccessibleInterval<>(a);
         return new FixedPropertyWrapper<>(identifier, false, values, obj -> a.setValue(supplier.apply(obj)));
     }
 
-    static <O, T> PropertySupplier<O, T> scalar(final String identifier, final Supplier<T> typeSupplier, final TypeUpdate<O, T> update) {
+    static <O, T> PropertyAdapter<O, T> scalar(final String identifier, final Supplier<T> typeSupplier, final TypeUpdate<O, T> update) {
         final RandomAccess<T> ra = new ScalarRandomAccess<>(typeSupplier.get());
         final ScalarRandomAccessibleInterval<T> values = new ScalarRandomAccessibleInterval<>(ra);
         return new FixedPropertyWrapper<>(identifier, false, values, obj -> update.update(ra.get(), obj));
@@ -135,7 +135,7 @@ public class Wrappers {
         }
     }
 
-    private static class FixedPropertyWrapper<O, T> implements PropertySupplier<O, T> {
+    private static class FixedPropertyWrapper<O, T> implements PropertyAdapter<O, T> {
 
         private final String identifier;
         private final boolean isOptional;
@@ -154,7 +154,7 @@ public class Wrappers {
         }
 
         @Override
-        public PropertySupplier<O, T> update(O obj) {
+        public PropertyAdapter<O, T> update(O obj) {
             update.accept(obj);
             return this;
         }

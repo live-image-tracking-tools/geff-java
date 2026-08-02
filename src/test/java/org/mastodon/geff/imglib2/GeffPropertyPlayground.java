@@ -172,9 +172,9 @@ public class GeffPropertyPlayground {
             final GeffProperty<DoubleType> t = nodeData.get("t");
 
             // source handles and properties
-            final PropertySupplier<Vertex, UnsignedLongType> _id = Wrappers.wrap("id", Vertex::id);
-            final PropertySupplier<Vertex, DoubleType> _x = Wrappers.wrap("x", Vertex::x);
-            final PropertySupplier<Vertex, DoubleType> _t = Wrappers.wrap("t", Vertex::t).convert(DoubleType::new);
+            final PropertyAdapter<Vertex, UnsignedLongType> _id = PropertyAdapters.wrap("id", Vertex::id);
+            final PropertyAdapter<Vertex, DoubleType> _x = PropertyAdapters.wrap("x", Vertex::x);
+            final PropertyAdapter<Vertex, DoubleType> _t = PropertyAdapters.wrap("t", Vertex::t).convert(DoubleType::new);
 
 //            final Converter<IntType, DoubleType> toDoubleConverter = RealTypeConverters.getConverter(new IntType(), t.getType());
 

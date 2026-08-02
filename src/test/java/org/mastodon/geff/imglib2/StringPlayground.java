@@ -61,7 +61,7 @@ public class StringPlayground {
         // write
         {
             final List<MyNamedThing> myNamedThings = Arrays.stream(new String[]{"hello", "world", "here", "are", "some", "strings"}).map(MyNamedThing::new).toList();
-            final PropertySupplier<MyNamedThing, String> _name = Wrappers.wrap("name", MyNamedThing::getName);
+            final PropertyAdapter<MyNamedThing, String> _name = PropertyAdapters.wrap("name", MyNamedThing::getName);
             System.out.println("_name = " + GeffProperty.toString(_name));
             System.out.println();
             final GeffProperty<UnsignedByteType> converted = new StringAsVarLengthProperty(_name);
