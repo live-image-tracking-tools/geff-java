@@ -14,8 +14,8 @@ class ConvertedPropertyAdapter<O, S, T> extends ConvertedProperty<S, T> implemen
     }
 
     @Override
-    public PropertyAdapter<O, T> update(O obj) {
-        parent.update(obj);
+    public PropertyAdapter<O, T> adapt(O obj) {
+        parent.adapt(obj);
         return this;
     }
 }

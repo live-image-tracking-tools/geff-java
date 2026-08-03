@@ -10,7 +10,7 @@ import java.util.function.Supplier;
 /**
  * Exposes information about objects of type {@code O} as a {@code GeffProperty}.
  * <p>
- * The {@link #update(Object)} method sets the instance of {@code O} whose information should be reflected.
+ * The {@link #adapt(Object)} method sets the instance of {@code O} whose information should be reflected.
  * <p>
  * An example of this would be a {@code Vertex} class with a {@code double X}
  * coordinate. The X coordinate could be exposed as a scalar {@code
@@ -21,7 +21,13 @@ import java.util.function.Supplier;
  */
 public interface PropertyAdapter<O, T> extends GeffProperty<T> {
 
-    PropertyAdapter<O, T> update(O obj);
+    /**
+     * Sets the instance of {@code O} whose information should be reflected via this {@code PropertyAdapter}.
+     *
+     * @param obj the instance to proxy
+     * @return {@code this}
+     */
+    PropertyAdapter<O, T> adapt(O obj);
 
     default <U> PropertyAdapter<O, U> convert(final Converter<T, U> converter, final Supplier<U> typeSupplier) {
         return new ConvertedPropertyAdapter<>(this, converter, typeSupplier);

@@ -69,7 +69,7 @@ public class StringPlayground {
             System.out.println();
 
             for (MyNamedThing obj : myNamedThings) {
-                System.out.println("_name.update(obj).getAt() = " + _name.update(obj).getAt());
+                System.out.println("_name.update(obj).getAt() = " + _name.adapt(obj).getAt());
                 print(converted);
             }
         }

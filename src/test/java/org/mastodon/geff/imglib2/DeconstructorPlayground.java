@@ -2,17 +2,23 @@ package org.mastodon.geff.imglib2;
 
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.img.array.ArrayImgs;
+import net.imglib2.type.BooleanType;
 import net.imglib2.type.Type;
+import net.imglib2.type.logic.BitType;
 import net.imglib2.type.numeric.IntegerType;
 import net.imglib2.type.numeric.real.DoubleType;
+import net.imglib2.type.numeric.real.FloatType;
 import net.imglib2.util.Cast;
+import org.mastodon.geff.imglib2.Types.MaybeDouble;
+import org.mastodon.geff.imglib2.Types.ToDoubleArrayFunction;
+import org.mastodon.geff.imglib2.Types.ToFloatArrayFunction;
+import org.mastodon.geff.imglib2.Types.ToMaybeDoubleFunction;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.ToDoubleFunction;
 
 public class DeconstructorPlayground {
@@ -46,21 +52,16 @@ public class DeconstructorPlayground {
 
         final GeffWriter<Node> writer = new GeffWriter<>(nodes, ElementType.NODE);
         writer.add("x", Node::x);
+        writer.add("y", (Node node) -> new MaybeDouble(node.y()));
         writer.add("doublePos", Node::doublePos);
         writer.add("floatPos", Node::floatPos);
 
         writer.collectPropertyValues();
     }
 
-    @FunctionalInterface
-    public interface ToDoubleArrayFunction<O> {
-        double[] apply(O o);
-    }
 
-    @FunctionalInterface
-    public interface ToFloatArrayFunction<O> {
-        float[] apply(O o);
-    }
+    // ------------------------------------------------------------------------
+
 
     static class GeffWriter<O> {
 
@@ -103,12 +104,16 @@ public class DeconstructorPlayground {
             add(PropertyAdapters.wrap(identifier, supplier));
         }
 
-        public <T> void add(String identifier, Function<O, T> supplier) {
-            ...
+        public void add(String identifier, ToMaybeDoubleFunction<O> supplier) {
+            add(PropertyAdapters.wrap(identifier, supplier));
         }
 
-        public void add(String identifier, Function<O, float[]> supplier) {
-            ...
+        public <T> void add(String identifier, ToDoubleArrayFunction<O> supplier) {
+            add(PropertyAdapters.wrap(identifier, supplier));
+        }
+
+        public void add(String identifier, ToFloatArrayFunction<O> supplier) {
+            add(PropertyAdapters.wrap(identifier, supplier));
         }
 
         private <T extends Type<T>> void add(PropertyAdapter<O, T> propertyAdapter) {
@@ -121,7 +126,10 @@ public class DeconstructorPlayground {
             final String identifier = propertyAdapter.identifier();
             final GeffProperty<T> property = WritableProperties.createProperty(identifier, propertyType, numElements, elementIndex);
 
-            setters.add(obj -> property.set(propertyAdapter.update(obj)));
+            System.out.println("propertyAdapter = " + propertyAdapter);
+            System.out.println("  writeProperty = " + property);
+
+            setters.add(obj -> property.set(propertyAdapter.adapt(obj)));
             props.add(property);
         }
 
@@ -148,15 +156,22 @@ public class DeconstructorPlayground {
                 dimensions[n] = numElements;
 
                 final RandomAccessibleInterval<T> propertyValues = Cast.unchecked(arrayImg(propertyType.type(), dimensions));
-                return new FixedLengthProperty<>(identifier, propertyValues, null, sharedElementIndex);
+                final RandomAccessibleInterval<BitType> propertyMissing = propertyType.isOptional()
+                        ? Cast.unchecked( arrayImg(BitType.class, new long[] {numElements}) )
+                        : null;
+                return new FixedLengthProperty<>(identifier, propertyValues, propertyMissing, sharedElementIndex);
             }
         }
 
         private static RandomAccessibleInterval<?> arrayImg(Class<?> type, long[] dimensions) {
             if (type == DoubleType.class) {
                 return ArrayImgs.doubles(dimensions);
+            } else if (type == FloatType.class) {
+                return ArrayImgs.floats(dimensions);
+            } else if (type == BitType.class) {
+                return ArrayImgs.bits(dimensions);
             }
-            throw new UnsupportedOperationException("TODO");
+            throw new UnsupportedOperationException("TODO " + type);
         }
 
     }

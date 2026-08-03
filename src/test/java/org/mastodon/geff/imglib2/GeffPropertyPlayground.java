@@ -184,9 +184,9 @@ public class GeffPropertyPlayground {
                 final Vertex vertex = nodes.get(i);
                 nodeData.index(i);
 
-                id.set(_id.update(vertex));
-                x.set(_x.update(vertex));
-                t.set(_t.update(vertex));
+                id.set(_id.adapt(vertex));
+                x.set(_x.adapt(vertex));
+                t.set(_t.adapt(vertex));
             }
 
             final BloscCompression compression = new BloscCompression("lz4", 5, 1, 0, 0);
