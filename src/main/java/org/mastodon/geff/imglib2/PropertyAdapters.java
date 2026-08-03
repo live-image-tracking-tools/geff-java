@@ -4,14 +4,15 @@ import net.imglib2.FinalDimensions;
 import net.imglib2.Point;
 import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessibleInterval;
-import net.imglib2.type.numeric.integer.IntType;
+import net.imglib2.type.logic.BoolType;
+import net.imglib2.type.numeric.integer.UnsignedByteType;
+import net.imglib2.type.numeric.integer.UnsignedIntType;
 import net.imglib2.type.numeric.integer.UnsignedLongType;
+import net.imglib2.type.numeric.integer.UnsignedShortType;
 import net.imglib2.type.numeric.real.DoubleType;
 import net.imglib2.type.numeric.real.FloatType;
-import org.mastodon.geff.imglib2.Types.MaybeDouble;
-import org.mastodon.geff.imglib2.Types.ToDoubleArrayFunction;
-import org.mastodon.geff.imglib2.Types.ToFloatArrayFunction;
-import org.mastodon.geff.imglib2.Types.ToMaybeDoubleFunction;
+import org.mastodon.geff.imglib2.FunctionTypes.*;
+import org.mastodon.geff.imglib2.Maybe.*;
 
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -22,37 +23,120 @@ import java.util.function.ToLongFunction;
 
 public class PropertyAdapters {
 
+    //-------------------------------------------------------------------------
+    //  scalar
+    //-------------------------------------------------------------------------
+
+    public static <O> PropertyAdapter<O, UnsignedByteType> wrap(final String identifier, final ToByteFunction<O> supplier) {
+        return scalar(identifier, UnsignedByteType::new, (type, obj) -> type.set(supplier.applyAsByte(obj)));
+    }
+
+    public static <O> PropertyAdapter<O, UnsignedShortType> wrap(final String identifier, final ToShortFunction<O> supplier) {
+        return scalar(identifier, UnsignedShortType::new, (type, obj) -> type.set(supplier.applyAsShort(obj)));
+    }
+
+    public static <O> PropertyAdapter<O, UnsignedIntType> wrap(final String identifier, final ToIntFunction<O> supplier) {
+        return scalar(identifier, UnsignedIntType::new, (type, obj) -> type.set(supplier.applyAsInt(obj)));
+    }
+
     public static <O> PropertyAdapter<O, UnsignedLongType> wrap(final String identifier, final ToLongFunction<O> supplier) {
         return scalar(identifier, UnsignedLongType::new, (type, obj) -> type.set(supplier.applyAsLong(obj)));
+    }
+
+    public static <O> PropertyAdapter<O, FloatType> wrap(final String identifier, final ToFloatFunction<O> supplier) {
+        return scalar(identifier, FloatType::new, (type, obj) -> type.set(supplier.applyAsFloat(obj)));
     }
 
     public static <O> PropertyAdapter<O, DoubleType> wrap(final String identifier, final ToDoubleFunction<O> supplier) {
         return scalar(identifier, DoubleType::new, (type, obj) -> type.set(supplier.applyAsDouble(obj)));
     }
 
-    public static <O> PropertyAdapter<O, IntType> wrap(final String identifier, final ToIntFunction<O> supplier) {
-        return scalar(identifier, IntType::new, (type, obj) -> type.set(supplier.applyAsInt(obj)));
+    public static <O> PropertyAdapter<O, BoolType> wrap(final String identifier, final ToBooleanFunction<O> supplier) {
+        return scalar(identifier, BoolType::new, (type, obj) -> type.set(supplier.applyAsBoolean(obj)));
     }
 
-    public static <O> PropertyAdapter<O, DoubleType> wrap(final String identifier, final ToDoubleArrayFunction<O> supplier) {
-        return vector(identifier, DoubleType::new, supplier::apply, (type, data, i) -> type.set(data[i]));
+
+    //-------------------------------------------------------------------------
+    //  vector
+    //-------------------------------------------------------------------------
+
+    public static <O> PropertyAdapter<O, UnsignedByteType> wrap(final String identifier, final ToByteArrayFunction<O> supplier) {
+        return vector(identifier, UnsignedByteType::new, supplier, (type, data, i) -> type.set(data[i]));
+    }
+
+    public static <O> PropertyAdapter<O, UnsignedShortType> wrap(final String identifier, final ToShortArrayFunction<O> supplier) {
+        return vector(identifier, UnsignedShortType::new, supplier, (type, data, i) -> type.set(data[i]));
+    }
+
+    public static <O> PropertyAdapter<O, UnsignedIntType> wrap(final String identifier, final ToIntArrayFunction<O> supplier) {
+        return vector(identifier, UnsignedIntType::new, supplier, (type, data, i) -> type.set(data[i]));
+    }
+
+    public static <O> PropertyAdapter<O, UnsignedLongType> wrap(final String identifier, final ToLongArrayFunction<O> supplier) {
+        return vector(identifier, UnsignedLongType::new, supplier, (type, data, i) -> type.set(data[i]));
     }
 
     public static <O> PropertyAdapter<O, FloatType> wrap(final String identifier, final ToFloatArrayFunction<O> supplier) {
-        return vector(identifier, FloatType::new, supplier::apply, (type, data, i) -> type.set(data[i]));
+        return vector(identifier, FloatType::new, supplier, (type, data, i) -> type.set(data[i]));
     }
 
-    public static <O> PropertyAdapter<O, String> wrap(final String identifier, final Function<O, String> supplier) {
+    public static <O> PropertyAdapter<O, DoubleType> wrap(final String identifier, final ToDoubleArrayFunction<O> supplier) {
+        return vector(identifier, DoubleType::new, supplier, (type, data, i) -> type.set(data[i]));
+    }
+
+    public static <O> PropertyAdapter<O, BoolType> wrap(final String identifier, final ToBooleanArrayFunction<O> supplier) {
+        return vector(identifier, BoolType::new, supplier, (type, data, i) -> type.set(data[i]));
+    }
+
+    public static <O> PropertyAdapter<O, String> wrap(final String identifier, final ToStringFunction<O> supplier) {
         final ValueRandomAccess<String> ra = new ValueRandomAccess<>("");
         final PropertyRAI<String> values = new PropertyRAI<>(new FinalDimensions(), ra);
         return new FixedPropertyWrapper<>(identifier, false, values, obj -> ra.setValue(supplier.apply(obj)));
     }
 
-    static <O, T> PropertyAdapter<O, T> scalar(final String identifier, final Supplier<T> typeSupplier, final DataUpdate<O, T> update) {
-        final T type = typeSupplier.get();
-        final RandomAccess<T> ra = new ScalarRandomAccess<>(type);
-        final PropertyRAI<T> values = new PropertyRAI<>(new FinalDimensions(), ra);
-        return new FixedPropertyWrapper<>(identifier, false, values, obj -> update.update(type, obj));
+
+    //-------------------------------------------------------------------------
+    //  maybe scalar
+    //-------------------------------------------------------------------------
+
+    public static <O> PropertyAdapter<O, UnsignedByteType> wrap(final String identifier, final ToMaybeByteFunction<O> supplier) {
+        return maybeScalar(identifier, UnsignedByteType::new, (type, missing, obj) -> {
+            final MaybeByte maybe = supplier.apply(obj);
+            if (missing.setPresent(maybe.isPresent()))
+                type.set(maybe.get());
+        });
+    }
+
+    public static <O> PropertyAdapter<O, UnsignedShortType> wrap(final String identifier, final ToMaybeShortFunction<O> supplier) {
+        return maybeScalar(identifier, UnsignedShortType::new, (type, missing, obj) -> {
+            final MaybeShort maybe = supplier.apply(obj);
+            if (missing.setPresent(maybe.isPresent()))
+                type.set(maybe.get());
+        });
+    }
+
+    public static <O> PropertyAdapter<O, UnsignedIntType> wrap(final String identifier, final ToMaybeIntFunction<O> supplier) {
+        return maybeScalar(identifier, UnsignedIntType::new, (type, missing, obj) -> {
+            final MaybeInt maybe = supplier.apply(obj);
+            if (missing.setPresent(maybe.isPresent()))
+                type.set(maybe.get());
+        });
+    }
+
+    public static <O> PropertyAdapter<O, UnsignedLongType> wrap(final String identifier, final ToMaybeLongFunction<O> supplier) {
+        return maybeScalar(identifier, UnsignedLongType::new, (type, missing, obj) -> {
+            final MaybeLong maybe = supplier.apply(obj);
+            if (missing.setPresent(maybe.isPresent()))
+                type.set(maybe.get());
+        });
+    }
+
+    public static <O> PropertyAdapter<O, FloatType> wrap(final String identifier, final ToMaybeFloatFunction<O> supplier) {
+        return maybeScalar(identifier, FloatType::new, (type, missing, obj) -> {
+            final MaybeFloat maybe = supplier.apply(obj);
+            if (missing.setPresent(maybe.isPresent()))
+                type.set(maybe.get());
+        });
     }
 
     public static <O> PropertyAdapter<O, DoubleType> wrap(final String identifier, final ToMaybeDoubleFunction<O> supplier) {
@@ -63,12 +147,80 @@ public class PropertyAdapters {
         });
     }
 
+    public static <O> PropertyAdapter<O, BoolType> wrap(final String identifier, final ToMaybeBooleanFunction<O> supplier) {
+        return maybeScalar(identifier, BoolType::new, (type, missing, obj) -> {
+            final MaybeBoolean maybe = supplier.apply(obj);
+            if (missing.setPresent(maybe.isPresent()))
+                type.set(maybe.get());
+        });
+    }
+
+
+    //-------------------------------------------------------------------------
+    //  maybe vector
+    //-------------------------------------------------------------------------
+
+    public static <O> PropertyAdapter<O, UnsignedByteType> wrap(final String identifier, final ToMaybeByteArrayFunction<O> supplier) {
+        return maybeVector(identifier, UnsignedByteType::new, supplier, (type, data, i) -> type.set(data[i]));
+    }
+
+    public static <O> PropertyAdapter<O, UnsignedShortType> wrap(final String identifier, final ToMaybeShortArrayFunction<O> supplier) {
+        return maybeVector(identifier, UnsignedShortType::new, supplier, (type, data, i) -> type.set(data[i]));
+    }
+
+    public static <O> PropertyAdapter<O, UnsignedIntType> wrap(final String identifier, final ToMaybeIntArrayFunction<O> supplier) {
+        return maybeVector(identifier, UnsignedIntType::new, supplier, (type, data, i) -> type.set(data[i]));
+    }
+
+    public static <O> PropertyAdapter<O, UnsignedLongType> wrap(final String identifier, final ToMaybeLongArrayFunction<O> supplier) {
+        return maybeVector(identifier, UnsignedLongType::new, supplier, (type, data, i) -> type.set(data[i]));
+    }
+
+    public static <O> PropertyAdapter<O, FloatType> wrap(final String identifier, final ToMaybeFloatArrayFunction<O> supplier) {
+        return maybeVector(identifier, FloatType::new, supplier, (type, data, i) -> type.set(data[i]));
+    }
+
+    public static <O> PropertyAdapter<O, DoubleType> wrap(final String identifier, final ToMaybeDoubleArrayFunction<O> supplier) {
+        return maybeVector(identifier, DoubleType::new, supplier, (type, data, i) -> type.set(data[i]));
+    }
+
+    public static <O> PropertyAdapter<O, BoolType> wrap(final String identifier, final ToMaybeBooleanArrayFunction<O> supplier) {
+        return maybeVector(identifier, BoolType::new, supplier, (type, data, i) -> type.set(data[i]));
+    }
+
+
+    //-------------------------------------------------------------------------
+    //  internal
+    //-------------------------------------------------------------------------
+
+    @FunctionalInterface
+    private interface DataUpdate<O, T> {
+        void update(T dataHolder, O obj);
+    }
+
+    static <O, T> PropertyAdapter<O, T> scalar(final String identifier, final Supplier<T> typeSupplier, final DataUpdate<O, T> update) {
+        final T type = typeSupplier.get();
+        final RandomAccess<T> ra = new ScalarRandomAccess<>(type);
+        final PropertyRAI<T> values = new PropertyRAI<>(new FinalDimensions(), ra);
+        return new FixedPropertyWrapper<>(identifier, false, values, obj -> update.update(type, obj));
+    }
+
+    @FunctionalInterface
+    private interface MaybeDataUpdate<O, T> {
+        void update(T dataHolder, Missing missingHolder, O obj);
+    }
+
     static <O, T> PropertyAdapter<O, T> maybeScalar(final String identifier, final Supplier<T> typeSupplier, final MaybeDataUpdate<O, T> update) {
         final T type = typeSupplier.get();
         final RandomAccess<T> ra = new ScalarRandomAccess<>(type);
         final PropertyRAI<T> values = new PropertyRAI<>(new FinalDimensions(), ra);
         final Missing missing = new Missing();
         return new FixedPropertyWrapper<>(identifier, true, values, missing, obj -> update.update(type, missing, obj));
+    }
+
+    @FunctionalInterface
+    private interface VectorTypeUpdate<P, T> {
+        void update(T type, P data, int i);
     }
 
     static <O, T, P> PropertyAdapter<O, T> vector(
@@ -82,19 +234,20 @@ public class PropertyAdapters {
         return new FixedPropertyWrapper<>(identifier, false, values, obj -> ra.setData(dataSupplier.apply(obj)));
     }
 
-    @FunctionalInterface
-    public interface DataUpdate<O, T> {
-        void update(T dataHolder, O obj);
-    }
-
-    @FunctionalInterface
-    public interface MaybeDataUpdate<O, T> {
-        void update(T dataHolder, Missing missingHolder, O obj);
-    }
-
-    @FunctionalInterface
-    public interface VectorTypeUpdate<P, T> {
-        void update(T type, P data, int i);
+    static <O, T, P> PropertyAdapter<O, T> maybeVector(
+            final String identifier,
+            final Supplier<T> typeSupplier,
+            final Function<O, ? extends Maybe<P>> dataSupplier,
+            final VectorTypeUpdate<P, T> elementUpdate) {
+        final T type = typeSupplier.get();
+        final VectorRandomAccess<P, T> ra = new VectorRandomAccess<>(type, elementUpdate);
+        final PropertyRAI<T> values = new PropertyRAI<>(new FinalDimensions(), ra);
+        final Missing missing = new Missing();
+        return new FixedPropertyWrapper<>(identifier, true, values, missing, obj -> {
+            final Maybe<P> maybe = dataSupplier.apply(obj);
+            if (missing.setPresent(maybe.isPresent()))
+                ra.setData(maybe.get());
+        });
     }
 
     private static final class Missing {

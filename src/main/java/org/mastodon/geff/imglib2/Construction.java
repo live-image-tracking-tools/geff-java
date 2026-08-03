@@ -16,6 +16,13 @@ import net.imglib2.type.numeric.real.DoubleType;
 import net.imglib2.type.numeric.real.FloatType;
 import net.imglib2.util.Cast;
 import net.imglib2.util.Intervals;
+import org.mastodon.geff.imglib2.Maybe.MaybeBoolean;
+import org.mastodon.geff.imglib2.Maybe.MaybeByte;
+import org.mastodon.geff.imglib2.Maybe.MaybeDouble;
+import org.mastodon.geff.imglib2.Maybe.MaybeFloat;
+import org.mastodon.geff.imglib2.Maybe.MaybeInt;
+import org.mastodon.geff.imglib2.Maybe.MaybeLong;
+import org.mastodon.geff.imglib2.Maybe.MaybeShort;
 
 import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
@@ -219,18 +226,25 @@ public class Construction {
             final GeffPropertyType propertyType = new GeffPropertyType(type, varLength, false, dimensions);
             return new ResolvedConstructorParameter(identifier, isId, propertyType, rawType);
 
+        } else if (rawType == MaybeByte.class
+                || rawType == MaybeShort.class
+                || rawType == MaybeInt.class
+                || rawType == MaybeLong.class
+                || rawType == MaybeFloat.class
+                || rawType == MaybeDouble.class
+                || rawType == MaybeBoolean.class
+                || rawType == OptionalDouble.class
+                || rawType == OptionalLong.class
+                || rawType == OptionalInt.class) {
+            final Class<?> type = maybeToImgLibType(rawType);
+            final Dimensions dimensions = new FinalDimensions(new long[0]);
+            final GeffPropertyType propertyType = new GeffPropertyType(type, false, true, dimensions);
+            return new ResolvedConstructorParameter(identifier, isId, propertyType, rawType, rawType);
+
         } else if (rawType == Optional.class) {
             final Type inner = ((ParameterizedType) param.type()).getActualTypeArguments()[0];
             final ResolvedConstructorParameter resolved = resolveConstructorParameter(param.withType(inner));
             return resolved.withOptionalType(rawType);
-
-        } else if (rawType == OptionalDouble.class
-                || rawType == OptionalLong.class
-                || rawType == OptionalInt.class) {
-            final Class<?> type = primitiveToImgLibType(rawType);
-            final Dimensions dimensions = new FinalDimensions(new long[0]);
-            final GeffPropertyType propertyType = new GeffPropertyType(type, false, true, dimensions);
-            return new ResolvedConstructorParameter(identifier, isId, propertyType, rawType, rawType);
 
         } else if (rawType == String.class) {
             final Dimensions dimensions = new FinalDimensions(new long[0]);
@@ -259,16 +273,35 @@ public class Construction {
             return GenericByteType.class;
         } else if (primitive == short.class) {
             return GenericShortType.class;
-        } else if (primitive == int.class || primitive == OptionalInt.class) {
+        } else if (primitive == int.class) {
             return GenericIntType.class;
-        } else if (primitive == long.class || primitive == OptionalLong.class) {
+        } else if (primitive == long.class) {
             return GenericLongType.class;
         } else if (primitive == float.class) {
             return FloatType.class;
-        } else if (primitive == double.class || primitive == OptionalDouble.class) {
+        } else if (primitive == double.class) {
             return DoubleType.class;
         }
         throw new IllegalArgumentException("TODO? " + primitive);
+    }
+
+    private static Class<?> maybeToImgLibType(Class<?> maybe) {
+        if (maybe == MaybeBoolean.class) {
+            return BooleanType.class;
+        } else if (maybe == MaybeByte.class) {
+            return GenericByteType.class;
+        } else if (maybe == MaybeShort.class) {
+            return GenericShortType.class;
+        } else if (maybe == MaybeInt.class || maybe == OptionalInt.class) {
+            return GenericIntType.class;
+        } else if (maybe == MaybeLong.class || maybe == OptionalLong.class) {
+            return GenericLongType.class;
+        } else if (maybe == MaybeFloat.class) {
+            return FloatType.class;
+        } else if (maybe == MaybeDouble.class || maybe == OptionalDouble.class) {
+            return DoubleType.class;
+        }
+        throw new IllegalArgumentException("TODO? " + maybe);
     }
 
 

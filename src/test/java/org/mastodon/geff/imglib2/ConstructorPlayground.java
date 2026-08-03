@@ -6,6 +6,7 @@ import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
 import org.mastodon.geff.imglib2.Construction.FromId;
 import org.mastodon.geff.imglib2.Construction.FromProperty;
 import org.mastodon.geff.imglib2.Construction.NodeConstructor;
+import org.mastodon.geff.imglib2.Maybe.MaybeDouble;
 
 import java.util.Arrays;
 import java.util.Optional;
@@ -33,7 +34,7 @@ public class ConstructorPlayground {
         public void createNode(
                 @FromId() int id,
                 @FromProperty("POSITION_X") double x,
-                @FromProperty("POSITION_X") double y,
+                @FromProperty("POSITION_X") MaybeDouble y,
                 @FromProperty("name") Optional<String> name
         ) {
             System.out.println("id = " + id + ", x = " + x + ", y = " + y + ", name = " + name);

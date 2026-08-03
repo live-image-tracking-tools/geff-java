@@ -2,17 +2,15 @@ package org.mastodon.geff.imglib2;
 
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.img.array.ArrayImgs;
-import net.imglib2.type.BooleanType;
 import net.imglib2.type.Type;
 import net.imglib2.type.logic.BitType;
 import net.imglib2.type.numeric.IntegerType;
 import net.imglib2.type.numeric.real.DoubleType;
 import net.imglib2.type.numeric.real.FloatType;
 import net.imglib2.util.Cast;
-import org.mastodon.geff.imglib2.Types.MaybeDouble;
-import org.mastodon.geff.imglib2.Types.ToDoubleArrayFunction;
-import org.mastodon.geff.imglib2.Types.ToFloatArrayFunction;
-import org.mastodon.geff.imglib2.Types.ToMaybeDoubleFunction;
+import org.mastodon.geff.imglib2.FunctionTypes.ToDoubleArrayFunction;
+import org.mastodon.geff.imglib2.FunctionTypes.ToFloatArrayFunction;
+import org.mastodon.geff.imglib2.FunctionTypes.ToMaybeDoubleFunction;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -52,7 +50,7 @@ public class DeconstructorPlayground {
 
         final GeffWriter<Node> writer = new GeffWriter<>(nodes, ElementType.NODE);
         writer.add("x", Node::x);
-        writer.add("y", (Node node) -> new MaybeDouble(node.y()));
+        writer.add("y", (Node node) -> new Maybe.MaybeDouble(node.y()));
         writer.add("doublePos", Node::doublePos);
         writer.add("floatPos", Node::floatPos);
 
