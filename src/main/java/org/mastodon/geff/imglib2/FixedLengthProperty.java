@@ -6,8 +6,9 @@ import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.type.BooleanType;
 import net.imglib2.type.Type;
+import net.imglib2.type.numeric.integer.UnsignedLongType;
 
-class FixedLengthProperty<T extends Type<T>> implements GeffProperty<T> {
+class FixedLengthProperty<T extends Type<T>> implements GeffProperty<T>, ImgBacked<T> {
 
     private final String identifier;
     private final boolean isOptional;
@@ -123,5 +124,20 @@ class FixedLengthProperty<T extends Type<T>> implements GeffProperty<T> {
     @Override
     public String toString() {
         return GeffProperty.toString(this);
+    }
+
+    @Override
+    public RandomAccessibleInterval<T> getDataRAI() {
+        return valuesRAI;
+    }
+
+    @Override
+    public RandomAccessibleInterval<? extends BooleanType<?>> getMissingRAI() {
+        return missingRAI;
+    }
+
+    @Override
+    public RandomAccessibleInterval<UnsignedLongType> getIndexRAI() {
+        return null;
     }
 }

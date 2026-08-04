@@ -5,12 +5,13 @@ import net.imglib2.FinalDimensions;
 import net.imglib2.Point;
 import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessibleInterval;
+import net.imglib2.img.Img;
 import net.imglib2.type.BooleanType;
 import net.imglib2.type.Type;
 import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.util.IntervalIndexer;
 
-class VarLengthProperty<T extends Type<T>> implements GeffProperty<T> {
+class VarLengthProperty<T extends Type<T>> implements GeffProperty<T>, ImgBacked<T> {
 
     private final String identifier;
     private final boolean isOptional;
@@ -150,5 +151,20 @@ class VarLengthProperty<T extends Type<T>> implements GeffProperty<T> {
         public RA copy() {
             return new RA(dataAccess.copy());
         }
+    }
+
+    @Override
+    public RandomAccessibleInterval<T> getDataRAI() {
+        return dataRAI;
+    }
+
+    @Override
+    public RandomAccessibleInterval<? extends BooleanType<?>> getMissingRAI() {
+        return missingRAI;
+    }
+
+    @Override
+    public RandomAccessibleInterval<UnsignedLongType> getIndexRAI() {
+        return valuesRAI;
     }
 }

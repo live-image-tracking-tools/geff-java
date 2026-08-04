@@ -16,6 +16,7 @@ import org.janelia.saalfeldlab.n5.blosc.BloscCompression;
 import org.janelia.saalfeldlab.n5.imglib2.N5Utils;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrWriter;
 import org.janelia.saalfeldlab.n5.zarr.ZarrDatasetAttributes;
+import org.mastodon.geff.imglib2.IoUtils.DatasetPaths;
 
 import java.util.Arrays;
 
@@ -89,7 +90,7 @@ public class VarLengthPlayground {
             }
 
             final BloscCompression compression = new BloscCompression("lz4", 5, 1, 0, 0);
-            IoUtils.writeProperty(n5, (VarLengthProperty<?>) writeProperty, ElementType.NODE, null, compression, null);
+            IoUtils.writeProperty(n5, writeProperty, DatasetPaths.ofProperty(writeProperty, ElementType.NODE), null, compression, 0);
         }
     }
 
