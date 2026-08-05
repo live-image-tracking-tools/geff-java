@@ -8,9 +8,14 @@ import net.imglib2.type.numeric.IntegerType;
 import net.imglib2.type.numeric.real.DoubleType;
 import net.imglib2.type.numeric.real.FloatType;
 import net.imglib2.util.Cast;
+import org.janelia.saalfeldlab.n5.Compression;
+import org.janelia.saalfeldlab.n5.N5Writer;
+import org.janelia.saalfeldlab.n5.RawCompression;
+import org.janelia.saalfeldlab.n5.zarr.N5ZarrWriter;
 import org.mastodon.geff.imglib2.FunctionTypes.ToDoubleArrayFunction;
 import org.mastodon.geff.imglib2.FunctionTypes.ToFloatArrayFunction;
 import org.mastodon.geff.imglib2.FunctionTypes.ToMaybeDoubleFunction;
+import org.mastodon.geff.imglib2.IoUtils.DatasetPaths;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -48,13 +53,23 @@ public class DeconstructorPlayground {
             System.out.println(node);
         }
 
-        final GeffWriter<Node> writer = new GeffWriter<>(nodes, ElementType.NODE);
-        writer.add("x", Node::x);
-        writer.add("y", (Node node) -> new Maybe.MaybeDouble(node.y()));
-        writer.add("doublePos", Node::doublePos);
-        writer.add("floatPos", Node::floatPos);
 
-        writer.collectPropertyValues();
+
+//        final String path = "cross-language-tests/data/basic_3d_original.zarr";
+//        final String path = "cross-language-tests/data/covariance_original.zarr";
+        final String path = "cross-language-tests/data/deconstructor_playground.zarr";
+        try (final N5Writer n5 = new N5ZarrWriter(path)) {
+
+            final GeffWriter<Node> writer = new GeffWriter<>(n5, nodes, ElementType.NODE, null, 0, null);
+
+            writer.add("x", Node::x);
+            writer.add("y", (Node node) -> new Maybe.MaybeDouble(node.y()));
+            writer.add("doublePos", Node::doublePos);
+            writer.add("floatPos", Node::floatPos);
+
+            writer.collectPropertyValues(); // TODO: collectProperties should be folded into write()
+            writer.write();
+        }
     }
 
 
@@ -63,22 +78,47 @@ public class DeconstructorPlayground {
 
     static class GeffWriter<O> {
 
+        private final N5Writer n5;
+        private final Compression compression;
+        private final ElementType elementType;
+        private final int chunkSize;
+        private final String geffGroup;
+
         private final Collection<O> objects; //
         private final int numElements;
-        private final ElementType elementType;
-
         private final ElementIndex elementIndex;
 
         private final List<Consumer<O>> setters = new ArrayList<>();
-
         private final GeffProperty<? extends IntegerType<?>> id = null;
         private final List<GeffProperty<?>> props = new ArrayList<>();
 
 
-        public GeffWriter(final Collection<O> objects, final ElementType elementType) {
+        /**
+         *
+         * @param n5
+         * @param objects
+         * @param elementType which type of element ({@code NODE} or {@code EDGE}) the property refers to
+         * @param optionalCompression compression to use (or {@code null} for no compression)
+         * @param chunkSize           if {@code >0}, the chunk size in the slowest-moving
+         *                            dimension (last dimension in imglib2 convention, first dimension in numpy
+         *                            convention)
+         * @param geffGroup   path to the geff hierarchy (relative to container root)
+         */
+        public GeffWriter(
+                final N5Writer n5,
+                final Collection<O> objects,
+                final ElementType elementType,
+                final Compression optionalCompression,
+                final int chunkSize,
+                final String geffGroup) {
+            this.n5 = n5;
+            this.elementType = elementType;
+            this.compression = optionalCompression != null ? optionalCompression : new RawCompression();
+            this.chunkSize = chunkSize;
+            this.geffGroup = geffGroup;
+
             this.objects = objects;
             numElements = objects.size();
-            this.elementType = elementType;
             elementIndex = new ElementIndex();
         }
 
@@ -131,6 +171,20 @@ public class DeconstructorPlayground {
             props.add(property);
         }
 
+        public void write() {
+
+            if (id != null)
+                IoUtils.writeProperty(n5,Cast.unchecked(id), DatasetPaths.ofId(elementType, geffGroup),
+                        null, // TODO: optionalDType: it should be possible to specify this when adding a property
+                        compression, chunkSize);
+            else
+                System.err.println("WARNING: GeffWriter.write: no id property set"); // TODO: exception? log?
+
+            for (GeffProperty<?> prop : props)
+                IoUtils.writeProperty(n5, Cast.unchecked(prop), DatasetPaths.ofProperty(prop, elementType, geffGroup),
+                        null, // TODO: optionalDType: it should be possible to specify this when adding a property
+                        compression, chunkSize);
+        }
     }
 
 
