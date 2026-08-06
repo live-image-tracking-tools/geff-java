@@ -5,17 +5,44 @@ import net.imglib2.img.array.ArrayImgs;
 import net.imglib2.type.Type;
 import net.imglib2.type.logic.BitType;
 import net.imglib2.type.numeric.IntegerType;
+import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.type.numeric.real.DoubleType;
 import net.imglib2.type.numeric.real.FloatType;
 import net.imglib2.util.Cast;
 import org.janelia.saalfeldlab.n5.Compression;
+import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.RawCompression;
+import org.janelia.saalfeldlab.n5.imglib2.N5Utils;
+import org.janelia.saalfeldlab.n5.zarr.DType;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrWriter;
+import org.mastodon.geff.imglib2.FunctionTypes.ToBooleanArrayFunction;
+import org.mastodon.geff.imglib2.FunctionTypes.ToBooleanFunction;
+import org.mastodon.geff.imglib2.FunctionTypes.ToByteArrayFunction;
+import org.mastodon.geff.imglib2.FunctionTypes.ToByteFunction;
 import org.mastodon.geff.imglib2.FunctionTypes.ToDoubleArrayFunction;
 import org.mastodon.geff.imglib2.FunctionTypes.ToFloatArrayFunction;
+import org.mastodon.geff.imglib2.FunctionTypes.ToFloatFunction;
+import org.mastodon.geff.imglib2.FunctionTypes.ToIntArrayFunction;
+import org.mastodon.geff.imglib2.FunctionTypes.ToLongArrayFunction;
+import org.mastodon.geff.imglib2.FunctionTypes.ToMaybeBooleanArrayFunction;
+import org.mastodon.geff.imglib2.FunctionTypes.ToMaybeBooleanFunction;
+import org.mastodon.geff.imglib2.FunctionTypes.ToMaybeByteArrayFunction;
+import org.mastodon.geff.imglib2.FunctionTypes.ToMaybeByteFunction;
+import org.mastodon.geff.imglib2.FunctionTypes.ToMaybeDoubleArrayFunction;
 import org.mastodon.geff.imglib2.FunctionTypes.ToMaybeDoubleFunction;
+import org.mastodon.geff.imglib2.FunctionTypes.ToMaybeFloatArrayFunction;
+import org.mastodon.geff.imglib2.FunctionTypes.ToMaybeFloatFunction;
+import org.mastodon.geff.imglib2.FunctionTypes.ToMaybeIntArrayFunction;
+import org.mastodon.geff.imglib2.FunctionTypes.ToMaybeIntFunction;
+import org.mastodon.geff.imglib2.FunctionTypes.ToMaybeLongArrayFunction;
+import org.mastodon.geff.imglib2.FunctionTypes.ToMaybeLongFunction;
+import org.mastodon.geff.imglib2.FunctionTypes.ToMaybeShortArrayFunction;
+import org.mastodon.geff.imglib2.FunctionTypes.ToMaybeShortFunction;
+import org.mastodon.geff.imglib2.FunctionTypes.ToShortArrayFunction;
+import org.mastodon.geff.imglib2.FunctionTypes.ToShortFunction;
 import org.mastodon.geff.imglib2.IoUtils.DatasetPaths;
+import org.mastodon.geff.imglib2.Maybe.MaybeDouble;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -23,6 +50,10 @@ import java.util.Collection;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.ToDoubleFunction;
+import java.util.function.ToIntFunction;
+import java.util.function.ToLongFunction;
+
+import static org.mastodon.geff.imglib2.ElementType.NODE;
 
 public class DeconstructorPlayground {
 
@@ -60,15 +91,13 @@ public class DeconstructorPlayground {
         final String path = "cross-language-tests/data/deconstructor_playground.zarr";
         try (final N5Writer n5 = new N5ZarrWriter(path)) {
 
-            final GeffWriter<Node> writer = new GeffWriter<>(n5, nodes, ElementType.NODE, null, 0, null);
-
-            writer.add("x", Node::x);
-            writer.add("y", (Node node) -> new Maybe.MaybeDouble(node.y()));
-            writer.add("doublePos", Node::doublePos);
-            writer.add("floatPos", Node::floatPos);
-
-            writer.collectPropertyValues(); // TODO: collectProperties should be folded into write()
-            writer.write();
+            new GeffWriter<>(nodes, NODE)
+                    .id(Node::id, "<u8")
+                    .add("x", Node::x)
+                    .add("y", (Node node) -> new MaybeDouble(node.y()))
+                    .add("doublePos", Node::doublePos)
+                    .add("floatPos", Node::floatPos)
+                    .write(n5);
         }
     }
 
@@ -78,52 +107,235 @@ public class DeconstructorPlayground {
 
     static class GeffWriter<O> {
 
-        private final N5Writer n5;
-        private final Compression compression;
         private final ElementType elementType;
-        private final int chunkSize;
-        private final String geffGroup;
-
         private final Collection<O> objects; //
         private final int numElements;
         private final ElementIndex elementIndex;
 
         private final List<Consumer<O>> setters = new ArrayList<>();
-        private final GeffProperty<? extends IntegerType<?>> id = null;
+
+        private GeffProperty<? extends IntegerType<?>> id = null;
+        private DType idDType = null;
+
         private final List<GeffProperty<?>> props = new ArrayList<>();
+        private final List<DType> propsDTypes = new ArrayList<>();
 
 
         /**
-         *
-         * @param n5
          * @param objects
          * @param elementType which type of element ({@code NODE} or {@code EDGE}) the property refers to
-         * @param optionalCompression compression to use (or {@code null} for no compression)
-         * @param chunkSize           if {@code >0}, the chunk size in the slowest-moving
-         *                            dimension (last dimension in imglib2 convention, first dimension in numpy
-         *                            convention)
-         * @param geffGroup   path to the geff hierarchy (relative to container root)
          */
         public GeffWriter(
-                final N5Writer n5,
                 final Collection<O> objects,
-                final ElementType elementType,
-                final Compression optionalCompression,
-                final int chunkSize,
-                final String geffGroup) {
-            this.n5 = n5;
-            this.elementType = elementType;
-            this.compression = optionalCompression != null ? optionalCompression : new RawCompression();
-            this.chunkSize = chunkSize;
-            this.geffGroup = geffGroup;
+                final ElementType elementType) {
 
+            this.elementType = elementType;
             this.objects = objects;
             numElements = objects.size();
             elementIndex = new ElementIndex();
         }
 
+        public GeffWriter<O> id(ToByteFunction<O> supplier)  {return id(supplier, null);}
+        public GeffWriter<O> id(ToShortFunction<O> supplier) {return id(supplier, null);}
+        public GeffWriter<O> id(ToIntFunction<O> supplier)   {return id(supplier, null);}
+        public GeffWriter<O> id(ToLongFunction<O> supplier)  {return id(supplier, null);}
+
+        public GeffWriter<O> id(ToByteFunction<O> supplier, String typestr)  {return id(PropertyAdapters.wrap("id", supplier), typestr);}
+        public GeffWriter<O> id(ToShortFunction<O> supplier, String typestr) {return id(PropertyAdapters.wrap("id", supplier), typestr);}
+        public GeffWriter<O> id(ToIntFunction<O> supplier, String typestr)   {return id(PropertyAdapters.wrap("id", supplier), typestr);}
+        public GeffWriter<O> id(ToLongFunction<O> supplier, String typestr)  {return id(PropertyAdapters.wrap("id", supplier), typestr);}
+
+        public GeffWriter<O> add(String identifier, ToByteFunction<O> supplier)    {return add(identifier, supplier, null);}
+        public GeffWriter<O> add(String identifier, ToShortFunction<O> supplier)   {return add(identifier, supplier, null);}
+        public GeffWriter<O> add(String identifier, ToIntFunction<O> supplier)     {return add(identifier, supplier, null);}
+        public GeffWriter<O> add(String identifier, ToLongFunction<O> supplier)    {return add(identifier, supplier, null);}
+        public GeffWriter<O> add(String identifier, ToFloatFunction<O> supplier)   {return add(identifier, supplier, null);}
+        public GeffWriter<O> add(String identifier, ToDoubleFunction<O> supplier)  {return add(identifier, supplier, null);}
+        public GeffWriter<O> add(String identifier, ToBooleanFunction<O> supplier) {return add(identifier, supplier, null);}
+
+        public GeffWriter<O> add(String identifier, ToByteFunction<O> supplier, String typestr)    {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
+        public GeffWriter<O> add(String identifier, ToShortFunction<O> supplier, String typestr)   {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
+        public GeffWriter<O> add(String identifier, ToIntFunction<O> supplier, String typestr)     {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
+        public GeffWriter<O> add(String identifier, ToLongFunction<O> supplier, String typestr)    {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
+        public GeffWriter<O> add(String identifier, ToFloatFunction<O> supplier, String typestr)   {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
+        public GeffWriter<O> add(String identifier, ToDoubleFunction<O> supplier, String typestr)  {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
+        public GeffWriter<O> add(String identifier, ToBooleanFunction<O> supplier, String typestr) {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
+
+        public GeffWriter<O> add(String identifier, ToMaybeByteFunction<O> supplier)    {return add(identifier, supplier, null);}
+        public GeffWriter<O> add(String identifier, ToMaybeShortFunction<O> supplier)   {return add(identifier, supplier, null);}
+        public GeffWriter<O> add(String identifier, ToMaybeIntFunction<O> supplier)     {return add(identifier, supplier, null);}
+        public GeffWriter<O> add(String identifier, ToMaybeLongFunction<O> supplier)    {return add(identifier, supplier, null);}
+        public GeffWriter<O> add(String identifier, ToMaybeFloatFunction<O> supplier)   {return add(identifier, supplier, null);}
+        public GeffWriter<O> add(String identifier, ToMaybeDoubleFunction<O> supplier)  {return add(identifier, supplier, null);}
+        public GeffWriter<O> add(String identifier, ToMaybeBooleanFunction<O> supplier) {return add(identifier, supplier, null);}
+
+        public GeffWriter<O> add(String identifier, ToMaybeByteFunction<O> supplier, String typestr)    {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
+        public GeffWriter<O> add(String identifier, ToMaybeShortFunction<O> supplier, String typestr)   {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
+        public GeffWriter<O> add(String identifier, ToMaybeIntFunction<O> supplier, String typestr)     {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
+        public GeffWriter<O> add(String identifier, ToMaybeLongFunction<O> supplier, String typestr)    {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
+        public GeffWriter<O> add(String identifier, ToMaybeFloatFunction<O> supplier, String typestr)   {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
+        public GeffWriter<O> add(String identifier, ToMaybeDoubleFunction<O> supplier, String typestr)  {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
+        public GeffWriter<O> add(String identifier, ToMaybeBooleanFunction<O> supplier, String typestr) {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
+
+        public GeffWriter<O> add(String identifier, ToByteArrayFunction<O> supplier)    {return add(identifier, supplier, null);}
+        public GeffWriter<O> add(String identifier, ToShortArrayFunction<O> supplier)   {return add(identifier, supplier, null);}
+        public GeffWriter<O> add(String identifier, ToIntArrayFunction<O> supplier)     {return add(identifier, supplier, null);}
+        public GeffWriter<O> add(String identifier, ToLongArrayFunction<O> supplier)    {return add(identifier, supplier, null);}
+        public GeffWriter<O> add(String identifier, ToFloatArrayFunction<O> supplier)   {return add(identifier, supplier, null);}
+        public GeffWriter<O> add(String identifier, ToDoubleArrayFunction<O> supplier)  {return add(identifier, supplier, null);}
+        public GeffWriter<O> add(String identifier, ToBooleanArrayFunction<O> supplier) {return add(identifier, supplier, null);}
+
+        public GeffWriter<O> add(String identifier, ToByteArrayFunction<O> supplier, String typestr)    {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
+        public GeffWriter<O> add(String identifier, ToShortArrayFunction<O> supplier, String typestr)   {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
+        public GeffWriter<O> add(String identifier, ToIntArrayFunction<O> supplier, String typestr)     {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
+        public GeffWriter<O> add(String identifier, ToLongArrayFunction<O> supplier, String typestr)    {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
+        public GeffWriter<O> add(String identifier, ToFloatArrayFunction<O> supplier, String typestr)   {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
+        public GeffWriter<O> add(String identifier, ToDoubleArrayFunction<O> supplier, String typestr)  {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
+        public GeffWriter<O> add(String identifier, ToBooleanArrayFunction<O> supplier, String typestr) {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
+
+        public GeffWriter<O> add(String identifier, ToMaybeByteArrayFunction<O> supplier)    {return add(identifier, supplier, null);}
+        public GeffWriter<O> add(String identifier, ToMaybeShortArrayFunction<O> supplier)   {return add(identifier, supplier, null);}
+        public GeffWriter<O> add(String identifier, ToMaybeIntArrayFunction<O> supplier)     {return add(identifier, supplier, null);}
+        public GeffWriter<O> add(String identifier, ToMaybeLongArrayFunction<O> supplier)    {return add(identifier, supplier, null);}
+        public GeffWriter<O> add(String identifier, ToMaybeFloatArrayFunction<O> supplier)   {return add(identifier, supplier, null);}
+        public GeffWriter<O> add(String identifier, ToMaybeDoubleArrayFunction<O> supplier)  {return add(identifier, supplier, null);}
+        public GeffWriter<O> add(String identifier, ToMaybeBooleanArrayFunction<O> supplier) {return add(identifier, supplier, null);}
+
+        public GeffWriter<O> add(String identifier, ToMaybeByteArrayFunction<O> supplier, String typestr)    {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
+        public GeffWriter<O> add(String identifier, ToMaybeShortArrayFunction<O> supplier, String typestr)   {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
+        public GeffWriter<O> add(String identifier, ToMaybeIntArrayFunction<O> supplier, String typestr)     {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
+        public GeffWriter<O> add(String identifier, ToMaybeLongArrayFunction<O> supplier, String typestr)    {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
+        public GeffWriter<O> add(String identifier, ToMaybeFloatArrayFunction<O> supplier, String typestr)   {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
+        public GeffWriter<O> add(String identifier, ToMaybeDoubleArrayFunction<O> supplier, String typestr)  {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
+        public GeffWriter<O> add(String identifier, ToMaybeBooleanArrayFunction<O> supplier, String typestr) {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
+
+
+
+        /**
+         * Harvest properties and return as {@code GeffProperties}.
+         */
+        public GeffProperties createGeffProperties() {
+
+            if (id == null)
+                throw new IllegalStateException("No id property set");
+
+            collectPropertyValues();
+            return new GeffProperties(elementType, id, props);
+        }
+
+        /**
+         * Harvest properties and write to geff hierarchy.
+         * (Assuming no compression, no chunking, and geff hierarchy at container root.)
+         *
+         * @param n5 the {@code N5Writer}
+         */
+        public void write(final N5Writer n5) {
+            write(n5, null, 0, null);
+        }
+
+        /**
+         * Harvest properties and write to geff hierarchy.
+         * (Assuming geff hierarchy is at container root.)
+         *
+         * @param n5                  the {@code N5Writer}
+         * @param optionalCompression compression to use (or {@code null} for no compression)
+         * @param chunkSize           if {@code >0}, the chunk size in the slowest-moving
+         *                            dimension (last dimension in imglib2 convention, first dimension in numpy
+         *                            convention)
+         */
+        public void write(
+                final N5Writer n5,
+                final Compression optionalCompression,
+                final int chunkSize) {
+            write(n5, optionalCompression, chunkSize, null);
+        }
+
+        /**
+         * Harvest properties and write to geff hierarchy.
+         *
+         * @param n5                  the {@code N5Writer}
+         * @param optionalCompression compression to use (or {@code null} for no compression)
+         * @param chunkSize           if {@code >0}, the chunk size in the slowest-moving
+         *                            dimension (last dimension in imglib2 convention, first dimension in numpy
+         *                            convention)
+         * @param geffGroup           path to the geff hierarchy (relative to container root)
+         */
+        public void write(
+                final N5Writer n5,
+                final Compression optionalCompression,
+                final int chunkSize,
+                final String geffGroup) {
+
+            if (id == null)
+                throw new IllegalStateException("No id property set");
+
+            collectPropertyValues();
+            final Compression compression = optionalCompression != null ? optionalCompression : new RawCompression();
+            IoUtils.writeProperty(n5, Cast.unchecked(id), DatasetPaths.ofId(elementType, geffGroup), idDType, compression, chunkSize);
+            for (int i = 0; i < props.size(); i++) {
+                final GeffProperty<?> prop = props.get(i);
+                final DType dType = propsDTypes.get(i);
+                IoUtils.writeProperty(n5, Cast.unchecked(prop), DatasetPaths.ofProperty(prop, elementType, geffGroup), dType, compression, chunkSize);
+            }
+        }
+
+        private <T extends Type<T>> GeffWriter<O> add(final PropertyAdapter<O, T> propertyAdapter) {
+            return add(propertyAdapter, null);
+        }
+
+        private <T extends Type<T>> GeffWriter<O> add(final PropertyAdapter<O, T> propertyAdapter, final String typestr) {
+            final GeffPropertyType propertyType = propertyAdapter.propertyType();
+            final String identifier = propertyAdapter.identifier();
+            final GeffProperty<T> property = WritableProperties.createProperty(identifier, propertyType, numElements, elementIndex);
+
+            setters.add(obj -> property.set(propertyAdapter.adapt(obj)));
+            props.add(property);
+            propsDTypes.add(verifyDType(typestr, property));
+            return this;
+        }
+
+        private <T extends IntegerType<T>> GeffWriter<O> id(final PropertyAdapter<O, T> propertyAdapter) {
+            return id(propertyAdapter, null);
+        }
+
+        private <T extends IntegerType<T>> GeffWriter<O> id(final PropertyAdapter<O, T> propertyAdapter, final String typestr) {
+            final GeffPropertyType propertyType = propertyAdapter.propertyType();
+            final String identifier = propertyAdapter.identifier();
+            final GeffProperty<T> property = WritableProperties.createProperty(identifier, propertyType, numElements, elementIndex);
+
+            setters.add(obj -> property.set(propertyAdapter.adapt(obj)));
+            id = property;
+            idDType = verifyDType(typestr, property);
+            return this;
+        }
+
+        private static DType verifyDType(final String typestr, final GeffProperty<?> prop) {
+            if (typestr == null)
+                return null;
+            final DType dType = new DType(typestr, null);
+            if (unsigned(dType.getDataType()) != unsigned(N5Utils.dataType(Cast.unchecked(prop.type())))) {
+                throw new IllegalArgumentException("DataType mismatch: requested \"" + typestr + "\" for " + prop.type().getClass().getSimpleName() + " property");
+            }
+            return dType;
+        }
+
+        private static DataType unsigned(final DataType dataType) {
+            switch (dataType) {
+                case INT8:
+                    return DataType.UINT8;
+                case INT16:
+                    return DataType.UINT16;
+                case INT32:
+                    return DataType.UINT32;
+                case INT64:
+                    return DataType.UINT64;
+                default:
+                    return dataType;
+            }
+        }
+
         // iterate objects and fill properties
-        public void collectPropertyValues() {
+        private void collectPropertyValues() {
             int i = 0;
             for (final O obj : objects) {
                 elementIndex.set(i++);
@@ -131,67 +343,7 @@ public class DeconstructorPlayground {
                     setter.accept(obj);
             }
         }
-
-        public GeffProperties createGeffProperties() {
-            if (id == null)
-                throw new IllegalStateException("No id property set");
-            return new GeffProperties(elementType, id, props);
-        }
-
-        public void add(String identifier, ToDoubleFunction<O> supplier) {
-            add(PropertyAdapters.wrap(identifier, supplier));
-        }
-
-        public void add(String identifier, ToMaybeDoubleFunction<O> supplier) {
-            add(PropertyAdapters.wrap(identifier, supplier));
-        }
-
-        public <T> void add(String identifier, ToDoubleArrayFunction<O> supplier) {
-            add(PropertyAdapters.wrap(identifier, supplier));
-        }
-
-        public void add(String identifier, ToFloatArrayFunction<O> supplier) {
-            add(PropertyAdapters.wrap(identifier, supplier));
-        }
-
-        private <T extends Type<T>> void add(PropertyAdapter<O, T> propertyAdapter) {
-
-            // Create a property that we can write to.
-            // We do this so that we can then write all properties for an
-            // element at once, instead of iterating the input elements for
-            // every property over and over.
-            final GeffPropertyType propertyType = propertyAdapter.propertyType();
-            final String identifier = propertyAdapter.identifier();
-            final GeffProperty<T> property = WritableProperties.createProperty(identifier, propertyType, numElements, elementIndex);
-
-            System.out.println("propertyAdapter = " + propertyAdapter);
-            System.out.println("  writeProperty = " + property);
-
-            setters.add(obj -> property.set(propertyAdapter.adapt(obj)));
-            props.add(property);
-        }
-
-        public void write() {
-
-            if (id != null)
-                IoUtils.writeProperty(n5,Cast.unchecked(id), DatasetPaths.ofId(elementType, geffGroup),
-                        null, // TODO: optionalDType: it should be possible to specify this when adding a property
-                        compression, chunkSize);
-            else
-                System.err.println("WARNING: GeffWriter.write: no id property set"); // TODO: exception? log?
-
-            for (GeffProperty<?> prop : props)
-                IoUtils.writeProperty(n5, Cast.unchecked(prop), DatasetPaths.ofProperty(prop, elementType, geffGroup),
-                        null, // TODO: optionalDType: it should be possible to specify this when adding a property
-                        compression, chunkSize);
-        }
     }
-
-
-    static class WriterBuilder {
-
-    }
-
 
 
 
@@ -216,10 +368,12 @@ public class DeconstructorPlayground {
         }
 
         private static RandomAccessibleInterval<?> arrayImg(Class<?> type, long[] dimensions) {
-            if (type == DoubleType.class) {
-                return ArrayImgs.doubles(dimensions);
+            if (type == UnsignedLongType.class) {
+                return ArrayImgs.unsignedLongs(dimensions);
             } else if (type == FloatType.class) {
                 return ArrayImgs.floats(dimensions);
+            } else if (type == DoubleType.class) {
+                    return ArrayImgs.doubles(dimensions);
             } else if (type == BitType.class) {
                 return ArrayImgs.bits(dimensions);
             }
@@ -228,3 +382,4 @@ public class DeconstructorPlayground {
 
     }
 }
+

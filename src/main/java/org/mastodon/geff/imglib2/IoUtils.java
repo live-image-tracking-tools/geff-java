@@ -419,6 +419,46 @@ public class IoUtils {
         writeProperty(n5, property, paths.valuesPath(), paths.missingPath(), paths.dataPath(), optionalDType, optionalCompression, chunkSize);
     }
 
+    /**
+     * Write a {@code GeffProperties} into a geff hierarchy.
+     * <p>
+     * This will call
+     * {@link #writeProperty(N5Writer, GeffProperty, DatasetPaths, DType, Compression, int) writeProperty()}
+     * for every contained property using the default dataset paths and Zarr data types.
+     * If you need more control, call
+     * {@link #writeProperty(N5Writer, GeffProperty, String, String, String, DType, Compression, int)}
+     * for individual properties.
+     * <p>
+     * Note that all properties must be {@code ImgBacked}!
+     *
+     * @param n5                  the {@code N5Writer}
+     * @param properties          the properties to write
+     * @param optionalCompression compression to use (or {@code null} for no compression)
+     * @param chunkSize           if {@code >0}, the chunk size in the slowest-moving
+     *                            dimension (last dimension in imglib2 convention, first dimension in numpy
+     *                            convention)
+     * @param geffGroup           path to the geff hierarchy (relative to container root)
+     */
+    public static void writeProperties(
+            final N5Writer n5,
+            final GeffProperties properties,
+            final Compression optionalCompression, // optional, will use RawCompression if null
+            final int chunkSize,
+            final String geffGroup) {
+
+        final ElementType elementType = properties.elementType();
+        final Compression compression = optionalCompression != null
+                ? optionalCompression
+                : new RawCompression();
+        if (properties.id() != null)
+            IoUtils.writeProperty(n5, Cast.unchecked(properties.id()), DatasetPaths.ofId(elementType, geffGroup), null, compression, chunkSize);
+        for (GeffProperty<?> property : properties.properties().values())
+            IoUtils.writeProperty(n5, Cast.unchecked(property), DatasetPaths.ofProperty(property, elementType, geffGroup), null, compression, chunkSize);
+    }
+
+
+
+
     // TODO: convert record to class (for Java 8)
     public record DatasetPaths(String valuesPath, String missingPath, String dataPath) {
 
