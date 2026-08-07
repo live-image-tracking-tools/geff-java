@@ -98,6 +98,7 @@ public class DeconstructorPlayground {
         final String path = "cross-language-tests/data/deconstructor_playground.zarr";
         try (final N5Writer n5 = new N5ZarrWriter(path)) {
 
+            GeffProperties props =
             new GeffWriter<>(nodes, NODE)
                     .id(Node::id, "<u8")
                     .add("x", Node::x)
@@ -105,8 +106,22 @@ public class DeconstructorPlayground {
                     .add("doublePos", Node::doublePos) // TODO: doing it like this should create varlength
 //                    .add("doublePos", 2, Node::doublePos) // TODO: doing it like this should create fixedlength
                     .add("floatPos", Node::floatPos)
-                    .add( "name", Node::toString)
-                    .write(n5);
+                    .add("name", Node::toString)
+                    .createGeffProperties();
+//                    .write(n5);
+
+            System.out.println("props = " + props);
+
+            GeffProperty<UnsignedLongType> id = props.id();
+            GeffProperty<DoubleType> x = props.property("x");
+            GeffProperty<UnsignedByteType> vname = props.property("name");
+            GeffProperty<String> name = new VarLengthAsStringProperty(vname);
+            for (int i = 0; i < props.numElements(); i++) {
+                props.elementIndex().set(i);
+                System.out.println("id=" + id.getAt().get() +
+                ", x=" + x.getAt().get() +
+                ", name=" + name.getAt());
+            }
         }
     }
 
