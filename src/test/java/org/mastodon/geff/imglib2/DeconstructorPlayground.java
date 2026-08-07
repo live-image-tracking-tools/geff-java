@@ -98,30 +98,29 @@ public class DeconstructorPlayground {
         final String path = "cross-language-tests/data/deconstructor_playground.zarr";
         try (final N5Writer n5 = new N5ZarrWriter(path)) {
 
-            GeffProperties props =
+//            GeffProperties props =
             new GeffWriter<>(nodes, NODE)
                     .id(Node::id, "<u8")
                     .add("x", Node::x)
                     .add("y", (Node node) -> new MaybeDouble(node.y()))
-                    .add("doublePos", Node::doublePos) // TODO: doing it like this should create varlength
-//                    .add("doublePos", Node::doublePos, 2) // TODO: doing it like this should create fixedlength
-                    .add("floatPos", Node::floatPos)
-                    .add("name", Node::toString)
-                    .createGeffProperties();
-//                    .write(n5);
+                    .add("doublePos", Node::doublePos, 2) // fixed-length
+                    .add("floatPos", Node::floatPos) // var-length
+                    .add("name", Node::toString) // converted to var-length uint8
+//                    .createGeffProperties();
+                    .write(n5);
 
-            System.out.println("props = " + props);
+//            System.out.println("props = " + props);
 
-            GeffProperty<UnsignedLongType> id = props.id();
-            GeffProperty<DoubleType> x = props.property("x");
-            GeffProperty<UnsignedByteType> vname = props.property("name");
-            GeffProperty<String> name = new VarLengthAsStringProperty(vname);
-            for (int i = 0; i < props.numElements(); i++) {
-                props.elementIndex().set(i);
-                System.out.println("id=" + id.getAt().get() +
-                ", x=" + x.getAt().get() +
-                ", name=" + name.getAt());
-            }
+//            GeffProperty<UnsignedLongType> id = props.id();
+//            GeffProperty<DoubleType> x = props.property("x");
+//            GeffProperty<UnsignedByteType> vname = props.property("name");
+//            GeffProperty<String> name = new VarLengthAsStringProperty(vname);
+//            for (int i = 0; i < props.numElements(); i++) {
+//                props.elementIndex().set(i);
+//                System.out.println("id=" + id.getAt().get() +
+//                ", x=" + x.getAt().get() +
+//                ", name=" + name.getAt());
+//            }
         }
     }
 
@@ -219,6 +218,22 @@ public class DeconstructorPlayground {
         public GeffWriter<O> add(String identifier, ToDoubleArrayFunction<O> supplier, String typestr)  {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
         public GeffWriter<O> add(String identifier, ToBooleanArrayFunction<O> supplier, String typestr) {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
 
+        public GeffWriter<O> add(String identifier, ToByteArrayFunction<O> supplier, int length)    {return add(identifier, supplier, length, null);}
+        public GeffWriter<O> add(String identifier, ToShortArrayFunction<O> supplier, int length)   {return add(identifier, supplier, length, null);}
+        public GeffWriter<O> add(String identifier, ToIntArrayFunction<O> supplier, int length)     {return add(identifier, supplier, length, null);}
+        public GeffWriter<O> add(String identifier, ToLongArrayFunction<O> supplier, int length)    {return add(identifier, supplier, length, null);}
+        public GeffWriter<O> add(String identifier, ToFloatArrayFunction<O> supplier, int length)   {return add(identifier, supplier, length, null);}
+        public GeffWriter<O> add(String identifier, ToDoubleArrayFunction<O> supplier, int length)  {return add(identifier, supplier, length, null);}
+        public GeffWriter<O> add(String identifier, ToBooleanArrayFunction<O> supplier, int length) {return add(identifier, supplier, length, null);}
+
+        public GeffWriter<O> add(String identifier, ToByteArrayFunction<O> supplier, int length, String typestr)    {return add(PropertyAdapters.wrap(identifier, supplier, length), typestr);}
+        public GeffWriter<O> add(String identifier, ToShortArrayFunction<O> supplier, int length, String typestr)   {return add(PropertyAdapters.wrap(identifier, supplier, length), typestr);}
+        public GeffWriter<O> add(String identifier, ToIntArrayFunction<O> supplier, int length, String typestr)     {return add(PropertyAdapters.wrap(identifier, supplier, length), typestr);}
+        public GeffWriter<O> add(String identifier, ToLongArrayFunction<O> supplier, int length, String typestr)    {return add(PropertyAdapters.wrap(identifier, supplier, length), typestr);}
+        public GeffWriter<O> add(String identifier, ToFloatArrayFunction<O> supplier, int length, String typestr)   {return add(PropertyAdapters.wrap(identifier, supplier, length), typestr);}
+        public GeffWriter<O> add(String identifier, ToDoubleArrayFunction<O> supplier, int length, String typestr)  {return add(PropertyAdapters.wrap(identifier, supplier, length), typestr);}
+        public GeffWriter<O> add(String identifier, ToBooleanArrayFunction<O> supplier, int length, String typestr) {return add(PropertyAdapters.wrap(identifier, supplier, length), typestr);}
+
         public GeffWriter<O> add(String identifier, ToMaybeByteArrayFunction<O> supplier)    {return add(identifier, supplier, null);}
         public GeffWriter<O> add(String identifier, ToMaybeShortArrayFunction<O> supplier)   {return add(identifier, supplier, null);}
         public GeffWriter<O> add(String identifier, ToMaybeIntArrayFunction<O> supplier)     {return add(identifier, supplier, null);}
@@ -235,6 +250,21 @@ public class DeconstructorPlayground {
         public GeffWriter<O> add(String identifier, ToMaybeDoubleArrayFunction<O> supplier, String typestr)  {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
         public GeffWriter<O> add(String identifier, ToMaybeBooleanArrayFunction<O> supplier, String typestr) {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
 
+        public GeffWriter<O> add(String identifier, ToMaybeByteArrayFunction<O> supplier, int length)    {return add(identifier, supplier, length, null);}
+        public GeffWriter<O> add(String identifier, ToMaybeShortArrayFunction<O> supplier, int length)   {return add(identifier, supplier, length, null);}
+        public GeffWriter<O> add(String identifier, ToMaybeIntArrayFunction<O> supplier, int length)     {return add(identifier, supplier, length, null);}
+        public GeffWriter<O> add(String identifier, ToMaybeLongArrayFunction<O> supplier, int length)    {return add(identifier, supplier, length, null);}
+        public GeffWriter<O> add(String identifier, ToMaybeFloatArrayFunction<O> supplier, int length)   {return add(identifier, supplier, length, null);}
+        public GeffWriter<O> add(String identifier, ToMaybeDoubleArrayFunction<O> supplier, int length)  {return add(identifier, supplier, length, null);}
+        public GeffWriter<O> add(String identifier, ToMaybeBooleanArrayFunction<O> supplier, int length) {return add(identifier, supplier, length, null);}
+
+        public GeffWriter<O> add(String identifier, ToMaybeByteArrayFunction<O> supplier, int length, String typestr)    {return add(PropertyAdapters.wrap(identifier, supplier, length), typestr);}
+        public GeffWriter<O> add(String identifier, ToMaybeShortArrayFunction<O> supplier, int length, String typestr)   {return add(PropertyAdapters.wrap(identifier, supplier, length), typestr);}
+        public GeffWriter<O> add(String identifier, ToMaybeIntArrayFunction<O> supplier, int length, String typestr)     {return add(PropertyAdapters.wrap(identifier, supplier, length), typestr);}
+        public GeffWriter<O> add(String identifier, ToMaybeLongArrayFunction<O> supplier, int length, String typestr)    {return add(PropertyAdapters.wrap(identifier, supplier, length), typestr);}
+        public GeffWriter<O> add(String identifier, ToMaybeFloatArrayFunction<O> supplier, int length, String typestr)   {return add(PropertyAdapters.wrap(identifier, supplier, length), typestr);}
+        public GeffWriter<O> add(String identifier, ToMaybeDoubleArrayFunction<O> supplier, int length, String typestr)  {return add(PropertyAdapters.wrap(identifier, supplier, length), typestr);}
+        public GeffWriter<O> add(String identifier, ToMaybeBooleanArrayFunction<O> supplier, int length, String typestr) {return add(PropertyAdapters.wrap(identifier, supplier, length), typestr);}
 
         /**
          * Harvest properties and return as {@code GeffProperties}.
