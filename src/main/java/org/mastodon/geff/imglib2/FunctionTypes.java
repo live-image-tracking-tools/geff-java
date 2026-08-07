@@ -21,14 +21,6 @@ import java.util.function.Function;
 // TODO: revise, refactor, rename ...
 public class FunctionTypes {
 
-//    Byte
-//    Short
-//    Int
-//    Long
-//    Float
-//    Double
-//    Boolean
-
     @FunctionalInterface public interface ToByteFunction<T> {
         byte applyAsByte(T value);
     }
@@ -71,4 +63,8 @@ public class FunctionTypes {
 
     @FunctionalInterface public interface ToStringFunction<T> extends Function<T, String> {}
     @FunctionalInterface public interface ToMaybeStringFunction<T> extends Function<T, MaybeString> {}
+
+    private FunctionTypes() {
+        // don't instantiate
+    }
 }
