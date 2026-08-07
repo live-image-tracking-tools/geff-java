@@ -24,7 +24,7 @@ class VarLengthProperty<T extends Type<T>> implements GeffProperty<T>, ImgBacked
 
     // dataOffset[0] is the elementIndex for which dataOffset and dataDimensions are currently configured
     // dataOffset[1] is the current offset into the data array
-    protected final long[] dataOffset;
+    private final long[] dataOffset;
     private final long[] dataDimensions;
     private final PropertyRAI<T> values;
 
@@ -64,7 +64,7 @@ class VarLengthProperty<T extends Type<T>> implements GeffProperty<T>, ImgBacked
         final Dimensions dimensions = FinalDimensions.wrap(dataDimensions);
         final RandomAccess<T> randomAccess = new RA(propertyData.randomAccess());
         values = new PropertyRAI<>(() -> {
-            updateDataOffset();
+            updateDataOffset(false);
             return dimensions;
         }, randomAccess);
 
@@ -99,10 +99,10 @@ class VarLengthProperty<T extends Type<T>> implements GeffProperty<T>, ImgBacked
         return elementIndex;
     }
 
-    protected void updateDataOffset() {
+    protected void updateDataOffset(final boolean forceUpdate) {
         final long index = elementIndex.get();
         final long previousIndex = dataOffset[0];
-        if (previousIndex != index) {
+        if (previousIndex != index || forceUpdate) {
             dataOffset[0] = index;
             dataOffset[1] = valuesAccess.setPositionAndGet(0).get();
             final int n = dataDimensions.length;
@@ -142,7 +142,7 @@ class VarLengthProperty<T extends Type<T>> implements GeffProperty<T>, ImgBacked
 
         @Override
         public T get() {
-            updateDataOffset();
+            updateDataOffset(false);
             final long index = dataOffset[1] + IntervalIndexer.positionToIndex(position, dataDimensions);
             return dataAccess.setPositionAndGet(index);
         }

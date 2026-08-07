@@ -36,9 +36,9 @@ class VarLengthWriteProperty<T extends Type<T>> extends VarLengthProperty<T> {
         final Dimensions dims = property.dimensions();
         final int n = numDimensions();
         for (int i = 0; i < n; i++) {
-            valuesAccess.setPositionAndGet(i + 1).set(dims.dimension(i));
+            valuesAccess.setPositionAndGet(n - i).set(dims.dimension(i));
         }
-        updateDataOffset();
+        updateDataOffset(true);
 
         // TODO: reuse Cursor instances:
         //   Override cursor() in values() implementations.
