@@ -2,6 +2,9 @@ package org.mastodon.geff.imglib2;
 
 import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrWriter;
+import org.mastodon.geff.imglib2.Construction.FromId;
+import org.mastodon.geff.imglib2.Construction.FromProperty;
+import org.mastodon.geff.imglib2.Construction.NodeConstructor;
 import org.mastodon.geff.imglib2.Maybe.MaybeDouble;
 
 import java.util.ArrayList;
@@ -10,6 +13,7 @@ import java.util.function.DoubleSupplier;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
+import static org.mastodon.geff.imglib2.ConstructorPlayground.buildNodes;
 import static org.mastodon.geff.imglib2.ElementType.NODE;
 
 public class DeconstructorPlayground {
@@ -41,14 +45,15 @@ public class DeconstructorPlayground {
             System.out.println(node);
         }
 
+        System.out.println();
+        System.out.println("----------------------------------------------------------");
+        System.out.println("  example 1: write to Zarr");
+        System.out.println();
 
-
-//        final String path = "cross-language-tests/data/basic_3d_original.zarr";
-//        final String path = "cross-language-tests/data/covariance_original.zarr";
+        // example 1: write to Zarr
         final String path = "cross-language-tests/data/deconstructor_playground.zarr";
         try (final N5Writer n5 = new N5ZarrWriter(path)) {
 
-            GeffProperties props =
             new GeffPropertyWriter<>(nodes, NODE)
                     .id(Node::id, "<u8")
                     .add("x", Node::x)
@@ -56,8 +61,24 @@ public class DeconstructorPlayground {
                     .add("doublePos", Node::doublePos, 2) // fixed-length
                     .add("floatPos", Node::floatPos) // var-length
                     .add("name", Node::toString) // converted to var-length uint8
+                    .write(n5);
+        }
+
+        System.out.println();
+        System.out.println("----------------------------------------------------------");
+        System.out.println("  example 2: harvest into GeffProperties and print those");
+        System.out.println();
+
+        // example 2: harvest into GeffProperties and print those
+        {
+            final GeffProperties props = new GeffPropertyWriter<>(nodes, NODE)
+                    .id(Node::id, "<u8")
+                    .add("x", Node::x)
+                    .add("y", (Node node) -> new MaybeDouble(node.y()))
+                    .add("doublePos", Node::doublePos, 2) // fixed-length
+                    .add("floatPos", Node::floatPos) // var-length
+                    .add("name", Node::toString) // converted to var-length uint8
                     .createGeffProperties();
-//                    .write(n5);
 
             System.out.println("props = " + props);
 
@@ -66,9 +87,40 @@ public class DeconstructorPlayground {
             final Supplier<String> name = Suppliers.asStringSupplier(props.property("name"));
             for (int i = 0; i < props.numElements(); i++) {
                 props.elementIndex().set(i);
-                System.out.println("id=" + id.getAsLong() +
-                ", x=" + x.getAsDouble() +
-                ", name=" + name.get());
+                System.out.println("id=" + id.getAsLong() + ", x=" + x.getAsDouble() + ", name=" + name.get());
+            }
+        }
+
+        System.out.println();
+        System.out.println("----------------------------------------------------------");
+        System.out.println("  example 3: round-trip -- harvest properties, reconstruct List<Node> from properties");
+        System.out.println();
+
+        // example 3: round-trip -- harvest properties, reconstruct List<Node> from properties
+        {
+            final GeffProperties props = new GeffPropertyWriter<>(nodes, NODE)
+                    .id(Node::id)
+                    .add("x", Node::x)
+                    .add("y", Node::y)
+                    .add("t", Node::t)
+                    .createGeffProperties();
+
+            System.out.println("props = " + props);
+
+            class Builder {
+                final List<Node> reconstructed = new ArrayList<>();
+
+                @NodeConstructor
+                public void addNode(@FromId long id, @FromProperty("x") double x, @FromProperty("y") double y, @FromProperty("t") int t) {
+                    reconstructed.add(new Node(id, x, y, t));
+                }
+            }
+
+            final Builder builder = new Builder();
+            buildNodes(builder, props);
+            System.out.println("reconstructed Nodes:");
+            for (Node node : builder.reconstructed) {
+                System.out.println("  " + node);
             }
         }
     }
