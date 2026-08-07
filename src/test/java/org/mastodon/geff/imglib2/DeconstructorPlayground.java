@@ -104,7 +104,7 @@ public class DeconstructorPlayground {
                     .add("x", Node::x)
                     .add("y", (Node node) -> new MaybeDouble(node.y()))
                     .add("doublePos", Node::doublePos) // TODO: doing it like this should create varlength
-//                    .add("doublePos", 2, Node::doublePos) // TODO: doing it like this should create fixedlength
+//                    .add("doublePos", Node::doublePos, 2) // TODO: doing it like this should create fixedlength
                     .add("floatPos", Node::floatPos)
                     .add("name", Node::toString)
                     .createGeffProperties();

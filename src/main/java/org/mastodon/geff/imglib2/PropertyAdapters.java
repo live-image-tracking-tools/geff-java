@@ -63,35 +63,68 @@ public class PropertyAdapters {
 
 
     //-------------------------------------------------------------------------
+    //  fixed-length vector
+    //-------------------------------------------------------------------------
+
+    public static <O> PropertyAdapter<O, UnsignedByteType> wrap(final String identifier, final ToByteArrayFunction<O> supplier, final int length) {
+        return fixedLengthVector(identifier, UnsignedByteType::new, supplier, length, (type, data, i) -> type.set(data[i]));
+    }
+
+    public static <O> PropertyAdapter<O, UnsignedShortType> wrap(final String identifier, final ToShortArrayFunction<O> supplier, final int length) {
+        return fixedLengthVector(identifier, UnsignedShortType::new, supplier, length, (type, data, i) -> type.set(data[i]));
+    }
+
+    public static <O> PropertyAdapter<O, UnsignedIntType> wrap(final String identifier, final ToIntArrayFunction<O> supplier, final int length) {
+        return fixedLengthVector(identifier, UnsignedIntType::new, supplier, length, (type, data, i) -> type.set(data[i]));
+    }
+
+    public static <O> PropertyAdapter<O, UnsignedLongType> wrap(final String identifier, final ToLongArrayFunction<O> supplier, final int length) {
+        return fixedLengthVector(identifier, UnsignedLongType::new, supplier, length, (type, data, i) -> type.set(data[i]));
+    }
+
+    public static <O> PropertyAdapter<O, FloatType> wrap(final String identifier, final ToFloatArrayFunction<O> supplier, final int length) {
+        return fixedLengthVector(identifier, FloatType::new, supplier, length, (type, data, i) -> type.set(data[i]));
+    }
+
+    public static <O> PropertyAdapter<O, DoubleType> wrap(final String identifier, final ToDoubleArrayFunction<O> supplier, final int length) {
+        return fixedLengthVector(identifier, DoubleType::new, supplier, length, (type, data, i) -> type.set(data[i]));
+    }
+
+    public static <O> PropertyAdapter<O, BoolType> wrap(final String identifier, final ToBooleanArrayFunction<O> supplier, final int length) {
+        return fixedLengthVector(identifier, BoolType::new, supplier, length, (type, data, i) -> type.set(data[i]));
+    }
+
+
+    //-------------------------------------------------------------------------
     //  var-length vector
     //-------------------------------------------------------------------------
 
     public static <O> PropertyAdapter<O, UnsignedByteType> wrap(final String identifier, final ToByteArrayFunction<O> supplier) {
-        return vector(identifier, UnsignedByteType::new, supplier, data -> data.length, (type, data, i) -> type.set(data[i]));
+        return varLengthVector(identifier, UnsignedByteType::new, supplier, data -> data.length, (type, data, i) -> type.set(data[i]));
     }
 
     public static <O> PropertyAdapter<O, UnsignedShortType> wrap(final String identifier, final ToShortArrayFunction<O> supplier) {
-        return vector(identifier, UnsignedShortType::new, supplier, data -> data.length, (type, data, i) -> type.set(data[i]));
+        return varLengthVector(identifier, UnsignedShortType::new, supplier, data -> data.length, (type, data, i) -> type.set(data[i]));
     }
 
     public static <O> PropertyAdapter<O, UnsignedIntType> wrap(final String identifier, final ToIntArrayFunction<O> supplier) {
-        return vector(identifier, UnsignedIntType::new, supplier, data -> data.length, (type, data, i) -> type.set(data[i]));
+        return varLengthVector(identifier, UnsignedIntType::new, supplier, data -> data.length, (type, data, i) -> type.set(data[i]));
     }
 
     public static <O> PropertyAdapter<O, UnsignedLongType> wrap(final String identifier, final ToLongArrayFunction<O> supplier) {
-        return vector(identifier, UnsignedLongType::new, supplier, data -> data.length, (type, data, i) -> type.set(data[i]));
+        return varLengthVector(identifier, UnsignedLongType::new, supplier, data -> data.length, (type, data, i) -> type.set(data[i]));
     }
 
     public static <O> PropertyAdapter<O, FloatType> wrap(final String identifier, final ToFloatArrayFunction<O> supplier) {
-        return vector(identifier, FloatType::new, supplier, data -> data.length, (type, data, i) -> type.set(data[i]));
+        return varLengthVector(identifier, FloatType::new, supplier, data -> data.length, (type, data, i) -> type.set(data[i]));
     }
 
     public static <O> PropertyAdapter<O, DoubleType> wrap(final String identifier, final ToDoubleArrayFunction<O> supplier) {
-        return vector(identifier, DoubleType::new, supplier, data -> data.length, (type, data, i) -> type.set(data[i]));
+        return varLengthVector(identifier, DoubleType::new, supplier, data -> data.length, (type, data, i) -> type.set(data[i]));
     }
 
     public static <O> PropertyAdapter<O, BoolType> wrap(final String identifier, final ToBooleanArrayFunction<O> supplier) {
-        return vector(identifier, BoolType::new, supplier, data -> data.length, (type, data, i) -> type.set(data[i]));
+        return varLengthVector(identifier, BoolType::new, supplier, data -> data.length, (type, data, i) -> type.set(data[i]));
     }
 
 
@@ -168,35 +201,68 @@ public class PropertyAdapters {
 
 
     //-------------------------------------------------------------------------
+    //  maybe fixed-length vector
+    //-------------------------------------------------------------------------
+
+    public static <O> PropertyAdapter<O, UnsignedByteType> wrap(final String identifier, final ToMaybeByteArrayFunction<O> supplier, final int length) {
+        return maybeFixedLengthVector(identifier, UnsignedByteType::new, supplier, length, (type, data, i) -> type.set(data[i]));
+    }
+
+    public static <O> PropertyAdapter<O, UnsignedShortType> wrap(final String identifier, final ToMaybeShortArrayFunction<O> supplier, final int length) {
+        return maybeFixedLengthVector(identifier, UnsignedShortType::new, supplier, length, (type, data, i) -> type.set(data[i]));
+    }
+
+    public static <O> PropertyAdapter<O, UnsignedIntType> wrap(final String identifier, final ToMaybeIntArrayFunction<O> supplier, final int length) {
+        return maybeFixedLengthVector(identifier, UnsignedIntType::new, supplier, length, (type, data, i) -> type.set(data[i]));
+    }
+
+    public static <O> PropertyAdapter<O, UnsignedLongType> wrap(final String identifier, final ToMaybeLongArrayFunction<O> supplier, final int length) {
+        return maybeFixedLengthVector(identifier, UnsignedLongType::new, supplier, length, (type, data, i) -> type.set(data[i]));
+    }
+
+    public static <O> PropertyAdapter<O, FloatType> wrap(final String identifier, final ToMaybeFloatArrayFunction<O> supplier, final int length) {
+        return maybeFixedLengthVector(identifier, FloatType::new, supplier, length, (type, data, i) -> type.set(data[i]));
+    }
+
+    public static <O> PropertyAdapter<O, DoubleType> wrap(final String identifier, final ToMaybeDoubleArrayFunction<O> supplier, final int length) {
+        return maybeFixedLengthVector(identifier, DoubleType::new, supplier, length, (type, data, i) -> type.set(data[i]));
+    }
+
+    public static <O> PropertyAdapter<O, BoolType> wrap(final String identifier, final ToMaybeBooleanArrayFunction<O> supplier, final int length) {
+        return maybeFixedLengthVector(identifier, BoolType::new, supplier, length, (type, data, i) -> type.set(data[i]));
+    }
+
+
+    //-------------------------------------------------------------------------
     //  maybe var-length vector
     //-------------------------------------------------------------------------
 
     public static <O> PropertyAdapter<O, UnsignedByteType> wrap(final String identifier, final ToMaybeByteArrayFunction<O> supplier) {
-        return maybeVector(identifier, UnsignedByteType::new, supplier, data -> data.length, (type, data, i) -> type.set(data[i]));
+        return maybeVarLengthVector(identifier, UnsignedByteType::new, supplier, data -> data.length, (type, data, i) -> type.set(data[i]));
     }
 
     public static <O> PropertyAdapter<O, UnsignedShortType> wrap(final String identifier, final ToMaybeShortArrayFunction<O> supplier) {
-        return maybeVector(identifier, UnsignedShortType::new, supplier, data -> data.length, (type, data, i) -> type.set(data[i]));
+        return maybeVarLengthVector(identifier, UnsignedShortType::new, supplier, data -> data.length, (type, data, i) -> type.set(data[i]));
     }
 
     public static <O> PropertyAdapter<O, UnsignedIntType> wrap(final String identifier, final ToMaybeIntArrayFunction<O> supplier) {
-        return maybeVector(identifier, UnsignedIntType::new, supplier, data -> data.length, (type, data, i) -> type.set(data[i]));
+        return maybeVarLengthVector(identifier, UnsignedIntType::new, supplier, data -> data.length, (type, data, i) -> type.set(data[i]));
     }
 
     public static <O> PropertyAdapter<O, UnsignedLongType> wrap(final String identifier, final ToMaybeLongArrayFunction<O> supplier) {
-        return maybeVector(identifier, UnsignedLongType::new, supplier, data -> data.length, (type, data, i) -> type.set(data[i]));
+        return maybeVarLengthVector(identifier, UnsignedLongType::new, supplier, data -> data.length, (type, data, i) -> type.set(data[i]));
     }
 
     public static <O> PropertyAdapter<O, FloatType> wrap(final String identifier, final ToMaybeFloatArrayFunction<O> supplier) {
-        return maybeVector(identifier, FloatType::new, supplier, data -> data.length, (type, data, i) -> type.set(data[i]));
+        return maybeVarLengthVector(identifier, FloatType::new, supplier, data -> data.length, (type, data, i) -> type.set(data[i]));
     }
 
     public static <O> PropertyAdapter<O, DoubleType> wrap(final String identifier, final ToMaybeDoubleArrayFunction<O> supplier) {
-        return maybeVector(identifier, DoubleType::new, supplier, data -> data.length, (type, data, i) -> type.set(data[i]));
+        return maybeVarLengthVector(identifier, DoubleType::new, supplier, data -> data.length, (type, data, i) -> type.set(data[i]));
     }
 
     public static <O> PropertyAdapter<O, BoolType> wrap(final String identifier, final ToMaybeBooleanArrayFunction<O> supplier) {
-        return maybeVector(identifier, BoolType::new, supplier, data -> data.length, (type, data, i) -> type.set(data[i]));
+        return maybeVarLengthVector(identifier, BoolType::new, supplier, data -> data.length, (type, data, i) -> type.set(data[i]));
     }
 
 
@@ -235,7 +301,7 @@ public class PropertyAdapters {
     }
 
     // var-length
-    static <O, T, P> PropertyAdapter<O, T> vector(
+    static <O, T, P> PropertyAdapter<O, T> varLengthVector(
             final String identifier,
             final Supplier<T> typeSupplier,
             final Function<O, P> dataSupplier,
@@ -253,7 +319,7 @@ public class PropertyAdapters {
     }
 
     // fixed-length
-    static <O, T, P> PropertyAdapter<O, T> vector(
+    static <O, T, P> PropertyAdapter<O, T> fixedLengthVector(
             final String identifier,
             final Supplier<T> typeSupplier,
             final Function<O, P> dataSupplier,
@@ -266,7 +332,7 @@ public class PropertyAdapters {
     }
 
     // var-length
-    static <O, T, P> PropertyAdapter<O, T> maybeVector(
+    static <O, T, P> PropertyAdapter<O, T> maybeVarLengthVector(
             final String identifier,
             final Supplier<T> typeSupplier,
             final Function<O, ? extends Maybe<P>> dataSupplier,
@@ -287,7 +353,7 @@ public class PropertyAdapters {
     }
 
     // fixed-length
-    static <O, T, P> PropertyAdapter<O, T> maybeVector(
+    static <O, T, P> PropertyAdapter<O, T> maybeFixedLengthVector(
             final String identifier,
             final Supplier<T> typeSupplier,
             final Function<O, ? extends Maybe<P>> dataSupplier,
