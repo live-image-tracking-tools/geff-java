@@ -63,6 +63,76 @@ import java.util.function.ToIntFunction;
 import java.util.function.ToLongFunction;
 
 
+/**
+ * Builder for harvesting properties from a collection of client objects and
+ * writing them to a geff hierarchy.
+ * <p>
+ * The client's node or edge class is described by registering one accessor
+ * method per geff property: {@code id(...)} for the (mandatory) element ids,
+ * and {@code add(identifier, ...)} for everything else. The terminal operations
+ * {@link #write(N5Writer)} and {@link #createGeffProperties()} then make a
+ * single pass over the collection and harvest property values into intermediate
+ * storage. {@link #write(N5Writer)} then writes these to Zarr, {@link
+ * #createGeffProperties()} returns them as {@link GeffProperties}.
+ * <pre>{@code
+ * record Node(long id, double x, double y, int t) {
+ *     double[] doublePos() { return new double[] { x, y }; }
+ *     float[] floatPos()   { return new float[] { (float) x, (float) y }; }
+ * }
+ *
+ * List<Node> nodes = ...;
+ * try (N5Writer n5 = new N5ZarrWriter(path)) {
+ *     new GeffPropertyWriter<>(nodes, NODE)
+ *             .id(Node::id, "<u8")
+ *             .add("x", Node::x)                            // scalar
+ *             .add("y", node -> new MaybeDouble(node.y()))  // scalar, optional
+ *             .add("doublePos", Node::doublePos, 2)         // fixed-length (2)
+ *             .add("floatPos", Node::floatPos)              // var-length
+ *             .add("name", Node::toString)                  // converted to var-length uint8
+ *             .write(n5);
+ * }
+ * }</pre>
+ *
+ * <h2>Choosing the overload</h2>
+ *
+ * The kind of property that is written is determined by the accessor's
+ * signature, not by an explicit descriptor:
+ * <ul>
+ * <li>a scalar accessor ({@code Node::x}, that is, {@link ToDoubleFunction} and
+ *     the corresponding scalar interfaces in {@link FunctionTypes}) yields a
+ *     scalar property;</li>
+ * <li>an array accessor with an explicit {@code length} argument yields a
+ *     fixed-length vector property of that length;</li>
+ * <li>an array accessor <em>without</em> {@code length} yields a var-length
+ *     property, whose rows may differ in length per element;</li>
+ * <li>an accessor returning one of the {@link Maybe} types yields an optional
+ *     property, which additionally writes a {@code missing} dataset;</li>
+ * <li>an accessor returning {@code String} is encoded as UTF-8 and stored as a
+ *     var-length {@code uint8} property.</li>
+ * </ul>
+ * The Java return type also picks the imglib2 type of the column, and with it
+ * the default Zarr dtype ({@code double} to {@code <f8}, {@code long} to
+ * {@code <u8}, and so on). The optional trailing {@code typestr} argument
+ * overrides that dtype. It must agree with the column's data type up to
+ * signedness &mdash; {@code "<i8"} for a {@code long} accessor is accepted,
+ * {@code "<i4"} is not &mdash; and is rejected with an
+ * {@link IllegalArgumentException} otherwise.
+ *
+ * <h2>Notes</h2>
+ *
+ * <ul>
+ * <li>An id property is mandatory. Both terminal operations throw
+ *     {@link IllegalStateException} if {@code id(...)} was never called.</li>
+ * <li>Values are harvested into in-memory {@code ArrayImg}s before they are
+ *     written, so the property data of all elements has to fit into RAM.</li>
+ * <li>Only property datasets are written (see {@link DatasetPaths}:
+ *     {@code <elementType>/props/<identifier>/values}, plus {@code missing} and
+ *     {@code data} where applicable). Geff metadata (version, axes,
+ *     {@code props_metadata}) is not written by this class.</li>
+ * </ul>
+ *
+ * @param <O> type of the client's node or edge objects
+ */
 public class GeffPropertyWriter<O> {
 
     private final ElementType elementType;
@@ -80,7 +150,7 @@ public class GeffPropertyWriter<O> {
 
 
     /**
-     * Create a new {@code GeffWriter}.
+     * Create a new {@code GeffPropertyWriter}.
      *
      * @param objects     the objects from which to extract properties
      *                    (collection of the client's Node or Edge objects)
@@ -353,8 +423,8 @@ public class GeffPropertyWriter<O> {
     /**
      * Create {@code GeffProperty} instances backed by {@code ArrayImg}s that
      * act as intermediate {@link ImgBacked} storage. (These can be written to
-     * Zarr directly and are used by {@code GeffWriter} to harvest client
-     * properties.)
+     * Zarr directly and are used by {@code GeffPropertyWriter} to harvest
+     * client properties.)
      */
     static class WritableProperties {
 
