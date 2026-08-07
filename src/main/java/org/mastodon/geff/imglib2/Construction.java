@@ -32,6 +32,7 @@ import java.lang.annotation.Target;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.lang.reflect.TypeVariable;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalInt;
@@ -243,8 +244,13 @@ public class Construction {
             final GeffPropertyType propertyType = new GeffPropertyType(type, false, true, dimensions);
             return new ResolvedConstructorParameter(identifier, isId, propertyType, rawType, rawType);
 
-        } else if (rawType == Optional.class) {
+        } else if (rawType == Optional.class || rawType == Maybe.class) {
             final Type inner = ((ParameterizedType) param.type()).getActualTypeArguments()[0];
+            final ResolvedConstructorParameter resolved = resolveConstructorParameter(param.withType(inner));
+            return resolved.withOptionalType(rawType);
+
+        } else if (Maybe.class.isAssignableFrom(rawType)) {
+            final Type inner = getMaybeTypeArgument(param.type());
             final ResolvedConstructorParameter resolved = resolveConstructorParameter(param.withType(inner));
             return resolved.withOptionalType(rawType);
 
@@ -306,7 +312,22 @@ public class Construction {
         throw new IllegalArgumentException("TODO? " + maybe);
     }
 
-
+    private static Type getMaybeTypeArgument(final Type maybe) {
+        Type type = maybe;
+        while (type instanceof Class) {
+            type = ((Class<?>) type).getGenericSuperclass();
+        }
+        if (type instanceof ParameterizedType) {
+            final ParameterizedType pt = (ParameterizedType) type;
+            if (pt.getRawType() == Maybe.class) {
+                final Type arg = pt.getActualTypeArguments()[0];
+                if (arg instanceof Class) {
+                    return arg;
+                }
+            }
+        }
+        throw new IllegalArgumentException("TODO? " + maybe);
+    }
 
     // We allow to take GeffProperty<?> as a constructor type for a field.
     // This will just match anything, so we bypass conversion checks.

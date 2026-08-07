@@ -71,11 +71,7 @@ class ConstructorBinding {
             final MethodType mt = methodType(rawOptionalType);
             final MethodType omt = methodType(Object.class);
 
-//            if (rawOptionalType == MaybeDouble.class) {
-//                return lookup
-//                        .findVirtual(rawOptionalType, "get", mt)
-//                        .bindTo(asMaybeDoubleSupplier(property));
-//            }
+            // scalars (Optional)
             if (rawOptionalType == OptionalInt.class) {
                 return lookup
                         .findVirtual(Supplier.class, "get", omt)
@@ -91,6 +87,8 @@ class ConstructorBinding {
                         .findVirtual(Supplier.class, "get", omt)
                         .bindTo(asOptionalDoubleSupplier(property))
                         .asType(mt);
+
+            // scalars (Maybel)
             } else if (rawOptionalType == MaybeByte.class) {
                 return lookup
                         .findVirtual(Supplier.class, "get", omt)
@@ -126,6 +124,84 @@ class ConstructorBinding {
                         .findVirtual(Supplier.class, "get", omt)
                         .bindTo(asMaybeBooleanSupplier(property))
                         .asType(mt);
+
+            // vectors (Maybe)
+            } else if (rawOptionalType == MaybeByteArray.class) {
+                return lookup
+                        .findVirtual(Supplier.class, "get", omt)
+                        .bindTo(asMaybeByteArraySupplier(property))
+                        .asType(mt);
+            } else if (rawOptionalType == MaybeShortArray.class) {
+                return lookup
+                        .findVirtual(Supplier.class, "get", omt)
+                        .bindTo(asMaybeShortArraySupplier(property))
+                        .asType(mt);
+            } else if (rawOptionalType == MaybeIntArray.class) {
+                return lookup
+                        .findVirtual(Supplier.class, "get", omt)
+                        .bindTo(asMaybeIntArraySupplier(property))
+                        .asType(mt);
+            } else if (rawOptionalType == MaybeLongArray.class) {
+                return lookup
+                        .findVirtual(Supplier.class, "get", omt)
+                        .bindTo(asMaybeLongArraySupplier(property))
+                        .asType(mt);
+            } else if (rawOptionalType == MaybeFloatArray.class) {
+                return lookup
+                        .findVirtual(Supplier.class, "get", omt)
+                        .bindTo(asMaybeFloatArraySupplier(property))
+                        .asType(mt);
+            } else if (rawOptionalType == MaybeDoubleArray.class) {
+                return lookup
+                        .findVirtual(Supplier.class, "get", omt)
+                        .bindTo(asMaybeDoubleArraySupplier(property))
+                        .asType(mt);
+            } else if (rawOptionalType == MaybeBooleanArray.class) {
+                return lookup
+                        .findVirtual(Supplier.class, "get", omt)
+                        .bindTo(asMaybeBooleanArraySupplier(property))
+                        .asType(mt);
+            } else if (Maybe.class.isAssignableFrom(rawOptionalType)) {
+                final Class<?> rawType = param.rawType();
+                if (targetType.numDimensions() == 1) { // vectors
+                    if (rawType == byte[].class) {
+                        return lookup
+                                .findVirtual(Supplier.class, "get", omt)
+                                .bindTo(asMaybeByteArraySupplier(property))
+                                .asType(mt);
+                    } else if (rawType == short[].class) {
+                        return lookup
+                                .findVirtual(Supplier.class, "get", omt)
+                                .bindTo(asMaybeShortArraySupplier(property))
+                                .asType(mt);
+                    } else if (rawType == int[].class) {
+                        return lookup
+                                .findVirtual(Supplier.class, "get", omt)
+                                .bindTo(asMaybeIntArraySupplier(property))
+                                .asType(mt);
+                    } else if (rawType == long[].class) {
+                        return lookup
+                                .findVirtual(Supplier.class, "get", omt)
+                                .bindTo(asMaybeLongArraySupplier(property))
+                                .asType(mt);
+                    } else if (rawType == float[].class) {
+                        return lookup
+                                .findVirtual(Supplier.class, "get", omt)
+                                .bindTo(asMaybeFloatArraySupplier(property))
+                                .asType(mt);
+                    } else if (rawType == double[].class) {
+                        return lookup
+                                .findVirtual(Supplier.class, "get", omt)
+                                .bindTo(asMaybeDoubleArraySupplier(property))
+                                .asType(mt);
+                    } else if (rawType == boolean[].class) {
+                        return lookup
+                                .findVirtual(Supplier.class, "get", omt)
+                                .bindTo(asMaybeBooleanArraySupplier(property))
+                                .asType(mt);
+                    }
+                }
+
             } else if (rawOptionalType == Optional.class) {
                 final Class<?> rawType = param.rawType();
                 if( targetType.numDimensions() == 0 ) { // scalars
@@ -484,6 +560,113 @@ class ConstructorBinding {
     //   Vector, Optional
     //
     // ------------------------------------------------------------------------
+
+    // TODO: could reuse one-time allocated primitive array for fixed-length properties
+
+    private static <T extends GenericByteType<T>> Supplier<MaybeByteArray> asMaybeByteArraySupplier(final GeffProperty<?> property) {
+        final GeffProperty<T> p = Cast.unchecked(property);
+        final MaybeByteArray v = new MaybeByteArray();
+        return () -> {
+            if (v.setPresent(!p.isMissing())) {
+                final int len = (int) p.values().dimension(0);
+                final byte[] array = new byte[len];
+                for (int i = 0; i < len; i++)
+                    array[i] = p.getAt(i).getByte();
+                v.set(array);
+            }
+            return v;
+        };
+    }
+
+    private static <T extends GenericShortType<T>> Supplier<MaybeShortArray> asMaybeShortArraySupplier(final GeffProperty<?> property) {
+        final GeffProperty<T> p = Cast.unchecked(property);
+        final MaybeShortArray v = new MaybeShortArray();
+        return () -> {
+            if (v.setPresent(!p.isMissing())) {
+                final int len = (int) p.values().dimension(0);
+                final short[] array = new short[len];
+                for (int i = 0; i < len; i++)
+                    array[i] = p.getAt(i).getShort();
+                v.set(array);
+            }
+            return v;
+        };
+    }
+
+    private static <T extends GenericIntType<T>> Supplier<MaybeIntArray> asMaybeIntArraySupplier(final GeffProperty<?> property) {
+        final GeffProperty<T> p = Cast.unchecked(property);
+        final MaybeIntArray v = new MaybeIntArray();
+        return () -> {
+            if (v.setPresent(!p.isMissing())) {
+                final int len = (int) p.values().dimension(0);
+                final int[] array = new int[len];
+                for (int i = 0; i < len; i++)
+                    array[i] = p.getAt(i).getInt();
+                v.set(array);
+            }
+            return v;
+        };
+    }
+
+    private static <T extends GenericLongType<T>> Supplier<MaybeLongArray> asMaybeLongArraySupplier(final GeffProperty<?> property) {
+        final GeffProperty<T> p = Cast.unchecked(property);
+        final MaybeLongArray v = new MaybeLongArray();
+        return () -> {
+            if (v.setPresent(!p.isMissing())) {
+                final int len = (int) p.values().dimension(0);
+                final long[] array = new long[len];
+                for (int i = 0; i < len; i++)
+                    array[i] = p.getAt(i).getLong();
+                v.set(array);
+            }
+            return v;
+        };
+    }
+
+    private static <T extends BooleanType<T>> Supplier<MaybeBooleanArray> asMaybeBooleanArraySupplier(final GeffProperty<?> property) {
+        final GeffProperty<T> p = Cast.unchecked(property);
+        final MaybeBooleanArray v = new MaybeBooleanArray();
+        return () -> {
+            if (v.setPresent(!p.isMissing())) {
+                final int len = (int) p.values().dimension(0);
+                final boolean[] array = new boolean[len];
+                for (int i = 0; i < len; i++)
+                    array[i] = p.getAt(i).get();
+                v.set(array);
+            }
+            return v;
+        };
+    }
+
+    private static Supplier<MaybeFloatArray> asMaybeFloatArraySupplier(final GeffProperty<?> property) {
+        final GeffProperty<FloatType> p = Cast.unchecked(property);
+        final MaybeFloatArray v = new MaybeFloatArray();
+        return () -> {
+            if (v.setPresent(!p.isMissing())) {
+                final int len = (int) p.values().dimension(0);
+                final float[] array = new float[len];
+                for (int i = 0; i < len; i++)
+                    array[i] = p.getAt(i).get();
+                v.set(array);
+            }
+            return v;
+        };
+    }
+
+    private static Supplier<MaybeDoubleArray> asMaybeDoubleArraySupplier(final GeffProperty<?> property) {
+        final GeffProperty<DoubleType> p = Cast.unchecked(property);
+        final MaybeDoubleArray v = new MaybeDoubleArray();
+        return () -> {
+            if (v.setPresent(!p.isMissing())) {
+                final int len = (int) p.values().dimension(0);
+                final double[] array = new double[len];
+                for (int i = 0; i < len; i++)
+                    array[i] = p.getAt(i).get();
+                v.set(array);
+            }
+            return v;
+        };
+    }
 
     // TODO: asOptionalBooleanArraySupplier?
 

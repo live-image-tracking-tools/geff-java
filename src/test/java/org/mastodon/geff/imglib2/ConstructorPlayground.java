@@ -7,10 +7,10 @@ import org.mastodon.geff.imglib2.Construction.FromId;
 import org.mastodon.geff.imglib2.Construction.FromProperty;
 import org.mastodon.geff.imglib2.Construction.NodeConstructor;
 import org.mastodon.geff.imglib2.Maybe.MaybeDouble;
+import org.mastodon.geff.imglib2.Maybe.MaybeDoubleArray;
 
 import java.util.Arrays;
 import java.util.Optional;
-import java.util.OptionalDouble;
 
 import static org.mastodon.geff.imglib2.ElementType.NODE;
 
@@ -21,12 +21,12 @@ public class ConstructorPlayground {
         @NodeConstructor
         public void addVertex(
                 @FromId() long id,
-                @FromProperty("my_x") double x,
+                @FromProperty("x") double x,
                 @FromProperty("y") double y,
                 @FromProperty("z") double z,
-                @FromProperty(value = "covariance2d") double[] cov2d,
+                @FromProperty(value = "covariance2d", length = 4) Maybe<double[]> cov2d,
                 @FromProperty("t") long t) {
-            System.out.println("addVertex(id=" + id + ", x=" + x + ", y=" + y + ", z=" + z + ", cov2d=" + Arrays.toString(cov2d) + ", t=" + t + ")");
+            System.out.println("addVertex(id=" + id + ", x=" + x + ", y=" + y + ", z=" + z + ", cov2d=" + Arrays.toString(cov2d.get()) + ", t=" + t + ")");
         }
     }
 
@@ -44,12 +44,14 @@ public class ConstructorPlayground {
 
     public static void main(String[] args) throws Throwable {
 
-        final String path = "/Users/pietzsch/Desktop/data/JYT/TrackMate-GEFF-examples/MAX_Merged.geff";
-//        final String path = "cross-language-tests/data/covariance_original.zarr";
+//        final String path = "/Users/pietzsch/Desktop/data/JYT/TrackMate-GEFF-examples/MAX_Merged.geff";
+        final String path = "cross-language-tests/data/covariance_original.zarr";
 
         try (final N5Reader n5 = new N5ZarrReader(path)) {
             final GeffProperties props = IoUtils.loadProperties(n5, NODE);
-            final MyBuilderWithStrings nodeBuilder = new MyBuilderWithStrings();
+            System.out.println("props = " + props);
+//            final MyBuilderWithStrings nodeBuilder = new MyBuilderWithStrings();
+            final MyBuilder nodeBuilder = new MyBuilder();
             buildNodes( nodeBuilder, props);
         }
     }
