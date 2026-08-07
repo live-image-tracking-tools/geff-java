@@ -98,7 +98,6 @@ class ConstructorBinding {
                 : properties.property(param.identifier());
         final GeffProperty<?> property = Construction.convertToMatch(sourceProperty, targetType);
 
-        System.out.println("   param = " + param);
         if (targetType == ESCAPE_HATCH) {
             final Supplier<GeffProperty<?>> s = () -> property;
             return lookup.findVirtual(Supplier.class, "get", methodType(Object.class)).bindTo(s)
@@ -106,8 +105,6 @@ class ConstructorBinding {
         }
 
         if (targetType.isOptional()) {
-            System.out.println("   rawType         = " + param.rawType());
-            System.out.println("   rawOptionalType = " + param.rawOptionalType());
             final Class<?> rawOptionalType = param.rawOptionalType();
             final MethodType mt = methodType(rawOptionalType);
             final MethodType omt = methodType(Object.class);

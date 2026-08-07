@@ -32,7 +32,6 @@ import java.lang.annotation.Target;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.lang.reflect.TypeVariable;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalInt;
@@ -339,10 +338,6 @@ public class Construction {
             final GeffProperty<?> sourceProperty,
             final GeffPropertyType targetType)
             throws GeffBindError {
-
-        System.out.println("Construction.convertToMatch");
-        System.out.println("  sourceProperty = " + sourceProperty);
-        System.out.println("  targetType     = " + targetType);
 
         final GeffPropertyType sourceType = sourceProperty.propertyType();
 
