@@ -28,7 +28,14 @@ abstract class AbstractMaybe {
         return !present;
     }
 
-    public void setPresent(final boolean present) {
+    /**
+     * Sets this value {@code isPresent() == present}.
+     *
+     * @param present
+     * @return {@code present}
+     */
+    public boolean setPresent(final boolean present) {
         this.present = present;
+        return present;
     }
 }

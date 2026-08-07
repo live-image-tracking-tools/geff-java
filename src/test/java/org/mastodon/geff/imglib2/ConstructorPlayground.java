@@ -10,6 +10,7 @@ import org.mastodon.geff.imglib2.Maybe.MaybeDouble;
 
 import java.util.Arrays;
 import java.util.Optional;
+import java.util.OptionalDouble;
 
 import static org.mastodon.geff.imglib2.ElementType.NODE;
 
@@ -34,10 +35,10 @@ public class ConstructorPlayground {
         public void createNode(
                 @FromId() int id,
                 @FromProperty("POSITION_X") double x,
-                @FromProperty("POSITION_X") MaybeDouble y,
+                @FromProperty("POSITION_Y") MaybeDouble y,
                 @FromProperty("name") Optional<String> name
         ) {
-            System.out.println("id = " + id + ", x = " + x + ", y = " + y + ", name = " + name);
+            System.out.println("id = " + id + ", x = " + x + ", y = " + y.get() + ", name = " + name);
         }
     }
 
@@ -48,9 +49,6 @@ public class ConstructorPlayground {
 
         try (final N5Reader n5 = new N5ZarrReader(path)) {
             final GeffProperties props = IoUtils.loadProperties(n5, NODE);
-            System.out.println("props = " + props);
-//            props.rename("x", "my_x");
-//            final MyBuilder nodeBuilder = new MyBuilder();
             final MyBuilderWithStrings nodeBuilder = new MyBuilderWithStrings();
             buildNodes( nodeBuilder, props);
         }

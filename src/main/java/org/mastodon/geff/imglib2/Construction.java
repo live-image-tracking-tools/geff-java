@@ -123,11 +123,12 @@ public class Construction {
 
 
     /**
+     * Information about one parameter of a constructor method (annotated with either {@link FromId} or {@link FromProperty}.
      *
-     * @param type
-     * @param identifier
-     * @param isId
-     * @param length
+     * @param type the {@link java.lang.reflect.Type} of the method parameter
+     * @param identifier the property identifier (or "id" if annotation is {@code FromId})
+     * @param isId {@code true} if annotation is {@code FromId}, {@code false} otherwise
+     * @param length the length, for fixed-length vector parameters. {@code -1} for scalar or var-length vectors parameters.
      */
     // TODO: Keep this internal and just return ResolvedConstructorParameter[] for target method directly
     // TODO: convert record to class (for Java 8)
@@ -174,10 +175,10 @@ public class Construction {
 
     /**
      *
-     * @param identifier
-     * @param propertyType
-     * @param rawType
-     * @param rawOptionalType
+     * @param identifier property identifier
+     * @param propertyType runtime type of a {@code GeffProperty} that matches this constructor parameter
+     * @param rawType the {@code Class} of the parameter, or nested {@code Class<T>} if the parameter is {@code Optional<T>} or {@code Maybe<T>}.
+     * @param rawOptionalType the {@code Class} of the parameter (for {@code Optional<T>} this is {@code Optional.class})
      */
     // TODO: convert record to class (for Java 8)
     record ResolvedConstructorParameter(String identifier, boolean isId, GeffPropertyType propertyType, Class<?> rawType, Class<?> rawOptionalType) {
@@ -211,7 +212,8 @@ public class Construction {
             final GeffPropertyType propertyType = new GeffPropertyType(type, false, false, dimensions);
             return new ResolvedConstructorParameter(identifier, isId, propertyType, rawType);
 
-        } else if (rawType == byte[].class
+        } else if (rawType == boolean[].class
+                || rawType == byte[].class
                 || rawType == short[].class
                 || rawType == int[].class
                 || rawType == long[].class

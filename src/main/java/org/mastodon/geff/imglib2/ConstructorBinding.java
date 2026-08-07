@@ -1,5 +1,6 @@
 package org.mastodon.geff.imglib2;
 
+import net.imglib2.type.BooleanType;
 import net.imglib2.type.numeric.integer.GenericByteType;
 import net.imglib2.type.numeric.integer.GenericIntType;
 import net.imglib2.type.numeric.integer.GenericLongType;
@@ -10,6 +11,8 @@ import net.imglib2.util.Cast;
 import org.mastodon.geff.imglib2.Construction.ByteSupplier;
 import org.mastodon.geff.imglib2.Construction.FloatSupplier;
 import org.mastodon.geff.imglib2.Construction.ShortSupplier;
+import org.mastodon.geff.imglib2.Maybe.*;
+import org.mastodon.geff.imglib2.Maybe.MaybeFloat;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -54,6 +57,7 @@ class ConstructorBinding {
                 : properties.property(param.identifier());
         final GeffProperty<?> property = Construction.convertToMatch(sourceProperty, targetType);
 
+        System.out.println("   param = " + param);
         if (targetType == ESCAPE_HATCH) {
             final Supplier<GeffProperty<?>> s = () -> property;
             return lookup.findVirtual(Supplier.class, "get", methodType(Object.class)).bindTo(s)
@@ -61,25 +65,70 @@ class ConstructorBinding {
         }
 
         if (targetType.isOptional()) {
+            System.out.println("   rawType         = " + param.rawType());
+            System.out.println("   rawOptionalType = " + param.rawOptionalType());
             final Class<?> rawOptionalType = param.rawOptionalType();
             final MethodType mt = methodType(rawOptionalType);
+            final MethodType omt = methodType(Object.class);
 
+//            if (rawOptionalType == MaybeDouble.class) {
+//                return lookup
+//                        .findVirtual(rawOptionalType, "get", mt)
+//                        .bindTo(asMaybeDoubleSupplier(property));
+//            }
             if (rawOptionalType == OptionalInt.class) {
                 return lookup
-                        .findVirtual(OptionalInt.class, "getAsInt", mt)
-                        .bindTo(asOptionalIntSupplier(property));
+                        .findVirtual(Supplier.class, "get", omt)
+                        .bindTo(asOptionalIntSupplier(property))
+                        .asType(mt);
             } else if (rawOptionalType == OptionalLong.class) {
                 return lookup
-                        .findVirtual(OptionalLong.class, "getAsLong", mt)
-                        .bindTo(asOptionalLongSupplier(property));
+                        .findVirtual(Supplier.class, "get", omt)
+                        .bindTo(asOptionalLongSupplier(property))
+                        .asType(mt);
             } else if (rawOptionalType == OptionalDouble.class) {
                 return lookup
-                        .findVirtual(OptionalDouble.class, "getAsDouble", mt)
-                        .bindTo(asOptionalDoubleSupplier(property));
+                        .findVirtual(Supplier.class, "get", omt)
+                        .bindTo(asOptionalDoubleSupplier(property))
+                        .asType(mt);
+            } else if (rawOptionalType == MaybeByte.class) {
+                return lookup
+                        .findVirtual(Supplier.class, "get", omt)
+                        .bindTo(asMaybeByteSupplier(property))
+                        .asType(mt);
+            } else if (rawOptionalType == MaybeShort.class) {
+                return lookup
+                        .findVirtual(Supplier.class, "get", omt)
+                        .bindTo(asMaybeShortSupplier(property))
+                        .asType(mt);
+            } else if (rawOptionalType == MaybeInt.class) {
+                return lookup
+                        .findVirtual(Supplier.class, "get", omt)
+                        .bindTo(asMaybeIntSupplier(property))
+                        .asType(mt);
+            } else if (rawOptionalType == MaybeLong.class) {
+                return lookup
+                        .findVirtual(Supplier.class, "get", omt)
+                        .bindTo(asMaybeLongSupplier(property))
+                        .asType(mt);
+            } else if (rawOptionalType == MaybeFloat.class) {
+                return lookup
+                        .findVirtual(Supplier.class, "get", omt)
+                        .bindTo(asMaybeFloatSupplier(property))
+                        .asType(mt);
+            } else if (rawOptionalType == MaybeDouble.class) {
+                return lookup
+                        .findVirtual(Supplier.class, "get", omt)
+                        .bindTo(asMaybeDoubleSupplier(property))
+                        .asType(mt);
+            } else if (rawOptionalType == MaybeBoolean.class) {
+                return lookup
+                        .findVirtual(Supplier.class, "get", omt)
+                        .bindTo(asMaybeBooleanSupplier(property))
+                        .asType(mt);
             } else if (rawOptionalType == Optional.class) {
                 final Class<?> rawType = param.rawType();
                 if( targetType.numDimensions() == 0 ) { // scalars
-                    final MethodType omt = methodType(Object.class);
 
                     if (rawType == String.class) {
                         return lookup
@@ -92,8 +141,6 @@ class ConstructorBinding {
                     }
 
                 } else if (targetType.numDimensions() == 1) { // vectors
-                    final MethodType omt = methodType(Object.class);
-
                     if (rawType == byte[].class) {
                         return lookup
                                 .findVirtual(Supplier.class, "get", omt)
@@ -193,6 +240,11 @@ class ConstructorBinding {
                     return lookup
                             .findVirtual(Supplier.class, "get", omt)
                             .bindTo(asDoubleArraySupplier(property))
+                            .asType(mt);
+                } else if (rawType == boolean[].class) {
+                    return lookup
+                            .findVirtual(Supplier.class, "get", omt)
+                            .bindTo(asBooleanArraySupplier(property))
                             .asType(mt);
                 }
             }
@@ -294,6 +346,17 @@ class ConstructorBinding {
         };
     }
 
+    private static <T extends BooleanType<T>> Supplier<boolean[]> asBooleanArraySupplier(final GeffProperty<?> property) {
+        final GeffProperty<T> p = Cast.unchecked(property);
+        return () -> {
+            final int len = (int) p.values().dimension(0);
+            final boolean[] array = new boolean[len];
+            for (int i = 0; i < len; i++)
+                array[i] = p.getAt(i).get();
+            return array;
+        };
+    }
+
     private static Supplier<float[]> asFloatArraySupplier(final GeffProperty<?> property) {
         final GeffProperty<FloatType> p = Cast.unchecked(property);
         return () -> {
@@ -323,6 +386,77 @@ class ConstructorBinding {
     //
     // ------------------------------------------------------------------------
 
+
+    private static <T extends GenericByteType<T>> Supplier<MaybeByte> asMaybeByteSupplier(final GeffProperty<?> property) {
+        final GeffProperty<T> p = Cast.unchecked(property);
+        final MaybeByte v = new MaybeByte();
+        return () -> {
+            if (v.setPresent(!p.isMissing()))
+                v.set(p.getAt().getByte());
+            return v;
+        };
+    }
+
+    private static <T extends GenericShortType<T>> Supplier<MaybeShort> asMaybeShortSupplier(final GeffProperty<?> property) {
+        final GeffProperty<T> p = Cast.unchecked(property);
+        final MaybeShort v = new MaybeShort();
+        return () -> {
+            if (v.setPresent(!p.isMissing()))
+                v.set(p.getAt().getShort());
+            return v;
+        };
+    }
+
+    private static <T extends GenericIntType<T>> Supplier<MaybeInt> asMaybeIntSupplier(final GeffProperty<?> property) {
+        final GeffProperty<T> p = Cast.unchecked(property);
+        final MaybeInt v = new MaybeInt();
+        return () -> {
+            if (v.setPresent(!p.isMissing()))
+                v.set(p.getAt().getInt());
+            return v;
+        };
+    }
+
+    private static <T extends GenericLongType<T>> Supplier<MaybeLong> asMaybeLongSupplier(final GeffProperty<?> property) {
+        final GeffProperty<T> p = Cast.unchecked(property);
+        final MaybeLong v = new MaybeLong();
+        return () -> {
+            if (v.setPresent(!p.isMissing()))
+                v.set(p.getAt().getLong());
+            return v;
+        };
+    }
+
+    private static <T extends BooleanType<T>> Supplier<MaybeBoolean> asMaybeBooleanSupplier(final GeffProperty<?> property) {
+        final GeffProperty<T> p = Cast.unchecked(property);
+        final MaybeBoolean v = new MaybeBoolean();
+        return () -> {
+            if (v.setPresent(!p.isMissing()))
+                v.set(p.getAt().get());
+            return v;
+        };
+    }
+
+    private static Supplier<MaybeFloat> asMaybeFloatSupplier(final GeffProperty<?> property) {
+        final GeffProperty<FloatType> p = Cast.unchecked(property);
+        final MaybeFloat v = new MaybeFloat();
+        return () -> {
+            if (v.setPresent(!p.isMissing()))
+                v.set(p.getAt().get());
+            return v;
+        };
+    }
+
+    private static Supplier<MaybeDouble> asMaybeDoubleSupplier(final GeffProperty<?> property) {
+        final GeffProperty<DoubleType> p = Cast.unchecked(property);
+        final MaybeDouble v = new MaybeDouble();
+        return () -> {
+            if (v.setPresent(!p.isMissing()))
+                v.set(p.getAt().get());
+            return v;
+        };
+    }
+
     private static <T extends GenericIntType<T>> Supplier<OptionalInt> asOptionalIntSupplier(final GeffProperty<?> property) {
         final GeffProperty<T> p = Cast.unchecked(property);
         return () -> p.isMissing() ? OptionalInt.empty() : OptionalInt.of(p.getAt().getInt());
@@ -337,11 +471,6 @@ class ConstructorBinding {
         final GeffProperty<DoubleType> p = Cast.unchecked(property);
         return () -> p.isMissing() ? OptionalDouble.empty() : OptionalDouble.of(p.getAt().get());
     }
-
-    // TODO: OptionalBoolean ???
-    // TODO: OptionalByte ???
-    // TODO: OptionalShort ???
-    // TODO: OptionalFloat ???
 
     private static <T> Supplier<Optional<T>> asOptionalSupplier(final GeffProperty<?> property) {
         final GeffProperty<T> p = Cast.unchecked(property);
