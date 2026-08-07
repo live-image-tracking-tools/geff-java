@@ -9,17 +9,16 @@ import net.imglib2.type.numeric.integer.UnsignedByteType;
 
 import java.nio.charset.StandardCharsets;
 
-// TODO: remove?
-class StringAsVarLengthProperty implements GeffProperty<UnsignedByteType> {
+class StringAsVarLengthPropertyAdapter<O> implements PropertyAdapter<O, UnsignedByteType> {
 
-    private final GeffProperty<String> parent;
+    private final PropertyAdapter<O, String> parent;
 
     private String currentValue;
     private byte[] data = null;
     private long[] dataLength = new long[1];
     private final PropertyRAI<UnsignedByteType> values;
 
-    StringAsVarLengthProperty(final GeffProperty<String> parent) {
+    StringAsVarLengthPropertyAdapter(final PropertyAdapter<O, String> parent) {
         assert !parent.isVarlength();
         assert parent.numDimensions() == 0;
         this.parent = parent;
@@ -28,6 +27,12 @@ class StringAsVarLengthProperty implements GeffProperty<UnsignedByteType> {
             updateData();
             return dimensions;
         }, new RA());
+    }
+
+    @Override
+    public PropertyAdapter<O, UnsignedByteType> adapt(O obj) {
+        parent.adapt(obj);
+        return this;
     }
 
     @Override
@@ -67,7 +72,7 @@ class StringAsVarLengthProperty implements GeffProperty<UnsignedByteType> {
 
     @Override
     public void set(GeffProperty<UnsignedByteType> property) {
-        throw new UnsupportedOperationException("StringAsVarLengthProperty is read-only");
+        throw new UnsupportedOperationException();
     }
 
     @Override

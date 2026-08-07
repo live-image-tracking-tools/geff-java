@@ -1,10 +1,15 @@
 package org.mastodon.geff.imglib2;
 
 import net.imglib2.RandomAccessibleInterval;
+import net.imglib2.img.ImgFactory;
+import net.imglib2.img.array.ArrayImgFactory;
 import net.imglib2.img.array.ArrayImgs;
+import net.imglib2.type.BooleanType;
+import net.imglib2.type.NativeType;
 import net.imglib2.type.Type;
 import net.imglib2.type.logic.BitType;
 import net.imglib2.type.numeric.IntegerType;
+import net.imglib2.type.numeric.integer.*;
 import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.type.numeric.real.DoubleType;
 import net.imglib2.type.numeric.real.FloatType;
@@ -39,8 +44,10 @@ import org.mastodon.geff.imglib2.FunctionTypes.ToMaybeLongArrayFunction;
 import org.mastodon.geff.imglib2.FunctionTypes.ToMaybeLongFunction;
 import org.mastodon.geff.imglib2.FunctionTypes.ToMaybeShortArrayFunction;
 import org.mastodon.geff.imglib2.FunctionTypes.ToMaybeShortFunction;
+import org.mastodon.geff.imglib2.FunctionTypes.ToMaybeStringFunction;
 import org.mastodon.geff.imglib2.FunctionTypes.ToShortArrayFunction;
 import org.mastodon.geff.imglib2.FunctionTypes.ToShortFunction;
+import org.mastodon.geff.imglib2.FunctionTypes.ToStringFunction;
 import org.mastodon.geff.imglib2.IoUtils.DatasetPaths;
 import org.mastodon.geff.imglib2.Maybe.MaybeDouble;
 
@@ -95,8 +102,10 @@ public class DeconstructorPlayground {
                     .id(Node::id, "<u8")
                     .add("x", Node::x)
                     .add("y", (Node node) -> new MaybeDouble(node.y()))
-                    .add("doublePos", Node::doublePos)
+                    .add("doublePos", Node::doublePos) // TODO: doing it like this should create varlength
+//                    .add("doublePos", 2, Node::doublePos) // TODO: doing it like this should create fixedlength
                     .add("floatPos", Node::floatPos)
+                    .add( "name", Node::toString)
                     .write(n5);
         }
     }
@@ -152,6 +161,7 @@ public class DeconstructorPlayground {
         public GeffWriter<O> add(String identifier, ToFloatFunction<O> supplier)   {return add(identifier, supplier, null);}
         public GeffWriter<O> add(String identifier, ToDoubleFunction<O> supplier)  {return add(identifier, supplier, null);}
         public GeffWriter<O> add(String identifier, ToBooleanFunction<O> supplier) {return add(identifier, supplier, null);}
+        public GeffWriter<O> add(String identifier, ToStringFunction<O> supplier)  {return add(new StringAsVarLengthPropertyAdapter<O>(PropertyAdapters.wrap(identifier, supplier)));}
 
         public GeffWriter<O> add(String identifier, ToByteFunction<O> supplier, String typestr)    {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
         public GeffWriter<O> add(String identifier, ToShortFunction<O> supplier, String typestr)   {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
@@ -168,6 +178,7 @@ public class DeconstructorPlayground {
         public GeffWriter<O> add(String identifier, ToMaybeFloatFunction<O> supplier)   {return add(identifier, supplier, null);}
         public GeffWriter<O> add(String identifier, ToMaybeDoubleFunction<O> supplier)  {return add(identifier, supplier, null);}
         public GeffWriter<O> add(String identifier, ToMaybeBooleanFunction<O> supplier) {return add(identifier, supplier, null);}
+        public GeffWriter<O> add(String identifier, ToMaybeStringFunction<O> supplier)  {return add(new StringAsVarLengthPropertyAdapter<O>(PropertyAdapters.wrap(identifier, supplier)));}
 
         public GeffWriter<O> add(String identifier, ToMaybeByteFunction<O> supplier, String typestr)    {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
         public GeffWriter<O> add(String identifier, ToMaybeShortFunction<O> supplier, String typestr)   {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
@@ -208,7 +219,6 @@ public class DeconstructorPlayground {
         public GeffWriter<O> add(String identifier, ToMaybeFloatArrayFunction<O> supplier, String typestr)   {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
         public GeffWriter<O> add(String identifier, ToMaybeDoubleArrayFunction<O> supplier, String typestr)  {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
         public GeffWriter<O> add(String identifier, ToMaybeBooleanArrayFunction<O> supplier, String typestr) {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
-
 
 
         /**
@@ -350,33 +360,52 @@ public class DeconstructorPlayground {
     static class WritableProperties {
 
         static <T extends Type<T>> GeffProperty<T> createProperty(final String identifier, final GeffPropertyType propertyType, final long numElements, final ElementIndex sharedElementIndex) {
-
+            final int n = propertyType.numDimensions();
+            final RandomAccessibleInterval<BitType> propertyMissing = propertyType.isOptional() ? arrayImg(BitType.class, numElements) : null;
             if (propertyType.isVarLength()) {
-                throw new UnsupportedOperationException("TODO");
-
+                final RandomAccessibleInterval<UnsignedLongType> propertyValues = ArrayImgs.unsignedLongs(n + 1, numElements);
+                final VarLengthData<T> propertyData = varLengthData(propertyType.type());
+                return new VarLengthWriteProperty<>(identifier, propertyValues, propertyData, propertyMissing, sharedElementIndex);
             } else {
-                final int n = propertyType.numDimensions();
                 final long[] dimensions = Arrays.copyOf(propertyType.dimensions().dimensionsAsLongArray(), n + 1);
                 dimensions[n] = numElements;
-
-                final RandomAccessibleInterval<T> propertyValues = Cast.unchecked(arrayImg(propertyType.type(), dimensions));
-                final RandomAccessibleInterval<BitType> propertyMissing = propertyType.isOptional()
-                        ? Cast.unchecked( arrayImg(BitType.class, new long[] {numElements}) )
-                        : null;
+                final RandomAccessibleInterval<T> propertyValues = arrayImg(propertyType.type(), dimensions);
                 return new FixedLengthProperty<>(identifier, propertyValues, propertyMissing, sharedElementIndex);
             }
         }
 
-        private static RandomAccessibleInterval<?> arrayImg(Class<?> type, long[] dimensions) {
-            if (type == UnsignedLongType.class) {
-                return ArrayImgs.unsignedLongs(dimensions);
-            } else if (type == FloatType.class) {
-                return ArrayImgs.floats(dimensions);
-            } else if (type == DoubleType.class) {
-                    return ArrayImgs.doubles(dimensions);
-            } else if (type == BitType.class) {
-                return ArrayImgs.bits(dimensions);
-            }
+        private static <T, N extends NativeType<N>> RandomAccessibleInterval<T> arrayImg(Class<?> type, long... dimensions) {
+            return Cast.unchecked(new ArrayImgFactory<>(WritableProperties.<N>instance(type)).create(dimensions));
+        }
+
+        private static <T, N extends NativeType<N>> VarLengthData<T> varLengthData(Class<?> type) {
+            return Cast.unchecked(new VarLengthDataImpl<>(WritableProperties.<N>instance(type)));
+        }
+
+        @SuppressWarnings("unchecked")
+        private static <T extends NativeType<T>> T instance(Class<?> type) {
+            if        (type == UnsignedByteType.class)
+                return (T) new UnsignedByteType();
+            else if   (type == ByteType.class)
+                return (T) new ByteType();
+            else if   (type == UnsignedShortType.class)
+                return (T) new UnsignedShortType();
+            else if   (type == ShortType.class)
+                return (T) new ShortType();
+            else if   (type == UnsignedIntType.class)
+                return (T) new UnsignedIntType();
+            else if   (type == IntType.class)
+                return (T) new IntType();
+            else if   (type == UnsignedLongType.class)
+                return (T) new UnsignedLongType();
+            else if   (type == LongType.class)
+                return (T) new LongType();
+            else if   (type == FloatType.class)
+                return (T) new FloatType();
+            else if   (type == DoubleType.class)
+                return (T) new DoubleType();
+            else if   (type == BitType.class)
+                return (T) new BitType();
             throw new UnsupportedOperationException("TODO " + type);
         }
 
