@@ -5,6 +5,7 @@ import net.imglib2.type.numeric.integer.GenericByteType;
 import net.imglib2.type.numeric.integer.GenericIntType;
 import net.imglib2.type.numeric.integer.GenericLongType;
 import net.imglib2.type.numeric.integer.GenericShortType;
+import net.imglib2.type.numeric.integer.UnsignedByteType;
 import net.imglib2.type.numeric.real.DoubleType;
 import net.imglib2.type.numeric.real.FloatType;
 import net.imglib2.util.Cast;
@@ -435,6 +436,26 @@ public class Suppliers {
             return Optional.of(array);
         };
     }
+
+
+
+    // ------------------------------------------------------------------------
+    //
+    //   Special cases
+    //
+    // ------------------------------------------------------------------------
+
+    public static Supplier<String> asStringSupplier(final GeffProperty<?> property) {
+        if (property.isOptional() || property.numDimensions() != 1 || !(property.type() instanceof UnsignedByteType))
+            throw new IllegalArgumentException(property.toString());
+        final GeffProperty<String> p = new VarLengthAsStringProperty(Cast.unchecked(property));
+        return p::getAt;
+    }
+
+    // TODO: Supplier<MaybeString>
+    // TODO: Supplier<Optional<String>>
+
+
 
     private Suppliers() {
         // don't instantiate

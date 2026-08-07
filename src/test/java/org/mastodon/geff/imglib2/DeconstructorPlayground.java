@@ -6,6 +6,9 @@ import org.mastodon.geff.imglib2.Maybe.MaybeDouble;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.DoubleSupplier;
+import java.util.function.LongSupplier;
+import java.util.function.Supplier;
 
 import static org.mastodon.geff.imglib2.ElementType.NODE;
 
@@ -45,7 +48,7 @@ public class DeconstructorPlayground {
         final String path = "cross-language-tests/data/deconstructor_playground.zarr";
         try (final N5Writer n5 = new N5ZarrWriter(path)) {
 
-//            GeffProperties props =
+            GeffProperties props =
             new GeffPropertyWriter<>(nodes, NODE)
                     .id(Node::id, "<u8")
                     .add("x", Node::x)
@@ -53,21 +56,20 @@ public class DeconstructorPlayground {
                     .add("doublePos", Node::doublePos, 2) // fixed-length
                     .add("floatPos", Node::floatPos) // var-length
                     .add("name", Node::toString) // converted to var-length uint8
-//                    .createGeffProperties();
-                    .write(n5);
+                    .createGeffProperties();
+//                    .write(n5);
 
-//            System.out.println("props = " + props);
+            System.out.println("props = " + props);
 
-//            GeffProperty<UnsignedLongType> id = props.id();
-//            GeffProperty<DoubleType> x = props.property("x");
-//            GeffProperty<UnsignedByteType> vname = props.property("name");
-//            GeffProperty<String> name = new VarLengthAsStringProperty(vname);
-//            for (int i = 0; i < props.numElements(); i++) {
-//                props.elementIndex().set(i);
-//                System.out.println("id=" + id.getAt().get() +
-//                ", x=" + x.getAt().get() +
-//                ", name=" + name.getAt());
-//            }
+            final LongSupplier id = Suppliers.asLongSupplier(props.id());
+            final DoubleSupplier x = Suppliers.asDoubleSupplier(props.property("x"));
+            final Supplier<String> name = Suppliers.asStringSupplier(props.property("name"));
+            for (int i = 0; i < props.numElements(); i++) {
+                props.elementIndex().set(i);
+                System.out.println("id=" + id.getAsLong() +
+                ", x=" + x.getAsDouble() +
+                ", name=" + name.get());
+            }
         }
     }
 
