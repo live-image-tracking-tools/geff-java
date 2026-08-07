@@ -1,16 +1,20 @@
 package org.mastodon.geff.imglib2;
 
 import net.imglib2.RandomAccessibleInterval;
-import net.imglib2.img.ImgFactory;
 import net.imglib2.img.array.ArrayImgFactory;
 import net.imglib2.img.array.ArrayImgs;
-import net.imglib2.type.BooleanType;
 import net.imglib2.type.NativeType;
 import net.imglib2.type.Type;
 import net.imglib2.type.logic.BitType;
 import net.imglib2.type.numeric.IntegerType;
-import net.imglib2.type.numeric.integer.*;
+import net.imglib2.type.numeric.integer.ByteType;
+import net.imglib2.type.numeric.integer.IntType;
+import net.imglib2.type.numeric.integer.LongType;
+import net.imglib2.type.numeric.integer.ShortType;
+import net.imglib2.type.numeric.integer.UnsignedByteType;
+import net.imglib2.type.numeric.integer.UnsignedIntType;
 import net.imglib2.type.numeric.integer.UnsignedLongType;
+import net.imglib2.type.numeric.integer.UnsignedShortType;
 import net.imglib2.type.numeric.real.DoubleType;
 import net.imglib2.type.numeric.real.FloatType;
 import net.imglib2.util.Cast;
@@ -167,6 +171,16 @@ public class DeconstructorPlayground {
         public GeffWriter<O> id(ToShortFunction<O> supplier, String typestr) {return id(PropertyAdapters.wrap("id", supplier), typestr);}
         public GeffWriter<O> id(ToIntFunction<O> supplier, String typestr)   {return id(PropertyAdapters.wrap("id", supplier), typestr);}
         public GeffWriter<O> id(ToLongFunction<O> supplier, String typestr)  {return id(PropertyAdapters.wrap("id", supplier), typestr);}
+
+        public GeffWriter<O> id(ToByteArrayFunction<O> supplier, int length)  {return id(supplier, length, null);}
+        public GeffWriter<O> id(ToShortArrayFunction<O> supplier, int length) {return id(supplier, length, null);}
+        public GeffWriter<O> id(ToIntArrayFunction<O> supplier, int length)   {return id(supplier, length, null);}
+        public GeffWriter<O> id(ToLongArrayFunction<O> supplier, int length)  {return id(supplier, length, null);}
+
+        public GeffWriter<O> id(ToByteArrayFunction<O> supplier, int length, String typestr)  {return id(PropertyAdapters.wrap("id", supplier, length), typestr);}
+        public GeffWriter<O> id(ToShortArrayFunction<O> supplier, int length, String typestr) {return id(PropertyAdapters.wrap("id", supplier, length), typestr);}
+        public GeffWriter<O> id(ToIntArrayFunction<O> supplier, int length, String typestr)   {return id(PropertyAdapters.wrap("id", supplier, length), typestr);}
+        public GeffWriter<O> id(ToLongArrayFunction<O> supplier, int length, String typestr)  {return id(PropertyAdapters.wrap("id", supplier, length), typestr);}
 
         public GeffWriter<O> add(String identifier, ToByteFunction<O> supplier)    {return add(identifier, supplier, null);}
         public GeffWriter<O> add(String identifier, ToShortFunction<O> supplier)   {return add(identifier, supplier, null);}
@@ -453,7 +467,6 @@ public class DeconstructorPlayground {
                 return (T) new BitType();
             throw new UnsupportedOperationException("TODO " + type);
         }
-
     }
 }
 
