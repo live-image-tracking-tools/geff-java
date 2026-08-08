@@ -9,6 +9,21 @@ import net.imglib2.type.numeric.integer.UnsignedByteType;
 import net.imglib2.type.numeric.real.DoubleType;
 import net.imglib2.type.numeric.real.FloatType;
 import net.imglib2.util.Cast;
+import org.mastodon.geff.imglib2.Maybe.MaybeBoolean;
+import org.mastodon.geff.imglib2.Maybe.MaybeBooleanArray;
+import org.mastodon.geff.imglib2.Maybe.MaybeByte;
+import org.mastodon.geff.imglib2.Maybe.MaybeByteArray;
+import org.mastodon.geff.imglib2.Maybe.MaybeDouble;
+import org.mastodon.geff.imglib2.Maybe.MaybeDoubleArray;
+import org.mastodon.geff.imglib2.Maybe.MaybeFloat;
+import org.mastodon.geff.imglib2.Maybe.MaybeFloatArray;
+import org.mastodon.geff.imglib2.Maybe.MaybeInt;
+import org.mastodon.geff.imglib2.Maybe.MaybeIntArray;
+import org.mastodon.geff.imglib2.Maybe.MaybeLong;
+import org.mastodon.geff.imglib2.Maybe.MaybeLongArray;
+import org.mastodon.geff.imglib2.Maybe.MaybeShort;
+import org.mastodon.geff.imglib2.Maybe.MaybeShortArray;
+import org.mastodon.geff.imglib2.Maybe.MaybeString;
 
 import java.util.Optional;
 import java.util.OptionalDouble;
@@ -152,9 +167,9 @@ public class Suppliers {
     // ------------------------------------------------------------------------
 
 
-    public static <T extends GenericByteType<T>> Supplier<Maybe.MaybeByte> asMaybeByteSupplier(final GeffProperty<?> property) {
+    public static <T extends GenericByteType<T>> Supplier<MaybeByte> asMaybeByteSupplier(final GeffProperty<?> property) {
         final GeffProperty<T> p = Cast.unchecked(property);
-        final Maybe.MaybeByte v = new Maybe.MaybeByte();
+        final MaybeByte v = new MaybeByte();
         return () -> {
             if (v.setPresent(!p.isMissing()))
                 v.set(p.getAt().getByte());
@@ -162,9 +177,9 @@ public class Suppliers {
         };
     }
 
-    public static <T extends GenericShortType<T>> Supplier<Maybe.MaybeShort> asMaybeShortSupplier(final GeffProperty<?> property) {
+    public static <T extends GenericShortType<T>> Supplier<MaybeShort> asMaybeShortSupplier(final GeffProperty<?> property) {
         final GeffProperty<T> p = Cast.unchecked(property);
-        final Maybe.MaybeShort v = new Maybe.MaybeShort();
+        final MaybeShort v = new MaybeShort();
         return () -> {
             if (v.setPresent(!p.isMissing()))
                 v.set(p.getAt().getShort());
@@ -172,9 +187,9 @@ public class Suppliers {
         };
     }
 
-    public static <T extends GenericIntType<T>> Supplier<Maybe.MaybeInt> asMaybeIntSupplier(final GeffProperty<?> property) {
+    public static <T extends GenericIntType<T>> Supplier<MaybeInt> asMaybeIntSupplier(final GeffProperty<?> property) {
         final GeffProperty<T> p = Cast.unchecked(property);
-        final Maybe.MaybeInt v = new Maybe.MaybeInt();
+        final MaybeInt v = new MaybeInt();
         return () -> {
             if (v.setPresent(!p.isMissing()))
                 v.set(p.getAt().getInt());
@@ -182,9 +197,9 @@ public class Suppliers {
         };
     }
 
-    public static <T extends GenericLongType<T>> Supplier<Maybe.MaybeLong> asMaybeLongSupplier(final GeffProperty<?> property) {
+    public static <T extends GenericLongType<T>> Supplier<MaybeLong> asMaybeLongSupplier(final GeffProperty<?> property) {
         final GeffProperty<T> p = Cast.unchecked(property);
-        final Maybe.MaybeLong v = new Maybe.MaybeLong();
+        final MaybeLong v = new MaybeLong();
         return () -> {
             if (v.setPresent(!p.isMissing()))
                 v.set(p.getAt().getLong());
@@ -192,9 +207,9 @@ public class Suppliers {
         };
     }
 
-    public static <T extends BooleanType<T>> Supplier<Maybe.MaybeBoolean> asMaybeBooleanSupplier(final GeffProperty<?> property) {
+    public static <T extends BooleanType<T>> Supplier<MaybeBoolean> asMaybeBooleanSupplier(final GeffProperty<?> property) {
         final GeffProperty<T> p = Cast.unchecked(property);
-        final Maybe.MaybeBoolean v = new Maybe.MaybeBoolean();
+        final MaybeBoolean v = new MaybeBoolean();
         return () -> {
             if (v.setPresent(!p.isMissing()))
                 v.set(p.getAt().get());
@@ -202,9 +217,9 @@ public class Suppliers {
         };
     }
 
-    public static Supplier<Maybe.MaybeFloat> asMaybeFloatSupplier(final GeffProperty<?> property) {
+    public static Supplier<MaybeFloat> asMaybeFloatSupplier(final GeffProperty<?> property) {
         final GeffProperty<FloatType> p = Cast.unchecked(property);
-        final Maybe.MaybeFloat v = new Maybe.MaybeFloat();
+        final MaybeFloat v = new MaybeFloat();
         return () -> {
             if (v.setPresent(!p.isMissing()))
                 v.set(p.getAt().get());
@@ -212,9 +227,9 @@ public class Suppliers {
         };
     }
 
-    public static Supplier<Maybe.MaybeDouble> asMaybeDoubleSupplier(final GeffProperty<?> property) {
+    public static Supplier<MaybeDouble> asMaybeDoubleSupplier(final GeffProperty<?> property) {
         final GeffProperty<DoubleType> p = Cast.unchecked(property);
-        final Maybe.MaybeDouble v = new Maybe.MaybeDouble();
+        final MaybeDouble v = new MaybeDouble();
         return () -> {
             if (v.setPresent(!p.isMissing()))
                 v.set(p.getAt().get());
@@ -252,9 +267,9 @@ public class Suppliers {
 
     // TODO: could reuse one-time allocated primitive array for fixed-length properties
 
-    public static <T extends GenericByteType<T>> Supplier<Maybe.MaybeByteArray> asMaybeByteArraySupplier(final GeffProperty<?> property) {
+    public static <T extends GenericByteType<T>> Supplier<MaybeByteArray> asMaybeByteArraySupplier(final GeffProperty<?> property) {
         final GeffProperty<T> p = Cast.unchecked(property);
-        final Maybe.MaybeByteArray v = new Maybe.MaybeByteArray();
+        final MaybeByteArray v = new MaybeByteArray();
         return () -> {
             if (v.setPresent(!p.isMissing())) {
                 final int len = (int) p.values().dimension(0);
@@ -267,9 +282,9 @@ public class Suppliers {
         };
     }
 
-    public static <T extends GenericShortType<T>> Supplier<Maybe.MaybeShortArray> asMaybeShortArraySupplier(final GeffProperty<?> property) {
+    public static <T extends GenericShortType<T>> Supplier<MaybeShortArray> asMaybeShortArraySupplier(final GeffProperty<?> property) {
         final GeffProperty<T> p = Cast.unchecked(property);
-        final Maybe.MaybeShortArray v = new Maybe.MaybeShortArray();
+        final MaybeShortArray v = new MaybeShortArray();
         return () -> {
             if (v.setPresent(!p.isMissing())) {
                 final int len = (int) p.values().dimension(0);
@@ -282,9 +297,9 @@ public class Suppliers {
         };
     }
 
-    public static <T extends GenericIntType<T>> Supplier<Maybe.MaybeIntArray> asMaybeIntArraySupplier(final GeffProperty<?> property) {
+    public static <T extends GenericIntType<T>> Supplier<MaybeIntArray> asMaybeIntArraySupplier(final GeffProperty<?> property) {
         final GeffProperty<T> p = Cast.unchecked(property);
-        final Maybe.MaybeIntArray v = new Maybe.MaybeIntArray();
+        final MaybeIntArray v = new MaybeIntArray();
         return () -> {
             if (v.setPresent(!p.isMissing())) {
                 final int len = (int) p.values().dimension(0);
@@ -297,9 +312,9 @@ public class Suppliers {
         };
     }
 
-    public static <T extends GenericLongType<T>> Supplier<Maybe.MaybeLongArray> asMaybeLongArraySupplier(final GeffProperty<?> property) {
+    public static <T extends GenericLongType<T>> Supplier<MaybeLongArray> asMaybeLongArraySupplier(final GeffProperty<?> property) {
         final GeffProperty<T> p = Cast.unchecked(property);
-        final Maybe.MaybeLongArray v = new Maybe.MaybeLongArray();
+        final MaybeLongArray v = new MaybeLongArray();
         return () -> {
             if (v.setPresent(!p.isMissing())) {
                 final int len = (int) p.values().dimension(0);
@@ -312,9 +327,9 @@ public class Suppliers {
         };
     }
 
-    public static <T extends BooleanType<T>> Supplier<Maybe.MaybeBooleanArray> asMaybeBooleanArraySupplier(final GeffProperty<?> property) {
+    public static <T extends BooleanType<T>> Supplier<MaybeBooleanArray> asMaybeBooleanArraySupplier(final GeffProperty<?> property) {
         final GeffProperty<T> p = Cast.unchecked(property);
-        final Maybe.MaybeBooleanArray v = new Maybe.MaybeBooleanArray();
+        final MaybeBooleanArray v = new MaybeBooleanArray();
         return () -> {
             if (v.setPresent(!p.isMissing())) {
                 final int len = (int) p.values().dimension(0);
@@ -327,9 +342,9 @@ public class Suppliers {
         };
     }
 
-    public static Supplier<Maybe.MaybeFloatArray> asMaybeFloatArraySupplier(final GeffProperty<?> property) {
+    public static Supplier<MaybeFloatArray> asMaybeFloatArraySupplier(final GeffProperty<?> property) {
         final GeffProperty<FloatType> p = Cast.unchecked(property);
-        final Maybe.MaybeFloatArray v = new Maybe.MaybeFloatArray();
+        final MaybeFloatArray v = new MaybeFloatArray();
         return () -> {
             if (v.setPresent(!p.isMissing())) {
                 final int len = (int) p.values().dimension(0);
@@ -342,9 +357,9 @@ public class Suppliers {
         };
     }
 
-    public static Supplier<Maybe.MaybeDoubleArray> asMaybeDoubleArraySupplier(final GeffProperty<?> property) {
+    public static Supplier<MaybeDoubleArray> asMaybeDoubleArraySupplier(final GeffProperty<?> property) {
         final GeffProperty<DoubleType> p = Cast.unchecked(property);
-        final Maybe.MaybeDoubleArray v = new Maybe.MaybeDoubleArray();
+        final MaybeDoubleArray v = new MaybeDoubleArray();
         return () -> {
             if (v.setPresent(!p.isMissing())) {
                 final int len = (int) p.values().dimension(0);
@@ -452,9 +467,19 @@ public class Suppliers {
         return p::getAt;
     }
 
-    // TODO: Supplier<MaybeString>
-    // TODO: Supplier<Optional<String>>
+    public static Supplier<MaybeString> asMaybeStringSupplier(final GeffProperty<?> property) {
+        if (property.numDimensions() != 1 || !(property.type() instanceof UnsignedByteType))
+            throw new IllegalArgumentException(property.toString());
+        final GeffProperty<String> p = new VarLengthAsStringProperty(Cast.unchecked(property));
+        final MaybeString v = new MaybeString();
+        return () -> {
+            if (v.setPresent(!p.isMissing()))
+                v.set(p.getAt());
+            return v;
+        };
+    }
 
+    // TODO: Supplier<Optional<String>>
 
 
     private Suppliers() {
