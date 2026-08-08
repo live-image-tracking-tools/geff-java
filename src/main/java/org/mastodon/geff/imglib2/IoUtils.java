@@ -281,6 +281,75 @@ public class IoUtils {
         return new VarLengthProperty<>(identifier, values, data, missing, sharedElementIndex);
     }
 
+    /**
+     * Create a {@code GeffProperty} tied to the datasets at {@code valuesPath},
+     * and (optionally) {@code missingPath}and {@code dataPath}.
+     * <p>
+     * If {@code missingPath != null} the property is
+     * {@link GeffProperty#isOptional() optional}
+     * (otherwise must be present for every element).
+     * <p>
+     * If {@code dataPath != null} the property is
+     * {@link GeffProperty#isVarlength() var-length}
+     * (otherwise fixed-length).
+     * <p>
+     * For fixed-length properties: The last dimension of the values dataset is
+     * the element (node/edge) index, the remaining dimensions are property
+     * dimensions. That is, a scalar property has a 1D values dataset, a vector
+     * property has a 2D values dataset, and so on.
+     * <p>
+     * For var-length propeties: The last dimension of the values dataset is the
+     * element (node/edge) index, the first dimensions specifies the offset and
+     * shape of the property for any given element (the length the first
+     * dimension {@code -1} is the number property dimensions}.
+     *
+     * @param n5                 the {@code N5Reader}
+     * @param identifier         the identifier of the property (e.g. "var_length")
+     * @param sharedElementIndex the shared {@code ElementIndex} of the
+     *                           property, specifying for which element the property values are currently
+     *                           exposed.
+     * @param valuesPath         path to the dataset containing the property data for
+     *                           fixed-length properties, or the offset and shape values for var-length
+     *                           properties (relative to the container root, e.g.
+     *                           "nodes/props/var_length/values")
+     * @param missingPath        path to the dataset containing the properties missing
+     *                           information (for optional properties, or {@code null} if property values
+     *                           must be present for all elements
+     * @param dataPath           path to the dataset containing the property data for
+     *                           var-length (what offset and shape point to), or {@code null} for
+     *                           fixed-length properties
+     * @param <T>                the imglib2 type of the property values
+     * @return a {@code GeffProperty}
+     */
+    public static <T extends NativeType<T>> GeffProperty<T> loadProperty(
+            final N5Reader n5,
+            final String identifier,
+            final ElementIndex sharedElementIndex,
+            final String valuesPath,
+            final String missingPath,
+            final String dataPath) {
+
+        final RandomAccessibleInterval<BoolType> missing;
+        if (missingPath != null) {
+            final CachedCellImg<UnsignedByteType, ?> missing_uint8 = N5Utils.open(n5, missingPath);
+            missing = Converters.convert(missing_uint8, (u, b) -> b.set(u.get() != 0), new BoolType());
+        } else {
+            missing = null;
+        }
+
+        if (dataPath == null) {
+            // fixed-length
+            final RandomAccessibleInterval<T> values = N5Utils.open(n5, valuesPath);
+            return new FixedLengthProperty<>(identifier, values, missing, sharedElementIndex);
+        } else {
+            // var-length
+            final RandomAccessibleInterval<UnsignedLongType> values = N5Utils.open(n5, valuesPath);
+            final RandomAccessibleInterval<T> data = N5Utils.open(n5, dataPath);
+            return new VarLengthProperty<>(identifier, values, data, missing, sharedElementIndex);
+        }
+    }
+
+
 
 
     // ------------------------------------------------------------------------
