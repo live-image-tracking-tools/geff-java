@@ -155,11 +155,31 @@ newEdges.add(edge);
 // Write to Zarr format
 GeffEdge.writeToZarr(newEdges, "/path/to/output.zarr/tracks", "1.0.0");
 
-// Access variable-length properties after reading (e.g. per-node polygon)
+// Set a custom variable-length property per node.
+// Example: per-node UTF-8 label stored as uint8 byte array.
+// (Note: polygon vertices use the dedicated polygonX/polygonY fields instead.)
+String label0 = "cell_A";
+String label1 = "細胞_B"; // multibyte characters are supported via UTF-8 encoding
+byte[] bytes0 = label0.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+byte[] bytes1 = label1.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+
+Object[] data0 = new Object[bytes0.length];
+for (int i = 0; i < bytes0.length; i++) data0[i] = bytes0[i] & 0xFF;
+
+Object[] data1 = new Object[bytes1.length];
+for (int i = 0; i < bytes1.length; i++) data1[i] = bytes1[i] & 0xFF;
+
+node0.setVarlengthProperty("label", new VarlengthProperty("label", "uint8", data0));
+node1.setVarlengthProperty("label", new VarlengthProperty("label", "uint8", data1));
+
+// Decode the label back after reading
 List<GeffNode> readNodes = GeffNode.readFromZarr("/path/to/data.zarr/tracks");
-VarlengthProperty polygon = readNodes.get(0).getVarlengthProperty("polygon");
-if (polygon != null) {
-    Object nodeData = polygon.getNodeData(0); // double[] or int[] for node 0
+VarlengthProperty labelProp = readNodes.get(0).getVarlengthProperty("label");
+if (labelProp != null && !labelProp.isMissing()) {
+    Object[] labelData = labelProp.getData();
+    byte[] labelBytes = new byte[labelData.length];
+    for (int i = 0; i < labelData.length; i++) labelBytes[i] = ((Number) labelData[i]).byteValue();
+    String label = new String(labelBytes, java.nio.charset.StandardCharsets.UTF_8);
 }
 
 // Create metadata with axis information
