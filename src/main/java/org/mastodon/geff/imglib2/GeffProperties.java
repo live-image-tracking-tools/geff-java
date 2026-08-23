@@ -1,13 +1,13 @@
 package org.mastodon.geff.imglib2;
 
-import net.imglib2.type.numeric.IntegerType;
-import net.imglib2.util.Cast;
-
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
+
+import net.imglib2.type.numeric.IntegerType;
+import net.imglib2.util.Cast;
 
 public class GeffProperties {
 
@@ -75,6 +75,8 @@ public class GeffProperties {
     }
 
     public void rename(final String identifier, final String newIdentifier) {
+		if ( identifier.equals( newIdentifier ) )
+			return;
         if (properties.containsKey(newIdentifier))
             throw new IllegalArgumentException("A property with the given identifier \"" + newIdentifier + "\" already exists");
         final GeffProperty<?> property = properties.remove(identifier);
@@ -92,7 +94,7 @@ public class GeffProperties {
     }
 
     // TODO remove?
-    void put(GeffProperty<?> property) {
+    void put(final GeffProperty<?> property) {
         properties.put(property.identifier(), property);
     }
 }
