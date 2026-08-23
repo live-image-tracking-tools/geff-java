@@ -1,9 +1,9 @@
 package org.mastodon.geff.imglib2;
 
+import java.util.Arrays;
+
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
 import org.janelia.saalfeldlab.n5.zarr.ZarrDatasetAttributes;
-
-import java.util.Arrays;
 
 public class Playground {
 
@@ -14,7 +14,8 @@ public class Playground {
     //
     // ------------------------------------------------------------------------
 
-    public static void main(String[] args) {
+	public static void main( final String[] args ) throws GeffException
+	{
 //        final String path = "cross-language-tests/data/basic_3d_original.zarr";
 //        final String path = "cross-language-tests/data/covariance_original.zarr";
 //        final String path = "cross-language-tests/data/varlength_original.zarr";

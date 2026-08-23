@@ -1,14 +1,15 @@
 package org.mastodon.geff.imglib2;
 
-import net.imglib2.Cursor;
-import net.imglib2.type.numeric.integer.UnsignedByteType;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.List;
+
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
 import org.janelia.saalfeldlab.n5.zarr.ZarrDatasetAttributes;
 
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.List;
+import net.imglib2.Cursor;
+import net.imglib2.type.numeric.integer.UnsignedByteType;
 
 public class StringPlayground {
 
@@ -19,7 +20,8 @@ public class StringPlayground {
     //
     // ------------------------------------------------------------------------
 
-    public static void main(String[] args) {
+	public static void main( String[] args ) throws GeffException
+	{
         final String path = "/Users/pietzsch/Desktop/data/JYT/TrackMate-GEFF-examples/MAX_Merged.geff";
 
         // read

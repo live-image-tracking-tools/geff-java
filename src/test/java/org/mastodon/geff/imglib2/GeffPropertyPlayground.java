@@ -1,5 +1,18 @@
 package org.mastodon.geff.imglib2;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import org.janelia.saalfeldlab.n5.blosc.BloscCompression;
+import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
+import org.janelia.saalfeldlab.n5.zarr.N5ZarrWriter;
+import org.janelia.saalfeldlab.n5.zarr.ZarrDatasetAttributes;
+import org.mastodon.geff.imglib2.IoUtils.DatasetPaths;
+
 import net.imglib2.Cursor;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.img.array.ArrayImgs;
@@ -9,18 +22,6 @@ import net.imglib2.type.numeric.integer.IntType;
 import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.type.numeric.real.DoubleType;
 import net.imglib2.util.Cast;
-import org.janelia.saalfeldlab.n5.blosc.BloscCompression;
-import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
-import org.janelia.saalfeldlab.n5.zarr.N5ZarrWriter;
-import org.janelia.saalfeldlab.n5.zarr.ZarrDatasetAttributes;
-import org.mastodon.geff.imglib2.IoUtils.DatasetPaths;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 public class GeffPropertyPlayground {
 
@@ -48,7 +49,7 @@ public class GeffPropertyPlayground {
         private final Map<String, GeffProperty<?>> nodeProperties = new LinkedHashMap<>();
 
         // TODO:                          generic int type here?
-        NodeData(RandomAccessibleInterval<UnsignedLongType> nodeIdData) {
+        NodeData(final RandomAccessibleInterval<UnsignedLongType> nodeIdData) {
 
             id = new FixedLengthProperty<>("id", nodeIdData, null, elementIndex);
             nodeProperties.put("id", id);
@@ -62,7 +63,7 @@ public class GeffPropertyPlayground {
             return elementIndex.get();
         }
 
-        void index(long index) {
+        void index(final long index) {
             if (index < 0 || index >= size())
                 throw new IndexOutOfBoundsException(index + "(numNodes=" + size() + ")");
             elementIndex.set(index);
@@ -120,7 +121,8 @@ public class GeffPropertyPlayground {
 
     // -----------------------------------------------------------------------
 
-    public static void main(String[] args) {
+	public static void main( final String[] args ) throws GeffException
+	{
 //        final String path = "cross-language-tests/data/basic_3d_original.zarr";
 //        final String path = "cross-language-tests/data/covariance_original.zarr";
         final String path = "cross-language-tests/data/varlength_original.zarr";
