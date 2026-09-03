@@ -10,7 +10,7 @@
 
     <groupId>org.litt</groupId>
     <artifactId>geff</artifactId>
-    <version>1.1.1-SNAPSHOT</version>
+    <version>1.1.1</version>
 
     <properties>
         <package-name>org.litt.geff</package-name>
@@ -113,7 +113,7 @@
     <scm>
         <connection>scm:git:https:github.com/live-image-tracking-tools/geff-java</connection>
         <developerConnection>scm:git:git@github.com:live-image-tracking-tools/geff-java</developerConnection>
-        <tag>HEAD</tag>
+        <tag>geff-1.1.1</tag>
         <url>https://github.com/live-image-tracking-tools/geff-java</url>
     </scm>
     <issueManagement>
