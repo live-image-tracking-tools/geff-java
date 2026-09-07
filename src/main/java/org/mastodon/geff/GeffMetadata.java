@@ -31,6 +31,7 @@ package org.mastodon.geff;
 import static org.mastodon.geff.GeffUtils.checkSupportedVersion;
 
 import java.io.IOException;
+import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -79,6 +80,8 @@ public class GeffMetadata
 	private Map< String, PropMetadata > edgePropsMetadata;
 
 	private Map< String, String > trackNodeProps;
+
+	private GeffDisplayHint displayHints;
 
 	/**
 	 * Default constructor
@@ -194,6 +197,131 @@ public class GeffMetadata
 		this.trackNodeProps = trackNodeProps;
 	}
 
+	public GeffDisplayHint getDisplayHints()
+	{
+		return displayHints;
+	}
+
+	public void setDisplayHints( GeffDisplayHint displayHints )
+	{
+		this.displayHints = displayHints;
+		validate();
+	}
+
+	/**
+	 * Get the name of the axis holding the time coordinate.
+	 * <p>
+	 * The {@code display_time} display hint takes precedence; otherwise the
+	 * first axis of type {@link GeffAxis#TYPE_TIME} is used, falling back to
+	 * the standard name {@code "t"} if no axes are declared.
+	 *
+	 * @return the time axis name, never null
+	 */
+	public String getTimeAxisName()
+	{
+		final String hint = displayHints != null ? displayHints.getDisplayTime() : null;
+		if ( hint != null && !hint.trim().isEmpty() )
+			return hint;
+
+		final String name = getAxisNameByType( GeffAxis.TYPE_TIME );
+		return name != null ? name : GeffAxis.NAME_TIME;
+	}
+
+	/**
+	 * Get the name of the spatial axis holding the X coordinate, i.e. the one
+	 * a viewer displays horizontally.
+	 *
+	 * @return the axis name, never null
+	 * @see #resolveSpaceAxisName(String, String, int)
+	 */
+	public String getHorizontalAxisName()
+	{
+		final String hint = displayHints != null ? displayHints.getDisplayHorizontal() : null;
+		return resolveSpaceAxisName( hint, GeffAxis.NAME_SPACE_X, 0 );
+	}
+
+	/**
+	 * Get the name of the spatial axis holding the Y coordinate, i.e. the one
+	 * a viewer displays vertically.
+	 *
+	 * @return the axis name, never null
+	 * @see #resolveSpaceAxisName(String, String, int)
+	 */
+	public String getVerticalAxisName()
+	{
+		final String hint = displayHints != null ? displayHints.getDisplayVertical() : null;
+		return resolveSpaceAxisName( hint, GeffAxis.NAME_SPACE_Y, 1 );
+	}
+
+	/**
+	 * Get the name of the spatial axis holding the Z coordinate, i.e. the one
+	 * a viewer displays as depth.
+	 *
+	 * @return the axis name, or null for datasets without a third spatial axis
+	 * @see #resolveSpaceAxisName(String, String, int)
+	 */
+	public String getDepthAxisName()
+	{
+		final String hint = displayHints != null ? displayHints.getDisplayDepth() : null;
+		return resolveSpaceAxisName( hint, GeffAxis.NAME_SPACE_Z, 2 );
+	}
+
+	/**
+	 * Resolve which spatial axis carries a given display dimension by
+	 * combining {@code display_hints} and {@code axes}. Since
+	 * {@code display_hints} is optional, the following sources are consulted
+	 * in order:
+	 * <ol>
+	 * <li>the display hint, which names the axis explicitly,</li>
+	 * <li>a spatial axis called {@code standardName} (case-insensitive), or one
+	 * whose name ends in {@code "_" + standardName}, e.g. {@code "cell_x"},</li>
+	 * <li>the position in the axes list, which the spec defines as image
+	 * dimension order, i.e. slowest to fastest ({@code z}, {@code y},
+	 * {@code x}), hence counted from the end,</li>
+	 * <li>{@code standardName} itself, for datasets that declare no spatial
+	 * axes at all.</li>
+	 * </ol>
+	 *
+	 * @param hint
+	 *            the corresponding display hint, or null if not given
+	 * @param standardName
+	 *            the conventional name of this axis ({@code x}, {@code y} or
+	 *            {@code z})
+	 * @param indexFromLast
+	 *            position of this axis counted backwards from the end of the
+	 *            spatial axes list (0 for x, 1 for y, 2 for z)
+	 * @return the axis name, or null if the dataset declares spatial axes but
+	 *         not the requested one
+	 */
+	private String resolveSpaceAxisName( final String hint, final String standardName, final int indexFromLast )
+	{
+		if ( hint != null && !hint.trim().isEmpty() )
+			return hint;
+
+		final String[] spaceAxes = getAxisNamesByType( GeffAxis.TYPE_SPACE );
+
+		for ( final String name : spaceAxes )
+			if ( standardName.equalsIgnoreCase( name ) )
+				return name;
+
+		for ( final String name : spaceAxes )
+			if ( name != null && name.toLowerCase().endsWith( "_" + standardName ) )
+				return name;
+
+		final int index = spaceAxes.length - 1 - indexFromLast;
+		if ( index >= 0 )
+		{
+			LOG.debug( "no display hint for {}, guessing axis '{}' from the axes order {}",
+					standardName, spaceAxes[ index ], Arrays.toString( spaceAxes ) );
+			return spaceAxes[ index ];
+		}
+
+		// A dataset that declares no axes at all is assumed to use the
+		// standard t/x/y/z layout. Otherwise the requested axis is beyond the
+		// declared ones, i.e. the dataset has no depth axis.
+		return ( spaceAxes.length == 0 || indexFromLast < 2 ) ? standardName : null;
+	}
+
 	/**
 	 * Get the axis name for a given axis type.
 	 * Returns the name of the first axis matching the specified type, or null if no such axis exists.
@@ -235,6 +363,21 @@ public class GeffMetadata
 	}
 
 	/**
+	 * Get the names of all axes, in declaration order.
+	 *
+	 * @return array of axis names (empty array if no axes are declared)
+	 */
+	public String[] getAxisNames()
+	{
+		if ( geffAxes == null )
+			return new String[ 0 ];
+
+		return Arrays.stream( geffAxes )
+				.map( GeffAxis::getName )
+				.toArray( String[]::new );
+	}
+
+	/**
 	 * Validates the metadata according to the GEFF schema rules
 	 */
 	public void validate()
@@ -257,6 +400,28 @@ public class GeffMetadata
 								"max " + axis.getMax() + " in dimension " + axis.getName() ); }
 			}
 		}
+
+		if ( displayHints != null )
+		{
+			displayHints.validate();
+
+			// Display hints must reference axes that exist
+			if ( geffAxes != null )
+			{
+				final List< String > axisNames = Arrays.asList( getAxisNames() );
+				checkDisplayHint( "display_horizontal", displayHints.getDisplayHorizontal(), axisNames );
+				checkDisplayHint( "display_vertical", displayHints.getDisplayVertical(), axisNames );
+				checkDisplayHint( "display_depth", displayHints.getDisplayDepth(), axisNames );
+				checkDisplayHint( "display_time", displayHints.getDisplayTime(), axisNames );
+			}
+		}
+	}
+
+	private static void checkDisplayHint( final String hintName, final String axisName, final List< String > axisNames )
+	{
+		if ( axisName != null && !axisNames.contains( axisName ) )
+		{ throw new IllegalArgumentException(
+				"Display hint " + hintName + " name " + axisName + " not found in axes " + axisNames ); }
 	}
 
 	/**
@@ -302,29 +467,42 @@ public class GeffMetadata
 		LOG.debug( "found geff/edge_props_metadata = {}", edgePropsMetadata );
 
 		// trackNodeProps may be null, so safe-read it
-		Map< String, String > trackNodeProps = null;
-		try
-		{
-			trackNodeProps = reader.getAttribute( group, "geff/track_node_props",
-					new TypeToken< Map< String, String > >()
-					{}.getType() );
-		}
-		catch ( final Exception e )
-		{
-			// If the attribute cannot be parsed as Map<String, String> (e.g.,
-			// if it's null in JSON),
-			// just leave it as null
-			LOG.debug( "Could not parse geff/track_node_props as Map<String,String>, setting to null: {}", e.getMessage() );
-		}
+		final Map< String, String > trackNodeProps = readOptionalAttribute( reader, group, "geff/track_node_props",
+				new TypeToken< Map< String, String > >()
+				{}.getType() );
 		LOG.debug( "found geff/track_node_props = {}", trackNodeProps );
+
+		// displayHints may be null, so safe-read it
+		final GeffDisplayHint displayHints = readOptionalAttribute( reader, group, "geff/display_hints", GeffDisplayHint.class );
+		LOG.debug( "found geff/display_hints = {}", displayHints );
 
 		final GeffMetadata metadata = new GeffMetadata( geffVersion, directed, axes );
 		metadata.setNodePropsMetadata( nodePropsMetadata );
 		metadata.setEdgePropsMetadata( edgePropsMetadata );
 		metadata.setTrackNodeProps( trackNodeProps );
+		metadata.setDisplayHints( displayHints );
 		metadata.validate();
 
 		return metadata;
+	}
+
+	/**
+	 * Read an optional attribute. An attribute that is explicitly written as
+	 * JSON {@code null}, as the Python implementation does for the optional
+	 * fields it leaves unset, cannot be parsed into the target type; report it
+	 * as absent instead of failing.
+	 */
+	private static < T > T readOptionalAttribute( final N5Reader reader, final String group, final String key, final Type type )
+	{
+		try
+		{
+			return reader.getAttribute( group, key, type );
+		}
+		catch ( final Exception e )
+		{
+			LOG.debug( "Could not parse {} as {}, setting to null: {}", key, type.getTypeName(), e.getMessage() );
+			return null;
+		}
 	}
 
 	/**
@@ -372,14 +550,20 @@ public class GeffMetadata
 			LOG.debug( "writing geff/track_node_props {}", trackNodeProps );
 			writer.setAttribute( group, "geff/track_node_props", trackNodeProps );
 		}
+
+		if ( displayHints != null )
+		{
+			LOG.debug( "writing geff/display_hints {}", displayHints );
+			writer.setAttribute( group, "geff/display_hints", displayHints );
+		}
 	}
 
 	@Override
 	public String toString()
 	{
 		return String.format(
-				"GeffMetadata{geffVersion='%s', directed=%s, geffAxes=%s, nodePropsMetadata=%s, edgePropsMetadata=%s, trackNodeProps=%s}",
-				geffVersion, directed, Arrays.toString( geffAxes ), nodePropsMetadata, edgePropsMetadata, trackNodeProps );
+				"GeffMetadata{geffVersion='%s', directed=%s, geffAxes=%s, nodePropsMetadata=%s, edgePropsMetadata=%s, trackNodeProps=%s, displayHints=%s}",
+				geffVersion, directed, Arrays.toString( geffAxes ), nodePropsMetadata, edgePropsMetadata, trackNodeProps, displayHints );
 	}
 
 	@Override
@@ -390,12 +574,13 @@ public class GeffMetadata
 		GeffMetadata that = ( GeffMetadata ) o;
 		return directed == that.directed && Objects.equals( geffVersion, that.geffVersion ) && Objects.deepEquals( geffAxes, that.geffAxes )
 				&& Objects.equals( nodePropsMetadata, that.nodePropsMetadata ) && Objects.equals( edgePropsMetadata, that.edgePropsMetadata )
-				&& Objects.equals( trackNodeProps, that.trackNodeProps );
+				&& Objects.equals( trackNodeProps, that.trackNodeProps ) && Objects.equals( displayHints, that.displayHints );
 	}
 
 	@Override
 	public int hashCode()
 	{
-		return Objects.hash( geffVersion, directed, Arrays.hashCode( geffAxes ), nodePropsMetadata, edgePropsMetadata, trackNodeProps );
+		return Objects.hash( geffVersion, directed, Arrays.hashCode( geffAxes ), nodePropsMetadata, edgePropsMetadata, trackNodeProps,
+				displayHints );
 	}
 }
