@@ -15,7 +15,8 @@ The **Graph Exchange File Format (GEFF)** is a standardized format for storing a
 - **Zarr Format 2** - Reads and writes [Zarr Format 2](https://zarr-specs.readthedocs.io/en/latest/v2/v2.0.html) only; Zarr Format 3 is not supported
 - **Complete data model** - Support for nodes (spatial-temporal features), edges (connections), and metadata
 - **Flexible metadata handling** - Axis-based metadata with GeffAxis objects; supports `time`, `space`, and `channel` axis types with any axis name
-- **Custom axis names** - Node property paths for coordinates (t/x/y/z) are derived from the axis names declared in metadata, so non-standard names such as `frame`, `cell_x`, `cell_y` work out of the box; standard names are used as fallbacks when axes are not declared
+- **Custom axis names** - Node property paths for coordinates (t/x/y/z) are derived from `display_hints` combined with the axis names declared in `axes`, so non-standard names such as `frame`, `cell_x`, `cell_y` work out of the box; standard names are used as fallbacks when neither is declared
+- **Display hints** - Full `display_hints` support (`display_horizontal`, `display_vertical`, `display_depth`, `display_time`), validated against the declared axis names
 - **Property metadata** - Full `node_props_metadata` / `edge_props_metadata` support as required by the v1 spec
 - **Variable-length properties** - Read and write properties with `varlength: true` (e.g. polygon coordinates per node)
 - **Type safety** - Strong typing with comprehensive validation; graceful skip with warning for unsupported types (`str`, `bytes`)
@@ -33,7 +34,7 @@ Represents nodes in tracking graphs with spatial and temporal attributes:
 - Polygon geometry stored as a varlength property under `nodes/props/polygon/`
 - Variable-length properties accessible via `getVarlengthProperty(name)` / `setVarlengthProperty(name, ...)`
 - Arbitrary scalar/vector properties accessible via `getProp(name)` / `setProp(name, value)` / `getProps()`
-- **Axis-aware I/O**: property paths for time and spatial coordinates are resolved from the axis names declared in `GeffMetadata`; falls back to `t`, `x`, `y`, `z` when no axes are defined
+- **Axis-aware I/O**: property paths for time and spatial coordinates are resolved from `GeffMetadata` by combining `display_hints` and `axes`; falls back to `t`, `x`, `y`, `z` when neither is defined
 - Builder pattern for convenient object construction
 - Chunked Zarr Format 2 I/O
 
@@ -58,8 +59,21 @@ Handles GEFF metadata with schema validation:
 - Node/edge property metadata maps (`nodePropsMetadata`, `edgePropsMetadata`)
 - Dynamic tracklet property name from `track_node_props["tracklet"]`
 - Graph properties (directed/undirected)
+- `display_hints` as a `GeffDisplayHint` object, validated against the declared axis names
 - `getAxisNameByType(type)` – returns the name of the first axis matching a given type (e.g. `"time"`)
 - `getAxisNamesByType(type)` – returns all axis names matching a given type (e.g. all `"space"` axes in order)
+- `getAxisNames()` – returns all axis names, in declaration order
+- `getTimeAxisName()` / `getHorizontalAxisName()` / `getVerticalAxisName()` / `getDepthAxisName()` – resolve which axis carries the t/x/y/z coordinate (see below)
+
+### GeffDisplayHint
+Represents the optional `display_hints` metadata, i.e. which axis a viewer shows horizontally, vertically, as depth and as time. Since it is optional, `GeffMetadata` resolves each spatial coordinate from the following sources, in order:
+
+1. the matching display hint, which names the axis explicitly;
+2. a spatial axis named `x`, `y` or `z` (case-insensitive), or one whose name ends in `_x`, `_y`, `_z` (e.g. `cell_x`);
+3. the position in the `axes` list, which the spec defines as image dimension order, i.e. slowest to fastest (`z`, `y`, `x`) and therefore counted from the end;
+4. the standard name (`x`, `y`, `z`) for datasets that declare no spatial axes at all.
+
+Depth resolves to `null` for datasets that declare spatial axes but no third one, in which case no z property is read or written.
 
 ### PropMetadata
 Describes a single node or edge property as required by the v1 spec:
@@ -155,11 +169,31 @@ newEdges.add(edge);
 // Write to Zarr format
 GeffEdge.writeToZarr(newEdges, "/path/to/output.zarr/tracks", "1.0.0");
 
-// Access variable-length properties after reading (e.g. per-node polygon)
+// Set a custom variable-length property per node.
+// Example: per-node UTF-8 label stored as uint8 byte array.
+// (Note: polygon vertices use the dedicated polygonX/polygonY fields instead.)
+String label0 = "cell_A";
+String label1 = "細胞_B"; // multibyte characters are supported via UTF-8 encoding
+byte[] bytes0 = label0.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+byte[] bytes1 = label1.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+
+Object[] data0 = new Object[bytes0.length];
+for (int i = 0; i < bytes0.length; i++) data0[i] = bytes0[i] & 0xFF;
+
+Object[] data1 = new Object[bytes1.length];
+for (int i = 0; i < bytes1.length; i++) data1[i] = bytes1[i] & 0xFF;
+
+node0.setVarlengthProperty("label", new VarlengthProperty("label", "uint8", data0));
+node1.setVarlengthProperty("label", new VarlengthProperty("label", "uint8", data1));
+
+// Decode the label back after reading
 List<GeffNode> readNodes = GeffNode.readFromZarr("/path/to/data.zarr/tracks");
-VarlengthProperty polygon = readNodes.get(0).getVarlengthProperty("polygon");
-if (polygon != null) {
-    Object nodeData = polygon.getNodeData(0); // double[] or int[] for node 0
+VarlengthProperty labelProp = readNodes.get(0).getVarlengthProperty("label");
+if (labelProp != null && !labelProp.isMissing()) {
+    Object[] labelData = labelProp.getData();
+    byte[] labelBytes = new byte[labelData.length];
+    for (int i = 0; i < labelData.length; i++) labelBytes[i] = ((Number) labelData[i]).byteValue();
+    String label = new String(labelBytes, java.nio.charset.StandardCharsets.UTF_8);
 }
 
 // Create metadata with axis information
@@ -236,16 +270,16 @@ dataset.zarr/
 │                                   #   version, directed, axes,
 │                                   #   node_props_metadata,
 │                                   #   edge_props_metadata,
-│                                   #   track_node_props
+│                                   #   track_node_props, display_hints
 └── tracks/
     ├── .zgroup
     ├── nodes/
     │   ├── ids/                    # Node IDs [N]
     │   ├── props/
     │   │   ├── <t>/values          # Time points [N]   (name from axes[type=time], default "t")
-    │   │   ├── <x>/values          # X coordinates [N] (name from axes[type=space][0], default "x")
-    │   │   ├── <y>/values          # Y coordinates [N] (name from axes[type=space][1], default "y")
-    │   │   ├── <z>/values          # Z coordinates [N] (name from axes[type=space][2], default "z", optional)
+    │   │   ├── <x>/values          # X coordinates [N] (name from display_hints/axes, default "x")
+    │   │   ├── <y>/values          # Y coordinates [N] (name from display_hints/axes, default "y")
+    │   │   ├── <z>/values          # Z coordinates [N] (name from display_hints/axes, default "z", optional)
     │   │   ├── color/values        # RGBA colors [N, 4] (optional)
     │   │   ├── radius/values       # Node radii [N] (optional)
     │   │   ├── <tracklet>/values   # Track IDs [N] (name from track_node_props, optional)

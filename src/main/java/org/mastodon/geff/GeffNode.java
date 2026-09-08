@@ -32,7 +32,6 @@ import static org.mastodon.geff.GeffUtils.checkSupportedVersion;
 import static org.mastodon.geff.GeffUtils.verifyLength;
 
 import java.io.IOException;
-import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -729,13 +728,13 @@ public class GeffNode
 		// See GeffUtils.shouldSkipProperty() and checkForMissingValues() for
 		// implementation
 
-		// Determine axis names dynamically from metadata
-		// Fall back to standard names (t, x, y, z) if axes not defined
-		final String timeAxisName = metadata.getAxisNameByType( GeffAxis.TYPE_TIME );
-		final String[] spaceAxes = metadata.getAxisNamesByType( GeffAxis.TYPE_SPACE );
-		final String xAxisName = spaceAxes.length > 0 ? spaceAxes[ 0 ] : "x";
-		final String yAxisName = spaceAxes.length > 1 ? spaceAxes[ 1 ] : "y";
-		final String zAxisName = spaceAxes.length > 2 ? spaceAxes[ 2 ] : "z";
+		// Determine axis names dynamically by combining display_hints and axes,
+		// falling back to standard names (t, x, y, z) if neither is defined.
+		// zAxisName is null for datasets without a third spatial axis.
+		final String timeAxisName = metadata.getTimeAxisName();
+		final String xAxisName = metadata.getHorizontalAxisName();
+		final String yAxisName = metadata.getVerticalAxisName();
+		final String zAxisName = metadata.getDepthAxisName();
 
 		// Read node IDs from chunks
 		final int[] nodeIds = GeffUtils.readAsIntArray( reader, path + "/nodes/ids", "node IDs" );
@@ -744,7 +743,7 @@ public class GeffNode
 		final int numNodes = nodeIds.length;
 
 		// Read time points from chunks using dynamic axis name
-		final String timePropPath = path + "/nodes/props/" + ( timeAxisName != null ? timeAxisName : "t" ) + "/values";
+		final String timePropPath = path + "/nodes/props/" + timeAxisName + "/values";
 		final int[] timepoints = GeffUtils.readAsIntArray( reader, timePropPath, "timepoints" );
 		verifyLength( timepoints, numNodes, timePropPath );
 
@@ -760,8 +759,8 @@ public class GeffNode
 
 		// Read Z coordinates from chunks using dynamic axis name (optional)
 		final double[] zCoords;
-		final String zPropPath = path + "/nodes/props/" + zAxisName + "/values";
-		if ( spaceAxes.length > 2 && reader.datasetExists( zPropPath ) )
+		final String zPropPath = zAxisName != null ? path + "/nodes/props/" + zAxisName + "/values" : null;
+		if ( zPropPath != null && reader.datasetExists( zPropPath ) )
 		{
 			zCoords = GeffUtils.readAsDoubleArray( reader, zPropPath, "Z coordinates" );
 			verifyLength( zCoords, numNodes, zPropPath );
@@ -810,8 +809,8 @@ public class GeffNode
 		double[][] polygonsX = null;
 		double[][] polygonsY = null;
 
-		// Read varlength properties
-		final Map< String, VarlengthProperty > varlengthPropsMap = new HashMap<>();
+		// Read varlength properties (one VarlengthProperty[] per property name)
+		final Map< String, VarlengthProperty[] > varlengthPropsMap = new HashMap<>();
 		if ( metadata.getNodePropsMetadata() != null )
 		{
 			for ( final String propName : metadata.getNodePropsMetadata().keySet() )
@@ -820,10 +819,10 @@ public class GeffNode
 				if ( propMeta != null && propMeta.getVarlength() != null && propMeta.getVarlength() )
 				{
 					final String propPath = path + "/nodes/props/" + propName;
-					final VarlengthProperty varlengthProp = GeffUtils.readVarlengthProperty( reader, propPath, numNodes, propMeta );
-					if ( varlengthProp != null )
+					final VarlengthProperty[] perNodeProps = GeffUtils.readVarlengthProperty( reader, propPath, numNodes, propMeta );
+					if ( perNodeProps != null )
 					{
-						varlengthPropsMap.put( propName, varlengthProp );
+						varlengthPropsMap.put( propName, perNodeProps );
 						LOG.debug( "Successfully read varlength property: {}", propName );
 					}
 				}
@@ -899,20 +898,20 @@ public class GeffNode
 		}
 
 		// Extract polygon from varlength map into polygonX/Y fields (v1 spec: nodes/props/polygon/).
-		// The VarlengthProperty stays in the map so nodes also expose it via getVarlengthProperty().
+		// The per-node VarlengthProperty stays in the map so nodes also expose it via getVarlengthProperty().
 		if ( varlengthPropsMap.containsKey( "polygon" ) )
 		{
-			final VarlengthProperty polygonProp = varlengthPropsMap.get( "polygon" );
+			final VarlengthProperty[] polygonProps = varlengthPropsMap.get( "polygon" );
 			polygonsX = new double[ numNodes ][];
 			polygonsY = new double[ numNodes ][];
 			for ( int i = 0; i < numNodes; i++ )
 			{
-				if ( !polygonProp.isMissing( i ) )
+				final VarlengthProperty prop = polygonProps[ i ];
+				if ( prop != null && !prop.isMissing() )
 				{
-					final Object nodeData = polygonProp.getNodeData( i );
-					if ( nodeData instanceof Object[] )
+					final Object[] flat = prop.getData();
+					if ( flat != null )
 					{
-						final Object[] flat = ( Object[] ) nodeData;
 						final int numVertices = flat.length / 2;
 						polygonsX[ i ] = new double[ numVertices ];
 						polygonsY[ i ] = new double[ numVertices ];
@@ -985,11 +984,12 @@ public class GeffNode
 			final double[] polygonY = polygonsY != null ? polygonsY[ i ] : null;
 			final GeffNode node = new GeffNode( id, t, x, y, z, color, segmentId, r, covariance2d, covariance3d, polygonX, polygonY );
 
-			// Add varlength properties to the node
+			// Add varlength properties to the node (each node gets its own slice)
 			for ( final String propName : varlengthPropsMap.keySet() )
 			{
-				final VarlengthProperty varlengthProp = varlengthPropsMap.get( propName );
-				node.setVarlengthProperty( propName, varlengthProp );
+				final VarlengthProperty nodeProp = varlengthPropsMap.get( propName )[ i ];
+				if ( nodeProp != null )
+					node.setVarlengthProperty( propName, nodeProp );
 			}
 
 			// Set custom non-standard props on the node
@@ -1010,7 +1010,7 @@ public class GeffNode
 	 */
 	public static void writeToZarr( List< GeffNode > nodes, String zarrPath )
 	{
-		writeToZarr( nodes, zarrPath, GeffUtils.computeFirstDimChunk( new long[]{ nodes.size() }, Integer.BYTES ) );
+		writeToZarr( nodes, zarrPath, GeffUtils.computeFirstDimChunk( new long[] { nodes.size() }, Integer.BYTES ) );
 	}
 
 	/**
@@ -1033,12 +1033,12 @@ public class GeffNode
 																		// directed
 																		// for
 																		// now
-		writeToZarr( nodes, zarrPath, GeffUtils.computeFirstDimChunk( new long[]{ nodes.size() }, Integer.BYTES ), metadata );
+		writeToZarr( nodes, zarrPath, GeffUtils.computeFirstDimChunk( new long[] { nodes.size() }, Integer.BYTES ), metadata );
 	}
 
 	public static void writeToZarr( List< GeffNode > nodes, String zarrPath, GeffMetadata metadata )
 	{
-		writeToZarr( nodes, zarrPath, GeffUtils.computeFirstDimChunk( new long[]{ nodes.size() }, Integer.BYTES ), metadata );
+		writeToZarr( nodes, zarrPath, GeffUtils.computeFirstDimChunk( new long[] { nodes.size() }, Integer.BYTES ), metadata );
 	}
 
 	public static void writeToZarr( List< GeffNode > nodes, String zarrPath, int chunkSize, GeffMetadata metadata )
@@ -1068,13 +1068,13 @@ public class GeffNode
 		final String path = N5URI.normalizeGroupPath( group );
 		final int numNodes = nodes.size();
 
-		// Determine axis names dynamically from metadata
-		// Fall back to standard names (t, x, y, z) if axes not defined
-		final String timeAxisName = metadata.getAxisNameByType( GeffAxis.TYPE_TIME );
-		final String[] spaceAxes = metadata.getAxisNamesByType( GeffAxis.TYPE_SPACE );
-		final String xAxisName = spaceAxes.length > 0 ? spaceAxes[ 0 ] : "x";
-		final String yAxisName = spaceAxes.length > 1 ? spaceAxes[ 1 ] : "y";
-		final String zAxisName = spaceAxes.length > 2 ? spaceAxes[ 2 ] : "z";
+		// Determine axis names dynamically by combining display_hints and axes,
+		// falling back to standard names (t, x, y, z) if neither is defined.
+		// zAxisName is null for datasets without a third spatial axis.
+		final String timePropName = metadata.getTimeAxisName();
+		final String xAxisName = metadata.getHorizontalAxisName();
+		final String yAxisName = metadata.getVerticalAxisName();
+		final String zAxisName = metadata.getDepthAxisName();
 
 		final Map< String, PropMetadata > metadataNodeProps = metadata.getNodePropsMetadata();
 		final boolean writeAllProps = metadataNodeProps == null;
@@ -1083,7 +1083,6 @@ public class GeffNode
 		GeffUtils.writeIntArray( nodes, GeffNode::getId, writer, path + "/nodes/ids", chunkSize );
 
 		// Write timepoints in chunks using dynamic axis name
-		final String timePropName = timeAxisName != null ? timeAxisName : "t";
 		if ( writeAllProps || metadataNodeProps.containsKey( timePropName ) )
 		{
 			final PropMetadata timeMetadata = metadataNodeProps != null ? metadataNodeProps.get( timePropName ) : null;
@@ -1103,8 +1102,9 @@ public class GeffNode
 		if ( writeAllProps || metadataNodeProps.containsKey( yAxisName ) )
 			GeffUtils.writeDoubleArray( nodes, GeffNode::getY, writer, path + "/nodes/props/" + yAxisName + "/values", chunkSize );
 
-		// Write Z coordinates in chunks using dynamic axis name
-		if ( writeAllProps || metadataNodeProps.containsKey( zAxisName ) )
+		// Write Z coordinates in chunks using dynamic axis name (skipped for
+		// datasets without a third spatial axis)
+		if ( zAxisName != null && ( writeAllProps || metadataNodeProps.containsKey( zAxisName ) ) )
 			GeffUtils.writeDoubleArray( nodes, GeffNode::getZ, writer, path + "/nodes/props/" + zAxisName + "/values", chunkSize );
 
 		// Write color in chunks
@@ -1140,7 +1140,7 @@ public class GeffNode
 			nodePropsMap.put( timePropName, new PropMetadata( timePropName, "int32", false, null, null, null ) );
 			nodePropsMap.put( xAxisName, new PropMetadata( xAxisName, "float64", false, null, null, null ) );
 			nodePropsMap.put( yAxisName, new PropMetadata( yAxisName, "float64", false, null, null, null ) );
-			if ( spaceAxes.length > 2 )
+			if ( zAxisName != null )
 			{
 				nodePropsMap.put( zAxisName, new PropMetadata( zAxisName, "float64", false, null, null, null ) );
 			}
@@ -1173,7 +1173,7 @@ public class GeffNode
 				for ( int i = 0; i < numNodes; i++ )
 				{
 					final VarlengthProperty property = nodes.get( i ).getVarlengthProperty( propName );
-					if ( property == null || property.isMissing( i ) )
+					if ( property == null || property.isMissing() )
 					{
 						nodeDataArrays[ i ] = null;
 						missing[ i ] = true;
@@ -1181,36 +1181,10 @@ public class GeffNode
 					}
 
 					if ( dtype == null )
-					{
 						dtype = property.getDtype();
-					}
 
-					final Object nodeData = property.getNodeData( i );
-					if ( nodeData == null )
-					{
-						nodeDataArrays[ i ] = new Object[ 0 ];
-					}
-					else if ( nodeData.getClass().isArray() )
-					{
-						if ( nodeData instanceof Object[] )
-						{
-							nodeDataArrays[ i ] = ( Object[] ) nodeData;
-						}
-						else
-						{
-							final int length = Array.getLength( nodeData );
-							final Object[] converted = new Object[ length ];
-							for ( int j = 0; j < length; j++ )
-							{
-								converted[ j ] = Array.get( nodeData, j );
-							}
-							nodeDataArrays[ i ] = converted;
-						}
-					}
-					else
-					{
-						nodeDataArrays[ i ] = new Object[] { nodeData };
-					}
+					final Object[] nodeData = property.getData();
+					nodeDataArrays[ i ] = nodeData != null ? nodeData : new Object[ 0 ];
 				}
 
 				if ( dtype == null )
