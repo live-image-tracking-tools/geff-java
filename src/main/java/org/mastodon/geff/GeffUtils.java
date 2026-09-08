@@ -272,6 +272,30 @@ public class GeffUtils
 			final String dataset,
 			final int chunkSize )
 	{
+		writeDoubleMatrix( elements, new int[] { numColumns }, extractor, writer, dataset, chunkSize );
+	}
+
+	/**
+	 * Write one {@code double[]} per element as a dataset of zarr shape
+	 * {@code [numElements, rowShape...]}, e.g. {@code [N, 3, 3]} for
+	 * {@code rowShape = { 3, 3 }}. The values of a row are stored in the order
+	 * the extracted array holds them, i.e. row-major for a matrix.
+	 *
+	 * @param rowShape
+	 *            shape of the values belonging to a single element
+	 */
+	public static < T > void writeDoubleMatrix(
+			final List< T > elements,
+			final int[] rowShape,
+			final Function< T, double[] > extractor,
+			final N5Writer writer,
+			final String dataset,
+			final int chunkSize )
+	{
+		int numColumns = 1;
+		for ( final int d : rowShape )
+			numColumns *= d;
+
 		final int size = elements.size();
 		final double[] data = new double[ numColumns * size ];
 		for ( int i = 0; i < size; ++i )
@@ -281,11 +305,35 @@ public class GeffUtils
 				continue;
 			System.arraycopy( row, 0, data, numColumns * i, numColumns );
 		}
-			final DatasetAttributes attributes = new DatasetAttributes(
-					new long[] { numColumns, size },
-					new int[] { numColumns, chunkSize },
-					DataType.FLOAT64,
-					defaultCompression() );
+
+		// N5 dimensions are in the reverse order of the zarr shape, so the
+		// element dimension comes last.
+		final int n = rowShape.length + 1;
+		final long[] dimensions = new long[ n ];
+		final int[] blockSize = new int[ n ];
+		for ( int d = 0; d < rowShape.length; ++d )
+		{
+			dimensions[ d ] = rowShape[ rowShape.length - 1 - d ];
+			blockSize[ d ] = rowShape[ rowShape.length - 1 - d ];
+		}
+		dimensions[ n - 1 ] = size;
+		blockSize[ n - 1 ] = chunkSize;
+
+		// Overwriting a dataset of a different shape would leave the chunks of
+		// the old shape behind, e.g. when re-writing a covariance3d that was
+		// stored as [N, 6] before.
+		if ( writer.datasetExists( dataset )
+				&& !Arrays.equals( writer.getDatasetAttributes( dataset ).getDimensions(), dimensions ) )
+		{
+			LOG.debug( "removing dataset {} to re-create it with the dimensions {}", dataset, Arrays.toString( dimensions ) );
+			writer.remove( dataset );
+		}
+
+		final DatasetAttributes attributes = new DatasetAttributes(
+				dimensions,
+				blockSize,
+				DataType.FLOAT64,
+				defaultCompression() );
 		writer.createDataset( dataset, attributes );
 		write( data, writer, dataset, attributes );
 	}
@@ -342,18 +390,36 @@ public class GeffUtils
 			return data[ i0 + size[ 0 ] * i1 ];
 		}
 
-		// TODO: remove until needed
 		double at( final int i0, final int i1, final int i2 )
 		{
 			assert size.length == 3;
-			return data[ i0 + size[ 0 ] * ( i1 * i2 * size[ 1 ] ) ];
+			return data[ i0 + size[ 0 ] * ( i1 + size[ 1 ] * i2 ) ];
 		}
 
-		double[] rowAt( final int i1 )
+		/**
+		 * Number of values a single row holds, i.e. the product of all
+		 * dimensions but the last one. For a property stored with the zarr
+		 * shape {@code [N, 3, 3]} this is 9.
+		 */
+		int numValuesPerRow()
 		{
-			assert size.length == 2;
-			final double[] row = new double[ size[ 0 ] ];
-			Arrays.setAll( row, i0 -> at( i0, i1 ) );
+			int numValues = 1;
+			for ( int d = 0; d < size.length - 1; ++d )
+				numValues *= size[ d ];
+			return numValues;
+		}
+
+		/**
+		 * Get the values of one row, i.e. of one node or edge. The values of a
+		 * row are contiguous, so this works for any number of dimensions: a
+		 * property stored with the zarr shape {@code [N, 3, 3]} yields the 9
+		 * values of its 3x3 matrix, in row-major order.
+		 */
+		double[] rowAt( final int i )
+		{
+			final int numValues = numValuesPerRow();
+			final double[] row = new double[ numValues ];
+			System.arraycopy( data, i * numValues, row, 0, numValues );
 			return row;
 		}
 	}
@@ -366,8 +432,8 @@ public class GeffUtils
 			return null;
 		}
 		final DatasetAttributes attributes = reader.getDatasetAttributes( dataset );
-		if ( attributes.getNumDimensions() != 2 )
-		{ throw new IllegalArgumentException( "Expected 2D array" ); }
+		if ( attributes.getNumDimensions() < 2 )
+		{ throw new IllegalArgumentException( "Expected an array of 2 or more dimensions" ); }
 		return new FlattenedDoubles( convertToDoubleArray( readFully( reader, dataset ), description ), attributes.getDimensions() );
 	}
 
@@ -399,11 +465,27 @@ public class GeffUtils
 			return data[ i0 + size[ 0 ] * i1 ];
 		}
 
-		int[] rowAt( final int i0 )
+		/**
+		 * Number of values a single row holds, i.e. the product of all
+		 * dimensions but the last one.
+		 */
+		int numValuesPerRow()
 		{
-			assert size.length == 2;
-			final int[] row = new int[ size[ 1 ] ];
-			Arrays.setAll( row, i1 -> at( i0, i1 ) );
+			int numValues = 1;
+			for ( int d = 0; d < size.length - 1; ++d )
+				numValues *= size[ d ];
+			return numValues;
+		}
+
+		/**
+		 * Get the values of one row, i.e. of one node or edge. The values of a
+		 * row are contiguous, so this works for any number of dimensions.
+		 */
+		int[] rowAt( final int i )
+		{
+			final int numValues = numValuesPerRow();
+			final int[] row = new int[ numValues ];
+			System.arraycopy( data, i * numValues, row, 0, numValues );
 			return row;
 		}
 	}
@@ -416,8 +498,8 @@ public class GeffUtils
 			return null;
 		}
 		final DatasetAttributes attributes = reader.getDatasetAttributes( dataset );
-		if ( attributes.getNumDimensions() != 2 )
-		{ throw new IllegalArgumentException( "Expected 2D array" ); }
+		if ( attributes.getNumDimensions() < 2 )
+		{ throw new IllegalArgumentException( "Expected an array of 2 or more dimensions" ); }
 		return new FlattenedInts( convertToIntArray( readFully( reader, dataset ), description ), attributes.getDimensions() );
 	}
 
@@ -505,6 +587,29 @@ public class GeffUtils
 	{
 		if ( array != null && array.size()[ array.size().length - 1 ] != expectedLength )
 		{ throw new IllegalArgumentException( "property " + name + " does not have expected length (" + array.size()[ array.size().length - 1 ] + " vs " + expectedLength + ")" ); }
+	}
+
+	/**
+	 * Verify that a property holds one of the accepted numbers of values per
+	 * node or edge, regardless of how those values are shaped: a covariance3d
+	 * holds 9 values whether it is stored as {@code [N, 3, 3]} or as
+	 * {@code [N, 9]}.
+	 *
+	 * @param acceptedNumValues
+	 *            the accepted numbers of values per node or edge
+	 */
+	public static void verifyNumValues( final FlattenedDoubles array, final String name, final int... acceptedNumValues )
+	{
+		if ( array == null )
+			return;
+
+		final int numValues = array.numValuesPerRow();
+		for ( final int accepted : acceptedNumValues )
+			if ( numValues == accepted )
+				return;
+
+		throw new IllegalArgumentException( "property " + name + " does not have an expected number of values per element ("
+				+ numValues + " vs " + Arrays.toString( acceptedNumValues ) + ", dimensions " + Arrays.toString( array.size() ) + ")" );
 	}
 
 	// -- write dataset fully --

@@ -82,7 +82,7 @@ public class Geff
 
 			// Demonstrate reading edges
 			System.out.println( "\n=== Reading Edges ===" );
-			List< GeffEdge > edges = GeffEdge.readFromZarr( zarrPath, metadata.getGeffVersion() );
+			List< GeffEdge > edges = GeffEdge.readFromZarr( zarrPath, metadata );
 			System.out.println( "Read " + edges.size() + " edges:" );
 			for ( int i = 0; i < Math.min( 5, edges.size() ); i++ )
 			{

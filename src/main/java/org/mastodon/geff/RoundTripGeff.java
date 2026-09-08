@@ -68,7 +68,7 @@ public class RoundTripGeff
 
 			// Read edges
 			System.out.println( "\nReading edges..." );
-			List< GeffEdge > edges = GeffEdge.readFromZarr( inputPath, metadata.getGeffVersion() );
+			List< GeffEdge > edges = GeffEdge.readFromZarr( inputPath, metadata );
 			System.out.println( "  Read " + edges.size() + " edges" );
 
 			// Write nodes first so that metadata can be updated (e.g. varlength
