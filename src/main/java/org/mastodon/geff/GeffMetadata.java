@@ -6,13 +6,13 @@
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -31,11 +31,14 @@ package org.mastodon.geff;
 import static org.mastodon.geff.GeffUtils.checkSupportedVersion;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
@@ -56,6 +59,7 @@ import com.google.gson.reflect.TypeToken;
  */
 public class GeffMetadata
 {
+
 	private static final Logger LOG = LoggerFactory.getLogger( GeffMetadata.class );
 
 	// Supported GEFF versions
@@ -81,6 +85,24 @@ public class GeffMetadata
 	private Map< String, String > trackNodeProps;
 
 	/**
+	 * The optional extra object is a free-form dictionary that can hold any
+	 * additional, application-specific metadata that is not covered by the core
+	 * geff schema. Users may place arbitrary keys and values inside extra
+	 * without fear of clashing with future reserved fields. Although the core
+	 * geff reader makes these attributes available, their meaning and use are
+	 * left entirely to downstream applications.
+	 *
+	 * @see <a href=
+	 *      "https://liveimagetrackingtools.org/geff/latest/specification/#geff_spec.GeffMetadata">GEFF
+	 *      Specification: extra</a>
+	 */
+	private Map< String, Object > extra;
+
+	private DisplayHints displayHints;
+
+	private RelatedObjects relatedObjects;
+
+	/**
 	 * Default constructor
 	 */
 	public GeffMetadata()
@@ -89,7 +111,7 @@ public class GeffMetadata
 	/**
 	 * Constructor with basic parameters
 	 */
-	public GeffMetadata( String geffVersion, boolean directed )
+	public GeffMetadata( final String geffVersion, final boolean directed )
 	{
 		setGeffVersion( geffVersion );
 		this.directed = directed;
@@ -98,7 +120,7 @@ public class GeffMetadata
 	/**
 	 * Constructor with all parameters
 	 */
-	public GeffMetadata( String geffVersion, boolean directed, GeffAxis[] geffAxes )
+	public GeffMetadata( final String geffVersion, final boolean directed, final GeffAxis[] geffAxes )
 	{
 		setGeffVersion( geffVersion );
 		this.directed = directed;
@@ -108,7 +130,7 @@ public class GeffMetadata
 	/**
 	 * Constructor with all parameters
 	 */
-	public GeffMetadata( String geffVersion, boolean directed, List< GeffAxis > geffAxes )
+	public GeffMetadata( final String geffVersion, final boolean directed, final List< GeffAxis > geffAxes )
 	{
 		setGeffVersion( geffVersion );
 		this.directed = directed;
@@ -121,7 +143,7 @@ public class GeffMetadata
 		return geffVersion;
 	}
 
-	public void setGeffVersion( String geffVersion )
+	public void setGeffVersion( final String geffVersion )
 	{
 		if ( geffVersion != null && !SUPPORTED_VERSIONS_PATTERN.matcher( geffVersion ).matches() )
 		{ throw new IllegalArgumentException(
@@ -137,7 +159,7 @@ public class GeffMetadata
 		return directed;
 	}
 
-	public void setDirected( boolean directed )
+	public void setDirected( final boolean directed )
 	{
 		this.directed = directed;
 	}
@@ -152,7 +174,7 @@ public class GeffMetadata
 		return ( geffAxes != null ) ? Arrays.asList( geffAxes ) : null;
 	}
 
-	public void setGeffAxes( GeffAxis[] geffAxes ) // TODO make List<GeffAxis>
+	public void setGeffAxes( final GeffAxis[] geffAxes ) // TODO make List<GeffAxis>
 	{
 		this.geffAxes = geffAxes != null ? geffAxes.clone() : null;
 		validate();
@@ -169,7 +191,7 @@ public class GeffMetadata
 		return nodePropsMetadata;
 	}
 
-	public void setNodePropsMetadata( Map< String, PropMetadata > nodePropsMetadata )
+	public void setNodePropsMetadata( final Map< String, PropMetadata > nodePropsMetadata )
 	{
 		this.nodePropsMetadata = nodePropsMetadata;
 	}
@@ -179,7 +201,7 @@ public class GeffMetadata
 		return edgePropsMetadata;
 	}
 
-	public void setEdgePropsMetadata( Map< String, PropMetadata > edgePropsMetadata )
+	public void setEdgePropsMetadata( final Map< String, PropMetadata > edgePropsMetadata )
 	{
 		this.edgePropsMetadata = edgePropsMetadata;
 	}
@@ -189,9 +211,39 @@ public class GeffMetadata
 		return trackNodeProps;
 	}
 
-	public void setTrackNodeProps( Map< String, String > trackNodeProps )
+	public void setTrackNodeProps( final Map< String, String > trackNodeProps )
 	{
 		this.trackNodeProps = trackNodeProps;
+	}
+
+	public Map< String, Object > getExtra()
+	{
+		return extra;
+	}
+
+	public void setExtra( final Map< String, Object > extra )
+	{
+		this.extra = extra;
+	}
+
+	public DisplayHints getDisplayHints()
+	{
+		return displayHints;
+	}
+
+	public void setDisplayHints( final DisplayHints displayHints )
+	{
+		this.displayHints = displayHints;
+	}
+
+	public void setRelatedObjects( final RelatedObjects relatedObjects )
+	{
+		this.relatedObjects = relatedObjects;
+	}
+
+	public RelatedObjects getRelatedObjects()
+	{
+		return relatedObjects;
 	}
 
 	/**
@@ -201,11 +253,11 @@ public class GeffMetadata
 	 * @param type the axis type (e.g., "time", "space", "channel")
 	 * @return the axis name, or null if no axis of the given type exists
 	 */
-	public String getAxisNameByType( String type )
+	public String getAxisNameByType( final String type )
 	{
 		if ( geffAxes != null )
 		{
-			for ( GeffAxis axis : geffAxes )
+			for ( final GeffAxis axis : geffAxes )
 			{
 				if ( type.equals( axis.getType() ) )
 				{
@@ -223,7 +275,7 @@ public class GeffMetadata
 	 * @param type the axis type (e.g., "space" for all spatial axes)
 	 * @return array of axis names (empty array if no matching axes)
 	 */
-	public String[] getAxisNamesByType( String type )
+	public String[] getAxisNamesByType( final String type )
 	{
 		if ( geffAxes == null )
 			return new String[ 0 ];
@@ -245,7 +297,7 @@ public class GeffMetadata
 		// Check spatial metadata consistency if position is provided
 		if ( geffAxes != null )
 		{
-			for ( GeffAxis axis : geffAxes )
+			for ( final GeffAxis axis : geffAxes )
 			{
 				if ( !Arrays.asList( GeffAxis.TYPE_TIME, GeffAxis.TYPE_SPACE, GeffAxis.TYPE_CHANNEL ).contains( axis.getType() ) )
 				{ throw new IllegalArgumentException(
@@ -318,10 +370,58 @@ public class GeffMetadata
 		}
 		LOG.debug( "found geff/track_node_props = {}", trackNodeProps );
 
+		// DisplayHints
+		DisplayHints displayHints = null;
+		try
+		{
+			final Map< String, String > dhMap = reader.getAttribute( group, "geff/display_hints", Map.class );
+			if ( dhMap != null )
+			{
+				displayHints = new DisplayHints();
+				displayHints.hints.putAll( dhMap );
+			}
+		}
+		catch ( final Exception e )
+		{
+			LOG.debug( "Could not parse geff/display_hints as DisplayHints, setting to null: {}", e.getMessage() );
+		}
+
+		// RelatedObjects
+		RelatedObjects relatedObjects = null;
+		try
+		{
+			final List< Map< String, String > > roMap = reader.getAttribute( group, "geff/related_objects", List.class );
+			relatedObjects = new RelatedObjects();
+			relatedObjects.relatedObjects.addAll( roMap );
+		}
+		catch ( final Exception e )
+		{
+			LOG.debug( "Could not parse geff/related_objects as RelatedObjects, setting to null: {}", e.getMessage() );
+		}
+
+		// Extra may be null, so safe-read it
+		Map< String, Object > extra = null;
+		try
+		{
+			extra = reader.getAttribute( group, "geff/extra",
+					new TypeToken< Map< String, Object > >()
+					{}.getType() );
+		}
+		catch ( final Exception e )
+		{
+			// If the attribute cannot be parsed as Map<String, String> (e.g.,
+			// if it's null in JSON), just leave it as null
+			LOG.debug( "Could not parse geff/extra as Map<String,Object>, setting to null: {}", e.getMessage() );
+		}
+		LOG.debug( "found geff/extra = {}", extra );
+
 		final GeffMetadata metadata = new GeffMetadata( geffVersion, directed, axes );
 		metadata.setNodePropsMetadata( nodePropsMetadata );
 		metadata.setEdgePropsMetadata( edgePropsMetadata );
 		metadata.setTrackNodeProps( trackNodeProps );
+		metadata.setDisplayHints( displayHints );
+		metadata.setRelatedObjects( relatedObjects );
+		metadata.setExtra( extra );
 		metadata.validate();
 
 		return metadata;
@@ -372,6 +472,24 @@ public class GeffMetadata
 			LOG.debug( "writing geff/track_node_props {}", trackNodeProps );
 			writer.setAttribute( group, "geff/track_node_props", trackNodeProps );
 		}
+
+		if ( displayHints != null )
+		{
+			LOG.debug( "writing geff/display_hints {}", displayHints );
+			writer.setAttribute( group, "geff/display_hints", displayHints.hints );
+		}
+
+		if ( relatedObjects != null )
+		{
+			LOG.debug( "writing geff/related_objects {}", relatedObjects.relatedObjects );
+			writer.setAttribute( group, "geff/related_objects", relatedObjects.relatedObjects );
+		}
+
+		if ( extra != null )
+		{
+			LOG.debug( "writing geff/extra {}", extra );
+			writer.setAttribute( group, "geff/extra", extra );
+		}
 	}
 
 	@Override
@@ -387,7 +505,7 @@ public class GeffMetadata
 	{
 		if ( !( o instanceof GeffMetadata ) )
 			return false;
-		GeffMetadata that = ( GeffMetadata ) o;
+		final GeffMetadata that = ( GeffMetadata ) o;
 		return directed == that.directed && Objects.equals( geffVersion, that.geffVersion ) && Objects.deepEquals( geffAxes, that.geffAxes )
 				&& Objects.equals( nodePropsMetadata, that.nodePropsMetadata ) && Objects.equals( edgePropsMetadata, that.edgePropsMetadata )
 				&& Objects.equals( trackNodeProps, that.trackNodeProps );
@@ -397,5 +515,112 @@ public class GeffMetadata
 	public int hashCode()
 	{
 		return Objects.hash( geffVersion, directed, Arrays.hashCode( geffAxes ), nodePropsMetadata, edgePropsMetadata, trackNodeProps );
+	}
+
+	/**
+	 * Display hints for GEFF
+	 *
+	 * @see <a href=
+	 *      "https://liveimagetrackingtools.org/geff/latest/reference/geff_spec/#geff_spec.DisplayHint">GEFF
+	 *      Specification: DisplayHint</a>
+	 * @author Jean-Yves Tinevez
+	 */
+	public static class DisplayHints
+	{
+
+		private final Map< String, String > hints = new HashMap<>();
+
+
+		/**
+		 * Which spatial axis to use for horizontal display.
+		 *
+		 * @param propName
+		 *            the name of the property to use for horizontal display.
+		 * @return
+		 */
+		public DisplayHints displayHorizontal( final String propName )
+		{
+			hints.put( "display_horizontal", propName );
+			return this;
+		}
+
+		public DisplayHints displayVertical( final String propName )
+		{
+			hints.put( "display_vertical", propName );
+			return this;
+		}
+
+		public DisplayHints displayDepth( final String propName )
+		{
+			hints.put( "display_depth", propName );
+			return this;
+		}
+
+		public DisplayHints displayTime( final String propName )
+		{
+			hints.put( "display_time", propName );
+			return this;
+		}
+	}
+
+	/**
+	 * A set of metadata for data that is associated with the graph. The types
+	 * 'labels' and 'image' should be used for label and image objects,
+	 * respectively. Other types are also allowed.
+	 *
+	 * @see <a
+	 *      href=https://liveimagetrackingtools.org/geff/latest/reference/geff_spec/#geff_spec.RelatedObject>GEFF
+	 *      Specification: RelatedObject</a>
+	 * @author Jean-Yves Tinevez
+	 */
+	public static class RelatedObjects
+	{
+
+		private final List< Map< String, String > > relatedObjects = new ArrayList<>();
+
+		/**
+		 * Add a related object of type 'labels' with the specified path and
+		 * label property.
+		 *
+		 * @param path
+		 *            Path of the labels within the zarr group, relative to the
+		 *            geff zarr-attributes file. It is strongly recommended all
+		 *            related objects are stored as siblings of the geff group
+		 *            within the top-level zarr group.
+		 * @param labelProp
+		 *            Property name for label objects. This is the node property
+		 *            that will be used to identify the labels in the related
+		 *            object.
+		 * @return this RelatedObject instance for method chaining.
+		 */
+		public RelatedObjects labels( final String path, final String labelProp )
+		{
+			relatedObjects.add( Map.of( "type", "labels", "path", path, "label_prop", labelProp ) );
+			return this;
+		}
+
+		/**
+		 * Add a related object of type 'image' with the specified path.
+		 *
+		 * @param path
+		 *            Path of the image within the zarr group, relative to the
+		 *            geff zarr-attributes file. It is strongly recommended all
+		 *            related objects are stored as siblings of the geff group
+		 *            within the top-level zarr group.
+		 * @return this RelatedObject instance for method chaining.
+		 */
+		public RelatedObjects image( final String path )
+		{
+			relatedObjects.add( Map.of( "type", "image", "path", path ) );
+			return this;
+		}
+
+		public List< String > getImagePaths()
+		{
+			return relatedObjects.stream()
+					.filter( obj -> "image".equals( obj.get( "type" ) ) )
+					.map( obj -> obj.get( "path" ) )
+					.collect( Collectors.toList() );
+		}
 	}
 }

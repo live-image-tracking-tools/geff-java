@@ -275,15 +275,16 @@ public class GeffTest
 			nodes.add( node );
 		}
 
-		final Object[] data = new Object[] { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0 };
-		final long[][] offsets = new long[][] { { 0, 2 }, { 2, 3 }, { 5, 1 } };
-		final boolean[] missing = new boolean[] { false, false, false };
-
-		final VarlengthProperty polygonProperty = new VarlengthProperty( "polygon", "float64", data, offsets, missing );
-		for ( GeffNode node : nodes )
-		{
-			node.setVarlengthProperty( "polygon", polygonProperty );
-		}
+		// Polygon data is stored as interleaved x,y pairs, so length must be even.
+		// Node 0: 1 vertex  → [x1, y1]
+		nodes.get( 0 ).setVarlengthProperty( "polygon",
+				new VarlengthProperty( "polygon", "float64", new Object[] { 1.0, 2.0 } ) );
+		// Node 1: 2 vertices → [x1, y1, x2, y2]
+		nodes.get( 1 ).setVarlengthProperty( "polygon",
+				new VarlengthProperty( "polygon", "float64", new Object[] { 3.0, 4.0, 5.0, 6.0 } ) );
+		// Node 2: 2 vertices → [x1, y1, x2, y2]
+		nodes.get( 2 ).setVarlengthProperty( "polygon",
+				new VarlengthProperty( "polygon", "float64", new Object[] { 7.0, 8.0, 9.0, 10.0 } ) );
 
 		final GeffMetadata metadata = new GeffMetadata( Geff.VERSION, true );
 		GeffNode.writeToZarr( nodes, tempPath, metadata );
@@ -295,24 +296,22 @@ public class GeffTest
 		assertTrue( readMetadata.getNodePropsMetadata().containsKey( "polygon" ) );
 		assertEquals( true, readMetadata.getNodePropsMetadata().get( "polygon" ).getVarlength() );
 
+		final Object[][] expectedData = {
+				new Object[] { 1.0, 2.0 },
+				new Object[] { 3.0, 4.0, 5.0, 6.0 },
+				new Object[] { 7.0, 8.0, 9.0, 10.0 }
+		};
+
 		for ( int i = 0; i < nodes.size(); i++ )
 		{
 			final VarlengthProperty readProperty = readNodes.get( i ).getVarlengthProperty( "polygon" );
 			assertNotNull( readProperty );
-			final Object nodeData = readProperty.getNodeData( i );
+			assertFalse( readProperty.isMissing() );
+			final Object[] nodeData = readProperty.getData();
 			assertNotNull( nodeData );
-			assertTrue( nodeData instanceof Object[] );
 
-			final int offset = ( int ) offsets[ i ][ 0 ];
-			final int length = ( int ) offsets[ i ][ 1 ];
-			final Object[] expected = new Object[ length ];
-			for ( int j = 0; j < length; j++ )
-			{
-				expected[ j ] = data[ offset + j ];
-			}
-
-			System.out.println( "Node " + i + " expected=" + java.util.Arrays.toString( expected ) + " actual=" + java.util.Arrays.toString( ( Object[] ) nodeData ) );
-			assertArrayEquals( expected, ( Object[] ) nodeData );
+			System.out.println( "Node " + i + " expected=" + java.util.Arrays.toString( expectedData[ i ] ) + " actual=" + java.util.Arrays.toString( nodeData ) );
+			assertArrayEquals( expectedData[ i ], nodeData );
 		}
 	}
 
