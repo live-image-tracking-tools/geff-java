@@ -133,7 +133,7 @@ GeffNode node0 = new GeffNode.Builder()
     .segmentId(0)
     .color(new double[]{1.0, 0.0, 0.0, 1.0}) // Red color
     .radius(2.5)
-    .covariance2d(new double[]{1.0, 0.2, 0.2, 1.5}) // 2x2 covariance matrix flattened
+    .covariance2d(new double[]{1.0, 0.2, 0.2, 1.5}) // 2x2 covariance matrix, row-major
     .polygonX(new double[]{1.0, 2.0, 3.0, 4.0}) // Polygon X coordinates
     .polygonY(new double[]{5.0, 6.0, 7.0, 8.0}) // Polygon Y coordinates
     .build();
@@ -283,8 +283,8 @@ dataset.zarr/
     │   │   ├── color/values        # RGBA colors [N, 4] (optional)
     │   │   ├── radius/values       # Node radii [N] (optional)
     │   │   ├── <tracklet>/values   # Track IDs [N] (name from track_node_props, optional)
-    │   │   ├── covariance2d/values # Flattened 2D covariance [N, 4] (optional)
-    │   │   ├── covariance3d/values # Flattened 3D covariance [N, 6] (optional)
+    │   │   ├── covariance2d/values # 2D covariance matrices [N, 2, 2] (optional)
+    │   │   ├── covariance3d/values # 3D covariance matrices [N, 3, 3] (optional)
     │   │   └── <varlength_prop>/   # Variable-length property, e.g. polygon (optional)
     │   │       ├── data            # Flattened values [V]
     │   │       ├── values          # Offsets and shapes [N, ndim+1]

@@ -353,6 +353,165 @@ public class GeffMetadata
 		return ( spaceAxes.length == 0 || indexFromLast < 2 ) ? standardName : null;
 	}
 
+	/**
+	 * Get the metadata of a standard node property, as declared in
+	 * {@code node_props_metadata}.
+	 *
+	 * @param standardName
+	 *            the conventional name of the property, e.g. {@code "radius"}
+	 *            or {@code "covariance3d"}
+	 * @return the property metadata, or null if the property is not declared
+	 * @see #findPropMetadata(Map, String)
+	 */
+	public PropMetadata getNodePropMetadata( final String standardName )
+	{
+		return findPropMetadata( nodePropsMetadata, standardName );
+	}
+
+	/**
+	 * Get the metadata of a standard edge property, as declared in
+	 * {@code edge_props_metadata}.
+	 *
+	 * @param standardName
+	 *            the conventional name of the property, e.g. {@code "distance"}
+	 *            or {@code "score"}
+	 * @return the property metadata, or null if the property is not declared
+	 * @see #findPropMetadata(Map, String)
+	 */
+	public PropMetadata getEdgePropMetadata( final String standardName )
+	{
+		return findPropMetadata( edgePropsMetadata, standardName );
+	}
+
+	/**
+	 * Get the identifier of a standard node property, i.e. the name of the
+	 * group holding it in {@code nodes/props}.
+	 *
+	 * @param standardName
+	 *            the conventional name of the property, e.g. {@code "radius"}
+	 *            or {@code "covariance3d"}
+	 * @return the property identifier, never null
+	 * @see #resolvePropIdentifier(Map, String)
+	 */
+	public String getNodePropIdentifier( final String standardName )
+	{
+		return resolvePropIdentifier( nodePropsMetadata, standardName );
+	}
+
+	/**
+	 * Get the identifier of a standard edge property, i.e. the name of the
+	 * group holding it in {@code edges/props}.
+	 *
+	 * @param standardName
+	 *            the conventional name of the property, e.g. {@code "distance"}
+	 *            or {@code "score"}
+	 * @return the property identifier, never null
+	 * @see #resolvePropIdentifier(Map, String)
+	 */
+	public String getEdgePropIdentifier( final String standardName )
+	{
+		return resolvePropIdentifier( edgePropsMetadata, standardName );
+	}
+
+	/**
+	 * Look up a property in a props metadata map. The map is keyed by property
+	 * identifier, so a property is matched by the {@code identifier} of its
+	 * metadata first, and by the map key second, which covers maps built
+	 * without setting the identifier.
+	 *
+	 * @param propsMetadata
+	 *            {@code node_props_metadata} or {@code edge_props_metadata},
+	 *            may be null
+	 * @param standardName
+	 *            the conventional name of the property
+	 * @return the property metadata, or null if the property is not declared
+	 */
+	private static PropMetadata findPropMetadata( final Map< String, PropMetadata > propsMetadata, final String standardName )
+	{
+		if ( propsMetadata == null )
+			return null;
+
+		for ( final PropMetadata propMetadata : propsMetadata.values() )
+			if ( propMetadata != null && standardName.equals( propMetadata.getIdentifier() ) )
+				return propMetadata;
+
+		return propsMetadata.get( standardName );
+	}
+
+	/**
+	 * Resolve the identifier naming the group that holds a property, by looking
+	 * the property up in a props metadata map.
+	 *
+	 * @param propsMetadata
+	 *            {@code node_props_metadata} or {@code edge_props_metadata},
+	 *            may be null
+	 * @param standardName
+	 *            the conventional name of the property
+	 * @return the declared identifier, falling back to {@code standardName} for
+	 *         properties that are not declared, e.g. in datasets written before
+	 *         props metadata existed
+	 */
+	private static String resolvePropIdentifier( final Map< String, PropMetadata > propsMetadata, final String standardName )
+	{
+		final PropMetadata propMetadata = findPropMetadata( propsMetadata, standardName );
+		final String identifier = propMetadata != null ? propMetadata.getIdentifier() : null;
+		if ( identifier != null && !identifier.trim().isEmpty() )
+			return identifier;
+
+		LOG.debug( "no props metadata for '{}', assuming it is stored under that name", standardName );
+		return standardName;
+	}
+
+	/**
+	 * Get the positions that the x, y (and z) axes occupy in a property whose
+	 * dimensions follow the declaration order of the spatial axes, such as a
+	 * covariance matrix: the spec stores those "in the same coordinate system
+	 * as the {@code space} type properties", and axes are declared slowest to
+	 * fastest, i.e. typically {@code z, y, x}.
+	 * <p>
+	 * For axes declared as {@code z, y, x} this returns {@code { 2, 1, 0 }},
+	 * i.e. the x axis is the last dimension of the stored matrix. For axes
+	 * declared as {@code x, y, z} it returns the identity {@code { 0, 1, 2 }}.
+	 *
+	 * @param numDimensions
+	 *            2 for a 2D property (x, y), 3 for a 3D one (x, y, z)
+	 * @return the positions of the x, y (and z) axes in the stored order, or
+	 *         null if the dataset does not declare the spatial axes needed to
+	 *         tell, in which case the stored order is assumed to be x, y, z
+	 */
+	public int[] getSpaceAxisPositions( final int numDimensions )
+	{
+		final String[] spaceAxes = getAxisNamesByType( GeffAxis.TYPE_SPACE );
+		if ( spaceAxes.length < numDimensions )
+			return null;
+
+		final String[] axisNames = numDimensions == 3
+				? new String[] { getHorizontalAxisName(), getVerticalAxisName(), getDepthAxisName() }
+				: new String[] { getHorizontalAxisName(), getVerticalAxisName() };
+
+		final int[] declarationIndices = new int[ numDimensions ];
+		for ( int j = 0; j < numDimensions; ++j )
+		{
+			declarationIndices[ j ] = Arrays.asList( spaceAxes ).indexOf( axisNames[ j ] );
+			if ( declarationIndices[ j ] < 0 )
+			{
+				LOG.debug( "axis '{}' is not among the spatial axes {}, assuming the x, y, z order",
+						axisNames[ j ], Arrays.toString( spaceAxes ) );
+				return null;
+			}
+		}
+
+		// The position of an axis is its rank among the axes taken into
+		// account, so that a covariance2d of a z, y, x dataset is read as
+		// y, x rather than as the declaration indices 1, 2.
+		final int[] positions = new int[ numDimensions ];
+		for ( int j = 0; j < numDimensions; ++j )
+			for ( int k = 0; k < numDimensions; ++k )
+				if ( declarationIndices[ k ] < declarationIndices[ j ] )
+					++positions[ j ];
+		return positions;
+	}
+
 	public RelatedObjects getRelatedObjects()
 	{
 		return relatedObjects;

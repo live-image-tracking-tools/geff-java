@@ -313,15 +313,26 @@ public class GeffEdge
 		}
 		final int numEdges = edgeIds.size()[ 1 ];
 
+		// Determine the group names of the standard props from
+		// edge_props_metadata, falling back to the standard names for datasets
+		// that do not declare them.
+		final String distancePropName = metadata != null ? metadata.getEdgePropIdentifier( "distance" ) : "distance";
+		final String scorePropName = metadata != null ? metadata.getEdgePropIdentifier( "score" ) : "score";
+
 		// Read distances from chunks
-		final double[] distances = GeffUtils.readAsDoubleArray( reader, path + "/edges/props/distance/values", "distances" );
-		verifyLength( distances, numEdges, "/edges/props/distance/values" );
+		final String distancePropPath = path + "/edges/props/" + distancePropName + "/values";
+		final double[] distances = GeffUtils.readAsDoubleArray( reader, distancePropPath, "distances" );
+		verifyLength( distances, numEdges, distancePropPath );
 
 		// Read scores from chunks
-		final double[] scores = GeffUtils.readAsDoubleArray( reader, path + "/edges/props/score/values", "scores" );
-		verifyLength( scores, numEdges, "/edges/props/score/values" );
+		final String scorePropPath = path + "/edges/props/" + scorePropName + "/values";
+		final double[] scores = GeffUtils.readAsDoubleArray( reader, scorePropPath, "scores" );
+		verifyLength( scores, numEdges, scorePropPath );
 
 		// Read custom non-standard, non-varlength edge props from metadata
+		final Set< String > standardNames = new HashSet<>( STANDARD_EDGE_PROP_NAMES );
+		standardNames.add( distancePropName );
+		standardNames.add( scorePropName );
 		final Map< String, Object[] > customPropData = new HashMap<>();
 		final Map< String, VarlengthProperty[] > varlengthPropsMap = new HashMap<>();
 		if ( metadata != null && metadata.getEdgePropsMetadata() != null )
@@ -330,7 +341,7 @@ public class GeffEdge
 			{
 				final String propName = entry.getKey();
 				final PropMetadata propMeta = entry.getValue();
-				if ( STANDARD_EDGE_PROP_NAMES.contains( propName ) )
+				if ( standardNames.contains( propName ) )
 					continue;
 				if ( GeffUtils.shouldSkipProperty( propName, propMeta ) )
 					continue;
@@ -375,7 +386,7 @@ public class GeffEdge
 							}
 							customPropData.put( propName, edgeVals );
 						}
-						else if ( ndim == 2 )
+						else if ( ndim >= 2 )
 						{
 							if ( isFloat )
 							{
@@ -515,13 +526,19 @@ public class GeffEdge
 		// there are no edge properties (mirrors what Python geff writes).
 		writer.createGroup( path + "/edges/props" );
 
+		// Determine the group names of the standard props from
+		// edge_props_metadata, falling back to the standard names for datasets
+		// that do not declare them.
+		final String distancePropName = metadata != null ? metadata.getEdgePropIdentifier( "distance" ) : "distance";
+		final String scorePropName = metadata != null ? metadata.getEdgePropIdentifier( "score" ) : "score";
+
 		// Write distances
-		if ( writeAllProps || edgePropsMetadata.containsKey( "distance" ) )
-			GeffUtils.writeDoubleArray( edges, GeffEdge::getDistance, writer, path + "/edges/props/distance/values", chunkSize );
+		if ( writeAllProps || metadata.getEdgePropMetadata( "distance" ) != null )
+			GeffUtils.writeDoubleArray( edges, GeffEdge::getDistance, writer, path + "/edges/props/" + distancePropName + "/values", chunkSize );
 
 		// Write scores
-		if ( writeAllProps || edgePropsMetadata.containsKey( "score" ) )
-			GeffUtils.writeDoubleArray( edges, GeffEdge::getScore, writer, path + "/edges/props/score/values", chunkSize );
+		if ( writeAllProps || metadata.getEdgePropMetadata( "score" ) != null )
+			GeffUtils.writeDoubleArray( edges, GeffEdge::getScore, writer, path + "/edges/props/" + scorePropName + "/values", chunkSize );
 
 		// When writeAllProps=true (no edgePropsMetadata provided), populate metadata
 		// with the standard props so the output zarr passes Python structural
@@ -529,8 +546,8 @@ public class GeffEdge
 		if ( writeAllProps && metadata != null )
 		{
 			final Map< String, PropMetadata > edgePropsMap = new HashMap<>();
-			edgePropsMap.put( "distance", new PropMetadata( "distance", "float64", false, null, null, null ) );
-			edgePropsMap.put( "score", new PropMetadata( "score", "float64", false, null, null, null ) );
+			edgePropsMap.put( distancePropName, new PropMetadata( distancePropName, "float64", false, null, null, null ) );
+			edgePropsMap.put( scorePropName, new PropMetadata( scorePropName, "float64", false, null, null, null ) );
 			metadata.setEdgePropsMetadata( edgePropsMap );
 		}
 

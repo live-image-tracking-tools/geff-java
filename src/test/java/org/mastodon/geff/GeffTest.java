@@ -36,8 +36,15 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.io.TempDir;
 import static org.junit.jupiter.api.Assertions.*;
 
+import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
+import org.janelia.saalfeldlab.n5.zarr.N5ZarrWriter;
+
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Test class for the main Geff functionality
@@ -350,6 +357,148 @@ public class GeffTest
 			assertArrayEquals( cov2dValues[ i ], readNodes.get( i ).getCovariance2d(), 1e-9,
 					"covariance2d mismatch at node " + i );
 		}
+
+		// The GEFF spec defines covariance2d as [N, 2, 2]
+		assertArrayEquals( new long[] { cov2dValues.length, 2, 2 },
+				zarrShape( tempPath + "/nodes/props/covariance2d/values" ) );
+	}
+
+	/**
+	 * Read the zarr shape of a written dataset, i.e. the {@code shape} entry of
+	 * its {@code .zarray}.
+	 */
+	private static long[] zarrShape( final String datasetPath ) throws IOException
+	{
+		try (final N5ZarrReader reader = new N5ZarrReader( datasetPath, true ))
+		{
+			// N5 reports the dimensions in the reverse order of the zarr shape
+			final long[] dimensions = reader.getDatasetAttributes( "/" ).getDimensions();
+			final long[] shape = new long[ dimensions.length ];
+			for ( int d = 0; d < dimensions.length; d++ )
+				shape[ d ] = dimensions[ dimensions.length - 1 - d ];
+			return shape;
+		}
+	}
+
+	@Test
+	@DisplayName( "Test covariance dimensions follow the z, y, x axes order on disk" )
+	void testCovarianceAxisOrder( @TempDir Path tempDir ) throws IOException
+	{
+		final String tempPath = tempDir.toString() + "/test-cov-axis-order.zarr/tracks";
+
+		// Axes in the order the spec defines, slowest to fastest
+		final GeffMetadata metadata = new GeffMetadata( Geff.VERSION, true );
+		metadata.setGeffAxes( new GeffAxis[] {
+				new GeffAxis( "t", GeffAxis.TYPE_TIME, GeffAxis.UNIT_SECOND, 0.0, 10.0 ),
+				new GeffAxis( "z", GeffAxis.TYPE_SPACE, GeffAxis.UNIT_MICROMETER, 0.0, 10.0 ),
+				new GeffAxis( "y", GeffAxis.TYPE_SPACE, GeffAxis.UNIT_MICROMETER, 0.0, 10.0 ),
+				new GeffAxis( "x", GeffAxis.TYPE_SPACE, GeffAxis.UNIT_MICROMETER, 0.0, 10.0 )
+		} );
+		assertArrayEquals( new int[] { 2, 1, 0 }, metadata.getSpaceAxisPositions( 3 ) );
+		assertArrayEquals( new int[] { 1, 0 }, metadata.getSpaceAxisPositions( 2 ) );
+
+		// A covariance whose entries are all distinct, so that a wrong
+		// permutation cannot go unnoticed
+		final double[] cov3d = { 1.0, 2.0, 3.0, 2.0, 4.0, 5.0, 3.0, 5.0, 6.0 };
+		final double[] cov2d = { 1.0, 2.0, 2.0, 4.0 };
+
+		final GeffNode node = new GeffNode();
+		node.setId( 0 );
+		node.setT( 0 );
+		node.setX( 1.0 );
+		node.setY( 2.0 );
+		node.setZ( 3.0 );
+		node.setCovariance3d( cov3d );
+		node.setCovariance2d( cov2d );
+		final List< GeffNode > nodes = new ArrayList<>();
+		nodes.add( node );
+
+		GeffNode.writeToZarr( nodes, tempPath, metadata );
+		GeffMetadata.writeToZarr( metadata, tempPath );
+
+		// On disk the dimensions are z, y, x, i.e. the x, y, z matrix with its
+		// rows and columns reversed
+		final double[] storedCov3d = { 6.0, 5.0, 3.0, 5.0, 4.0, 2.0, 3.0, 2.0, 1.0 };
+		final double[] storedCov2d = { 4.0, 2.0, 2.0, 1.0 };
+		try (final N5ZarrReader reader = new N5ZarrReader( tempPath, true ))
+		{
+			assertArrayEquals( storedCov3d,
+					GeffUtils.readAsDoubleMatrix( reader, "/nodes/props/covariance3d/values", "covariance3d" ).rowAt( 0 ),
+					1e-9, "covariance3d is not stored in the z, y, x axes order" );
+			assertArrayEquals( storedCov2d,
+					GeffUtils.readAsDoubleMatrix( reader, "/nodes/props/covariance2d/values", "covariance2d" ).rowAt( 0 ),
+					1e-9, "covariance2d is not stored in the y, x axes order" );
+		}
+
+		// Reading permutes back into the x, y, z order
+		final List< GeffNode > readNodes = GeffNode.readFromZarr( tempPath, GeffMetadata.readFromZarr( tempPath ) );
+		assertEquals( 1, readNodes.size() );
+		assertArrayEquals( cov3d, readNodes.get( 0 ).getCovariance3d(), 1e-9 );
+		assertArrayEquals( cov2d, readNodes.get( 0 ).getCovariance2d(), 1e-9 );
+	}
+
+	@Test
+	@DisplayName( "Test reading covariances written with the legacy [N, 4] and [N, 6] shapes" )
+	void testLegacyCovarianceShapes( @TempDir Path tempDir ) throws IOException
+	{
+		final String tempPath = tempDir.toString() + "/test-legacy-cov.zarr/tracks";
+
+		final List< GeffNode > nodes = new ArrayList<>();
+		for ( int i = 0; i < 3; i++ )
+		{
+			final GeffNode node = new GeffNode();
+			node.setId( i );
+			node.setT( i );
+			node.setX( i * 1.0 );
+			node.setY( i * 2.0 );
+			node.setZ( i * 3.0 );
+			nodes.add( node );
+		}
+
+		final GeffMetadata metadata = new GeffMetadata( Geff.VERSION, true );
+		GeffNode.writeToZarr( nodes, tempPath, metadata );
+		GeffMetadata.writeToZarr( metadata, tempPath );
+
+		// Overwrite the covariances with the flat shapes written by earlier
+		// versions of geff-java: [N, 4] for covariance2d, and the upper
+		// triangle { xx, xy, xz, yy, yz, zz } as [N, 6] for covariance3d
+		final double[][] legacyCov2d = {
+				{ 2.0, 0.5, 0.5, 3.0 },
+				{ 1.5, -0.3, -0.3, 1.8 },
+				{ 4.0, 0.0, 0.0, 4.0 },
+		};
+		final double[][] legacyCov3d = {
+				{ 2.0, 0.5, 0.1, 3.0, 0.2, 1.5 },
+				{ 1.0, 0.0, 0.0, 1.0, 0.0, 1.0 },
+				{ 5.0, -0.2, 0.3, 4.0, -0.1, 3.0 },
+		};
+		final List< Integer > indices = new ArrayList<>();
+		for ( int i = 0; i < nodes.size(); i++ )
+			indices.add( i );
+		try (final N5ZarrWriter writer = new N5ZarrWriter( tempPath, true ))
+		{
+			writer.remove( "/nodes/props/covariance2d/values" );
+			writer.remove( "/nodes/props/covariance3d/values" );
+			GeffUtils.writeDoubleMatrix( indices, 4, i -> legacyCov2d[ i ], writer, "/nodes/props/covariance2d/values", 3 );
+			GeffUtils.writeDoubleMatrix( indices, 6, i -> legacyCov3d[ i ], writer, "/nodes/props/covariance3d/values", 3 );
+		}
+
+		final List< GeffNode > readNodes = GeffNode.readFromZarr( tempPath, GeffMetadata.readFromZarr( tempPath ) );
+		assertEquals( nodes.size(), readNodes.size() );
+		for ( int i = 0; i < nodes.size(); i++ )
+		{
+			// covariance2d is unchanged: [N, 4] and [N, 2, 2] hold the same
+			// 4 values per node
+			assertArrayEquals( legacyCov2d[ i ], readNodes.get( i ).getCovariance2d(), 1e-9,
+					"covariance2d mismatch at node " + i );
+
+			// covariance3d is expanded from the upper triangle to the full
+			// symmetric 3x3 matrix
+			final double[] t = legacyCov3d[ i ];
+			final double[] expected = { t[ 0 ], t[ 1 ], t[ 2 ], t[ 1 ], t[ 3 ], t[ 4 ], t[ 2 ], t[ 4 ], t[ 5 ] };
+			assertArrayEquals( expected, readNodes.get( i ).getCovariance3d(), 1e-9,
+					"covariance3d mismatch at node " + i );
+		}
 	}
 
 	@Test
@@ -359,9 +508,9 @@ public class GeffTest
 		final String tempPath = tempDir.toString() + "/test-cov3d.zarr/tracks";
 
 		final double[][] cov3dValues = {
-				{ 2.0, 0.5, 0.1, 3.0, 0.2, 1.5 },
-				{ 1.0, 0.0, 0.0, 1.0, 0.0, 1.0 },
-				{ 5.0, -0.2, 0.3, 4.0, -0.1, 3.0 },
+				{ 2.0, 0.5, 0.1, 0.5, 3.0, 0.2, 0.1, 0.2, 1.5 },
+				{ 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0 },
+				{ 5.0, -0.2, 0.3, -0.2, 4.0, -0.1, 0.3, -0.1, 3.0 },
 		};
 
 		final List< GeffNode > nodes = new ArrayList<>();
@@ -388,6 +537,10 @@ public class GeffTest
 			assertArrayEquals( cov3dValues[ i ], readNodes.get( i ).getCovariance3d(), 1e-9,
 					"covariance3d mismatch at node " + i );
 		}
+
+		// The GEFF spec defines covariance3d as [N, 3, 3]
+		assertArrayEquals( new long[] { cov3dValues.length, 3, 3 },
+				zarrShape( tempPath + "/nodes/props/covariance3d/values" ) );
 	}
 
 	@Test
@@ -495,5 +648,92 @@ public class GeffTest
 			assertEquals( expected.getY(), actual.getY(), 1e-9, "y mismatch at node " + i );
 			assertEquals( expected.getSegmentId(), actual.getSegmentId(), "segmentId mismatch at node " + i );
 		}
+	}
+
+	@Test
+	@DisplayName( "Test reading/writing radius and covariance3d under custom prop identifiers" )
+	void testCustomPropIdentifiers( @TempDir Path tempDir ) throws IOException
+	{
+		// Declare radius, covariance3d and distance under identifiers that
+		// differ from their standard names.
+		final GeffMetadata metadata = new GeffMetadata( Geff.VERSION, true );
+		metadata.setGeffAxes( new GeffAxis[] {
+				new GeffAxis( "t", GeffAxis.TYPE_TIME, GeffAxis.UNIT_SECOND, 0.0, 100.0 ),
+				new GeffAxis( "y", GeffAxis.TYPE_SPACE, GeffAxis.UNIT_PIXEL, 0.0, 768.0 ),
+				new GeffAxis( "x", GeffAxis.TYPE_SPACE, GeffAxis.UNIT_PIXEL, 0.0, 1024.0 )
+		} );
+
+		final Map< String, PropMetadata > nodeProps = new HashMap<>();
+		nodeProps.put( "t", new PropMetadata( "t", "int32", false, null, null, null ) );
+		nodeProps.put( "x", new PropMetadata( "x", "float64", false, null, null, null ) );
+		nodeProps.put( "y", new PropMetadata( "y", "float64", false, null, null, null ) );
+		nodeProps.put( "radius", new PropMetadata( "cell_radius", "float64", false, null, null, null ) );
+		nodeProps.put( "covariance3d", new PropMetadata( "cell_covariance3d", "float64", false, null, null, null ) );
+		metadata.setNodePropsMetadata( nodeProps );
+
+		final Map< String, PropMetadata > edgeProps = new HashMap<>();
+		edgeProps.put( "distance", new PropMetadata( "edge_distance", "float64", false, null, null, null ) );
+		metadata.setEdgePropsMetadata( edgeProps );
+
+		final List< GeffNode > nodes = new ArrayList<>();
+		for ( int i = 0; i < 3; i++ )
+		{
+			final GeffNode node = new GeffNode();
+			node.setId( i );
+			node.setT( i );
+			node.setX( i * 10.0 );
+			node.setY( i * 20.0 );
+			node.setRadius( 2.0 + i );
+			node.setCovariance3d( new double[] { i, 0.0, 0.0, 0.0, i + 1.0, 0.0, 0.0, 0.0, i + 2.0 } );
+			nodes.add( node );
+		}
+
+		final List< GeffEdge > edges = new ArrayList<>();
+		for ( int i = 0; i < 2; i++ )
+			edges.add( new GeffEdge( i, i, i + 1, 0.5, 3.0 + i ) );
+
+		final String tempPath = tempDir.toString() + "/test-custom-prop-ids.zarr/tracks";
+		GeffNode.writeToZarr( nodes, tempPath, metadata );
+		GeffEdge.writeToZarr( edges, tempPath, metadata );
+		GeffMetadata.writeToZarr( metadata, tempPath );
+
+		// The values are stored under the declared identifiers, not under the
+		// standard names
+		assertTrue( Files.isDirectory( Paths.get( tempPath, "nodes", "props", "cell_radius", "values" ) ) );
+		assertTrue( Files.isDirectory( Paths.get( tempPath, "nodes", "props", "cell_covariance3d", "values" ) ) );
+		assertTrue( Files.isDirectory( Paths.get( tempPath, "edges", "props", "edge_distance", "values" ) ) );
+		assertFalse( Files.exists( Paths.get( tempPath, "nodes", "props", "radius" ) ) );
+		assertFalse( Files.exists( Paths.get( tempPath, "nodes", "props", "covariance3d" ) ) );
+		assertFalse( Files.exists( Paths.get( tempPath, "edges", "props", "distance" ) ) );
+
+		// Reading resolves the identifiers from node_props_metadata and
+		// edge_props_metadata again
+		final GeffMetadata readMetadata = GeffMetadata.readFromZarr( tempPath );
+		assertEquals( "cell_radius", readMetadata.getNodePropIdentifier( "radius" ) );
+		assertEquals( "cell_covariance3d", readMetadata.getNodePropIdentifier( "covariance3d" ) );
+		assertEquals( "edge_distance", readMetadata.getEdgePropIdentifier( "distance" ) );
+		// Props that are not declared keep their standard name
+		assertEquals( "covariance2d", readMetadata.getNodePropIdentifier( "covariance2d" ) );
+
+		final List< GeffNode > readNodes = GeffNode.readFromZarr( tempPath, readMetadata );
+		assertEquals( nodes.size(), readNodes.size() );
+		for ( int i = 0; i < nodes.size(); i++ )
+		{
+			final GeffNode expected = nodes.get( i );
+			final GeffNode actual = readNodes.get( i );
+			assertEquals( expected.getRadius(), actual.getRadius(), 1e-9, "radius mismatch at node " + i );
+			assertArrayEquals( expected.getCovariance3d(), actual.getCovariance3d(), 1e-9,
+					"covariance3d mismatch at node " + i );
+			// A prop read under its own identifier is not also reported as a
+			// custom prop
+			assertNull( actual.getProp( "radius" ) );
+			assertNull( actual.getProp( "cell_radius" ) );
+		}
+
+		final List< GeffEdge > readEdges = GeffEdge.readFromZarr( tempPath, readMetadata );
+		assertEquals( edges.size(), readEdges.size() );
+		for ( int i = 0; i < edges.size(); i++ )
+			assertEquals( edges.get( i ).getDistance(), readEdges.get( i ).getDistance(), 1e-9,
+					"distance mismatch at edge " + i );
 	}
 }

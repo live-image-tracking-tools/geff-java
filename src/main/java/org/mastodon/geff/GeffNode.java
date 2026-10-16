@@ -93,9 +93,11 @@ public class GeffNode
 
 	public static final double DEFAULT_RADIUS = 1.0;
 
+	/** Identity, as the 4 elements of a row-major 2x2 matrix. */
 	public static final double[] DEFAULT_COVARIANCE_2D = { 1.0, 0.0, 0.0, 1.0 };
 
-	public static final double[] DEFAULT_COVARIANCE_3D = { 1.0, 0.0, 0.0, 1.0, 0.0, 1.0 };
+	/** Identity, as the 9 elements of a row-major 3x3 matrix. */
+	public static final double[] DEFAULT_COVARIANCE_3D = { 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0 };
 
 	/**
 	 * Default constructor
@@ -126,9 +128,11 @@ public class GeffNode
 	 * @param radius
 	 *            The radius of the node.
 	 * @param covariance2d
-	 *            The 2D covariance matrix of the node.
+	 *            The 2D covariance matrix of the node, as the 4 elements of a
+	 *            row-major 2x2 matrix.
 	 * @param covariance3d
-	 *            The 3D covariance matrix of the node.
+	 *            The 3D covariance matrix of the node, as the 9 elements of a
+	 *            row-major 3x3 matrix.
 	 * @param polygonX
 	 *            The x-coordinates of the polygon vertices.
 	 * @param polygonY
@@ -146,7 +150,7 @@ public class GeffNode
 		this.segmentId = segmentId;
 		this.radius = radius;
 		this.covariance2d = covariance2d != null ? covariance2d : DEFAULT_COVARIANCE_2D;
-		this.covariance3d = covariance3d != null ? covariance3d : DEFAULT_COVARIANCE_3D;
+		this.covariance3d = covariance3d != null ? asFullCovariance3d( covariance3d ) : DEFAULT_COVARIANCE_3D;
 		this.polygonX = polygonX != null ? polygonX : new double[ 0 ];
 		this.polygonY = polygonY != null ? polygonY : new double[ 0 ];
 		this.varlengthProps = new HashMap<>();
@@ -331,7 +335,10 @@ public class GeffNode
 	/**
 	 * Get the 2D covariance matrix of the node.
 	 *
-	 * @return The 2D covariance matrix as a 4-element array.
+	 * @return The 2D covariance matrix as the 4 elements of a row-major 2x2
+	 *         matrix in x, y order, i.e. {@code { xx, xy, yx, yy }}. On disk
+	 *         the matrix follows the declaration order of the spatial axes
+	 *         instead.
 	 */
 	public double[] getCovariance2d()
 	{
@@ -342,7 +349,10 @@ public class GeffNode
 	 * Set the 2D covariance matrix of the node.
 	 *
 	 * @param covariance2d
-	 *            The 2D covariance matrix to set as a 4-element array.
+	 *            The 2D covariance matrix to set, as the 4 elements of a
+	 *            row-major 2x2 matrix, i.e. {@code { xx, xy, yx, yy }}. This
+	 *            matches the {@code [N, 2, 2]} shape the GEFF spec defines for
+	 *            the {@code covariance2d} property.
 	 *
 	 * @throws IllegalArgumentException
 	 *             if the covariance2d array is not of length 4.
@@ -362,7 +372,11 @@ public class GeffNode
 	/**
 	 * Get the 3D covariance matrix of the node.
 	 *
-	 * @return The 3D covariance matrix as a 6-element array.
+	 * @return The 3D covariance matrix as the 9 elements of a row-major 3x3
+	 *         matrix in x, y, z order, i.e.
+	 *         {@code { xx, xy, xz, yx, yy, yz, zx, zy, zz }}. On disk the
+	 *         matrix follows the declaration order of the spatial axes
+	 *         instead.
 	 */
 	public double[] getCovariance3d()
 	{
@@ -373,21 +387,97 @@ public class GeffNode
 	 * Set the 3D covariance matrix of the node.
 	 *
 	 * @param covariance3d
-	 *            The 3D covariance matrix to set as a 6-element array.
+	 *            The 3D covariance matrix to set, as the 9 elements of a
+	 *            row-major 3x3 matrix, i.e.
+	 *            {@code { xx, xy, xz, yx, yy, yz, zx, zy, zz }}. This matches
+	 *            the {@code [N, 3, 3]} shape the GEFF spec defines for the
+	 *            {@code covariance3d} property. A 6-element array is also
+	 *            accepted and read as the upper triangle
+	 *            {@code { xx, xy, xz, yy, yz, zz }}, the layout geff-java
+	 *            wrote before the spec shape was implemented.
 	 *
 	 * @throws IllegalArgumentException
-	 *             if the covariance3d array is not of length 6.
+	 *             if the covariance3d array is neither of length 9 nor 6.
 	 */
 	public void setCovariance3d( double[] covariance3d )
 	{
+		this.covariance3d = asFullCovariance3d( covariance3d );
+	}
+
+	/**
+	 * Convert a 3D covariance matrix to the 9 elements of a row-major 3x3
+	 * matrix.
+	 *
+	 * @param covariance3d
+	 *            either the 9 elements of a row-major 3x3 matrix, or the 6
+	 *            upper-triangular elements
+	 *            {@code { xx, xy, xz, yy, yz, zz }} of a symmetric matrix
+	 * @return the 9 elements of the row-major 3x3 matrix
+	 * @throws IllegalArgumentException
+	 *             if the array is neither of length 9 nor 6
+	 */
+	static double[] asFullCovariance3d( final double[] covariance3d )
+	{
+		if ( covariance3d != null && covariance3d.length == 9 )
+			return covariance3d;
+
 		if ( covariance3d != null && covariance3d.length == 6 )
 		{
-			this.covariance3d = covariance3d;
+			final double xx = covariance3d[ 0 ];
+			final double xy = covariance3d[ 1 ];
+			final double xz = covariance3d[ 2 ];
+			final double yy = covariance3d[ 3 ];
+			final double yz = covariance3d[ 4 ];
+			final double zz = covariance3d[ 5 ];
+			return new double[] { xx, xy, xz, xy, yy, yz, xz, yz, zz };
 		}
-		else
+
+		throw new IllegalArgumentException( "Covariance3D must be a 9-element array (a row-major 3x3 matrix) "
+				+ "or a 6-element array (its upper triangle)" );
+	}
+
+	/**
+	 * Permute the dimensions of a covariance matrix between the order the
+	 * spatial axes are declared in, which the GEFF spec uses for the stored
+	 * matrix, and the x, y, z order this class exposes.
+	 *
+	 * @param values
+	 *            the elements of a row-major matrix, i.e. 4 values for a 2x2
+	 *            or 9 values for a 3x3 matrix
+	 * @param positions
+	 *            the positions of the x, y (and z) axes in the stored matrix,
+	 *            or null to leave the matrix untouched
+	 * @param storedToXyz
+	 *            true to convert a stored matrix into x, y, z order, false for
+	 *            the other direction
+	 * @return the permuted matrix, or {@code values} itself if nothing has to
+	 *         be permuted
+	 * @see GeffMetadata#getSpaceAxisPositions(int)
+	 */
+	static double[] permuteCovariance( final double[] values, final int[] positions, final boolean storedToXyz )
+	{
+		if ( values == null || positions == null )
+			return values;
+
+		final int n = positions.length;
+		if ( values.length != n * n )
 		{
-			throw new IllegalArgumentException( "Covariance3D must be a 6-element array" );
+			LOG.debug( "not permuting a {}-element covariance matrix of {} dimensions", values.length, n );
+			return values;
 		}
+
+		final double[] permuted = new double[ values.length ];
+		for ( int a = 0; a < n; ++a )
+			for ( int b = 0; b < n; ++b )
+			{
+				final int xyzIndex = a * n + b;
+				final int storedIndex = positions[ a ] * n + positions[ b ];
+				if ( storedToXyz )
+					permuted[ xyzIndex ] = values[ storedIndex ];
+				else
+					permuted[ storedIndex ] = values[ xyzIndex ];
+			}
+		return permuted;
 	}
 
 	/**
@@ -648,16 +738,15 @@ public class GeffNode
 			return this;
 		}
 
+		/**
+		 * @param covariance3d
+		 *            the 9 elements of a row-major 3x3 matrix, or the 6
+		 *            upper-triangular elements of a symmetric matrix
+		 * @see GeffNode#setCovariance3d(double[])
+		 */
 		public Builder covariance3d( double[] covariance3d )
 		{
-			if ( covariance3d != null && covariance3d.length == 6 )
-			{
-				this.covariance3d = covariance3d;
-			}
-			else
-			{
-				throw new IllegalArgumentException( "Covariance3D must be a 6-element array" );
-			}
+			this.covariance3d = asFullCovariance3d( covariance3d );
 			return this;
 		}
 
@@ -770,9 +859,18 @@ public class GeffNode
 			zCoords = null;
 		}
 
+		// Determine the group names of the non-axis standard props from
+		// node_props_metadata, falling back to the standard names for datasets
+		// that do not declare them.
+		final String colorPropName = metadata.getNodePropIdentifier( "color" );
+		final String radiusPropName = metadata.getNodePropIdentifier( "radius" );
+		final String covariance2dPropName = metadata.getNodePropIdentifier( "covariance2d" );
+		final String covariance3dPropName = metadata.getNodePropIdentifier( "covariance3d" );
+
 		// Read color from chunks
-		final FlattenedDoubles colors = GeffUtils.readAsDoubleMatrix( reader, path + "/nodes/props/color/values", "color" );
-		verifyLength( colors, numNodes, "/nodes/props/color/values" );
+		final String colorPropPath = path + "/nodes/props/" + colorPropName + "/values";
+		final FlattenedDoubles colors = GeffUtils.readAsDoubleMatrix( reader, colorPropPath, "color" );
+		verifyLength( colors, numNodes, colorPropPath );
 
 		// Read track IDs from chunks
 		final String trackletProp = metadata.getTrackNodeProps() != null && metadata.getTrackNodeProps().containsKey( "tracklet" )
@@ -794,16 +892,35 @@ public class GeffNode
 		}
 
 		// Read radius from chunks
-		double[] radius = GeffUtils.readAsDoubleArray( reader, path + "/nodes/props/radius/values", "radius" );
-		verifyLength( radius, numNodes, "/nodes/props/radius/values" );
+		final String radiusPropPath = path + "/nodes/props/" + radiusPropName + "/values";
+		final double[] radius = GeffUtils.readAsDoubleArray( reader, radiusPropPath, "radius" );
+		verifyLength( radius, numNodes, radiusPropPath );
 
-		// Read covariance2d from chunks
-		final FlattenedDoubles covariance2ds = GeffUtils.readAsDoubleMatrix( reader, path + "/nodes/props/covariance2d/values", "covariance2d" );
-		verifyLength( covariance2ds, numNodes, "/nodes/props/covariance2d/values" );
+		// Read covariance2d from chunks. The spec shape [N, 2, 2] flattens to
+		// the same 4 values per node as the [N, 4] arrays geff-java wrote
+		// before.
+		final String covariance2dPropPath = path + "/nodes/props/" + covariance2dPropName + "/values";
+		final FlattenedDoubles covariance2ds = GeffUtils.readAsDoubleMatrix( reader, covariance2dPropPath, "covariance2d" );
+		verifyLength( covariance2ds, numNodes, covariance2dPropPath );
+		GeffUtils.verifyNumValues( covariance2ds, covariance2dPropPath, 4 );
 
-		// Read covariance3d from chunks
-		final FlattenedDoubles covariance3ds = GeffUtils.readAsDoubleMatrix( reader, path + "/nodes/props/covariance3d/values", "covariance3d" );
-		verifyLength( covariance3ds, numNodes, "/nodes/props/covariance3d/values" );
+		// Read covariance3d from chunks. The spec shape [N, 3, 3] gives 9
+		// values per node; the [N, 6] arrays geff-java wrote before give the 6
+		// upper-triangular values, which are expanded below.
+		final String covariance3dPropPath = path + "/nodes/props/" + covariance3dPropName + "/values";
+		final FlattenedDoubles covariance3ds = GeffUtils.readAsDoubleMatrix( reader, covariance3dPropPath, "covariance3d" );
+		verifyLength( covariance3ds, numNodes, covariance3dPropPath );
+		GeffUtils.verifyNumValues( covariance3ds, covariance3dPropPath, 9, 6 );
+
+		// The stored matrices follow the declaration order of the spatial axes
+		// (typically z, y, x), while this class exposes them in x, y, z order.
+		// Only the [N, 2, 2] and [N, 3, 3] shapes of the spec are permuted: the
+		// flat [N, 4] and [N, 6] arrays written by earlier versions of
+		// geff-java hold whatever order the caller passed in, i.e. x, y, z.
+		final int[] covariance2dPositions = covariance2ds != null && covariance2ds.size().length == 3
+				? metadata.getSpaceAxisPositions( 2 ) : null;
+		final int[] covariance3dPositions = covariance3ds != null && covariance3ds.size().length == 3
+				? metadata.getSpaceAxisPositions( 3 ) : null;
 
 		// Read polygon from chunks
 		double[][] polygonsX = null;
@@ -832,6 +949,10 @@ public class GeffNode
 		// Read custom non-standard, non-varlength node props from metadata
 		final Set< String > standardNames = new HashSet<>( STANDARD_NODE_PROP_NAMES );
 		standardNames.add( trackletProp );
+		standardNames.addAll( Arrays.asList( timeAxisName, xAxisName, yAxisName, colorPropName,
+				radiusPropName, covariance2dPropName, covariance3dPropName ) );
+		if ( zAxisName != null )
+			standardNames.add( zAxisName );
 		final Map< String, Object[] > customPropData = new HashMap<>();
 		if ( metadata.getNodePropsMetadata() != null )
 		{
@@ -871,7 +992,7 @@ public class GeffNode
 						}
 						customPropData.put( propName, nodeVals );
 					}
-					else if ( ndim == 2 )
+					else if ( ndim >= 2 )
 					{
 						if ( isFloat )
 						{
@@ -978,8 +1099,10 @@ public class GeffNode
 			final double[] color = colors != null ? colors.rowAt( i ) : DEFAULT_COLOR;
 			final int segmentId = trackIds != null ? trackIds[ i ] : -1;
 			final double r = radius != null ? radius[ i ] : Double.NaN;
-			final double[] covariance2d = covariance2ds != null ? covariance2ds.rowAt( i ) : DEFAULT_COVARIANCE_2D;
-			final double[] covariance3d = covariance3ds != null ? covariance3ds.rowAt( i ) : DEFAULT_COVARIANCE_3D;
+			final double[] covariance2d = covariance2ds != null
+					? permuteCovariance( covariance2ds.rowAt( i ), covariance2dPositions, true ) : DEFAULT_COVARIANCE_2D;
+			final double[] covariance3d = covariance3ds != null
+					? permuteCovariance( asFullCovariance3d( covariance3ds.rowAt( i ) ), covariance3dPositions, true ) : DEFAULT_COVARIANCE_3D;
 			final double[] polygonX = polygonsX != null ? polygonsX[ i ] : null;
 			final double[] polygonY = polygonsY != null ? polygonsY[ i ] : null;
 			final GeffNode node = new GeffNode( id, t, x, y, z, color, segmentId, r, covariance2d, covariance3d, polygonX, polygonY );
@@ -1107,9 +1230,17 @@ public class GeffNode
 		if ( zAxisName != null && ( writeAllProps || metadataNodeProps.containsKey( zAxisName ) ) )
 			GeffUtils.writeDoubleArray( nodes, GeffNode::getZ, writer, path + "/nodes/props/" + zAxisName + "/values", chunkSize );
 
+		// Determine the group names of the non-axis standard props from
+		// node_props_metadata, falling back to the standard names for datasets
+		// that do not declare them.
+		final String colorPropName = metadata.getNodePropIdentifier( "color" );
+		final String radiusPropName = metadata.getNodePropIdentifier( "radius" );
+		final String covariance2dPropName = metadata.getNodePropIdentifier( "covariance2d" );
+		final String covariance3dPropName = metadata.getNodePropIdentifier( "covariance3d" );
+
 		// Write color in chunks
-		if ( writeAllProps || metadataNodeProps.containsKey( "color" ) )
-			GeffUtils.writeDoubleMatrix( nodes, 4, GeffNode::getColor, writer, path + "/nodes/props/color/values", chunkSize );
+		if ( writeAllProps || metadata.getNodePropMetadata( "color" ) != null )
+			GeffUtils.writeDoubleMatrix( nodes, 4, GeffNode::getColor, writer, path + "/nodes/props/" + colorPropName + "/values", chunkSize );
 
 		// Write segment IDs in chunks
 		final String trackletProp = metadata.getTrackNodeProps() != null && metadata.getTrackNodeProps().containsKey( "tracklet" )
@@ -1118,16 +1249,25 @@ public class GeffNode
 			GeffUtils.writeIntArray( nodes, GeffNode::getSegmentId, writer, path + "/nodes/props/" + trackletProp + "/values", chunkSize );
 
 		// Write radius and covariance attributes if available
-		if ( writeAllProps || metadataNodeProps.containsKey( "radius" ) )
-			GeffUtils.writeDoubleArray( nodes, GeffNode::getRadius, writer, path + "/nodes/props/radius/values", chunkSize );
+		if ( writeAllProps || metadata.getNodePropMetadata( "radius" ) != null )
+			GeffUtils.writeDoubleArray( nodes, GeffNode::getRadius, writer, path + "/nodes/props/" + radiusPropName + "/values", chunkSize );
 
-		// Write covariance2d in chunks
-		if ( writeAllProps || metadataNodeProps.containsKey( "covariance2d" ) )
-			GeffUtils.writeDoubleMatrix( nodes, 4, GeffNode::getCovariance2d, writer, path + "/nodes/props/covariance2d/values", chunkSize );
+		// Write the covariances in chunks, with the shapes [N, 2, 2] and
+		// [N, 3, 3] the spec defines, and with their dimensions in the
+		// declaration order of the spatial axes (typically z, y, x) instead of
+		// the x, y, z order this class exposes.
+		final int[] covariance2dPositions = metadata.getSpaceAxisPositions( 2 );
+		final int[] covariance3dPositions = metadata.getSpaceAxisPositions( 3 );
 
-		// Write covariance3d in chunks
-		if ( writeAllProps || metadataNodeProps.containsKey( "covariance3d" ) )
-			GeffUtils.writeDoubleMatrix( nodes, 6, GeffNode::getCovariance3d, writer, path + "/nodes/props/covariance3d/values", chunkSize );
+		if ( writeAllProps || metadata.getNodePropMetadata( "covariance2d" ) != null )
+			GeffUtils.writeDoubleMatrix( nodes, new int[] { 2, 2 },
+					node -> permuteCovariance( node.getCovariance2d(), covariance2dPositions, false ),
+					writer, path + "/nodes/props/" + covariance2dPropName + "/values", chunkSize );
+
+		if ( writeAllProps || metadata.getNodePropMetadata( "covariance3d" ) != null )
+			GeffUtils.writeDoubleMatrix( nodes, new int[] { 3, 3 },
+					node -> permuteCovariance( node.getCovariance3d(), covariance3dPositions, false ),
+					writer, path + "/nodes/props/" + covariance3dPropName + "/values", chunkSize );
 
 		// When writeAllProps=true (no nodePropsMetadata provided), populate metadata
 		// with the standard props so the output zarr passes Python structural
@@ -1144,11 +1284,11 @@ public class GeffNode
 			{
 				nodePropsMap.put( zAxisName, new PropMetadata( zAxisName, "float64", false, null, null, null ) );
 			}
-			nodePropsMap.put( "color", new PropMetadata( "color", "float64", false, null, null, null ) );
+			nodePropsMap.put( colorPropName, new PropMetadata( colorPropName, "float64", false, null, null, null ) );
 			nodePropsMap.put( trackletProp, new PropMetadata( trackletProp, "int32", false, null, null, null ) );
-			nodePropsMap.put( "radius", new PropMetadata( "radius", "float64", false, null, null, null ) );
-			nodePropsMap.put( "covariance2d", new PropMetadata( "covariance2d", "float64", false, null, null, null ) );
-			nodePropsMap.put( "covariance3d", new PropMetadata( "covariance3d", "float64", false, null, null, null ) );
+			nodePropsMap.put( radiusPropName, new PropMetadata( radiusPropName, "float64", false, null, null, null ) );
+			nodePropsMap.put( covariance2dPropName, new PropMetadata( covariance2dPropName, "float64", false, null, null, null ) );
+			nodePropsMap.put( covariance3dPropName, new PropMetadata( covariance3dPropName, "float64", false, null, null, null ) );
 			metadata.setNodePropsMetadata( nodePropsMap );
 		}
 
