@@ -86,6 +86,30 @@ public class GeffMetadata
 	private Map< String, String > trackNodeProps;
 
 	/**
+	 * Identifier of the node property that defines the sphere shape of nodes,
+	 * or {@code null} if the graph does not have sphere shapes. Corresponds to
+	 * the {@code geff/sphere} attribute of the GEFF specification. The sphere
+	 * property is a scalar property storing the radius of the hypersphere, in
+	 * the units of the spatial axes.
+	 *
+	 * @see <a href=
+	 *      "https://liveimagetrackingtools.org/geff/latest/specification/#geff_spec.GeffMetadata">GEFF
+	 *      Specification: sphere</a>
+	 */
+	private String sphere;
+
+	/**
+	 * The mesh shape specification of nodes, or {@code null} if the graph does
+	 * not have mesh shapes. Corresponds to the {@code geff/mesh} attribute of
+	 * the GEFF specification.
+	 *
+	 * @see <a href=
+	 *      "https://liveimagetrackingtools.org/geff/latest/specification/#geff_spec.GeffMetadata">GEFF
+	 *      Specification: mesh</a>
+	 */
+	private MeshMetadata mesh;
+
+	/**
 	 * The optional extra object is a free-form dictionary that can hold any
 	 * additional, application-specific metadata that is not covered by the core
 	 * geff schema. Users may place arbitrary keys and values inside extra
@@ -216,6 +240,52 @@ public class GeffMetadata
 	public void setTrackNodeProps( final Map< String, String > trackNodeProps )
 	{
 		this.trackNodeProps = trackNodeProps;
+	}
+
+	/**
+	 * Returns the identifier of the node property that defines the sphere
+	 * shape of nodes, or {@code null} if the graph does not have sphere
+	 * shapes.
+	 *
+	 * @return the sphere property identifier, or {@code null}.
+	 */
+	public String getSphere()
+	{
+		return sphere;
+	}
+
+	/**
+	 * Sets the identifier of the node property that defines the sphere shape
+	 * of nodes.
+	 *
+	 * @param sphere
+	 *            the sphere property identifier, or {@code null} to unset.
+	 */
+	public void setSphere( final String sphere )
+	{
+		this.sphere = sphere;
+	}
+
+	/**
+	 * Returns the mesh shape specification of nodes, or {@code null} if the
+	 * graph does not have mesh shapes.
+	 *
+	 * @return the mesh shape specification, or {@code null}.
+	 */
+	public MeshMetadata getMesh()
+	{
+		return mesh;
+	}
+
+	/**
+	 * Sets the mesh shape specification of nodes.
+	 *
+	 * @param mesh
+	 *            the mesh shape specification, or {@code null} to unset.
+	 */
+	public void setMesh( final MeshMetadata mesh )
+	{
+		this.mesh = mesh;
 	}
 
 	public Map< String, Object > getExtra()
@@ -515,6 +585,14 @@ public class GeffMetadata
 				{}.getType() );
 		LOG.debug( "found geff/track_node_props = {}", trackNodeProps );
 
+		// sphere may be null, so safe-read it
+		final String sphere = readOptionalAttribute( reader, group, "geff/sphere", String.class );
+		LOG.debug( "found geff/sphere = {}", sphere );
+
+		// mesh may be null, so safe-read it
+		final MeshMetadata mesh = readOptionalAttribute( reader, group, "geff/mesh", MeshMetadata.class );
+		LOG.debug( "found geff/mesh = {}", mesh );
+
 		// displayHints may be null, so safe-read it
 		final GeffDisplayHints displayHints = readOptionalAttribute( reader, group, "geff/display_hints", GeffDisplayHints.class );
 		LOG.debug( "found geff/display_hints = {}", displayHints );
@@ -552,6 +630,8 @@ public class GeffMetadata
 		metadata.setNodePropsMetadata( nodePropsMetadata );
 		metadata.setEdgePropsMetadata( edgePropsMetadata );
 		metadata.setTrackNodeProps( trackNodeProps );
+		metadata.setSphere( sphere );
+		metadata.setMesh( mesh );
 		metadata.setDisplayHints( displayHints );
 		metadata.setRelatedObjects( relatedObjects );
 		metadata.setExtra( extra );
@@ -625,6 +705,18 @@ public class GeffMetadata
 			writer.setAttribute( group, "geff/track_node_props", trackNodeProps );
 		}
 
+		if ( sphere != null )
+		{
+			LOG.debug( "writing geff/sphere {}", sphere );
+			writer.setAttribute( group, "geff/sphere", sphere );
+		}
+
+		if ( mesh != null )
+		{
+			LOG.debug( "writing geff/mesh {}", mesh );
+			writer.setAttribute( group, "geff/mesh", mesh );
+		}
+
 		if ( displayHints != null )
 		{
 			LOG.debug( "writing geff/display_hints {}", displayHints );
@@ -648,8 +740,8 @@ public class GeffMetadata
 	public String toString()
 	{
 		return String.format(
-				"GeffMetadata{geffVersion='%s', directed=%s, geffAxes=%s, nodePropsMetadata=%s, edgePropsMetadata=%s, trackNodeProps=%s, displayHints=%s, relatedObjects=%s, extra=%s}",
-				geffVersion, directed, Arrays.toString( geffAxes ), nodePropsMetadata, edgePropsMetadata, trackNodeProps, displayHints, relatedObjects, extra );
+				"GeffMetadata{geffVersion='%s', directed=%s, geffAxes=%s, nodePropsMetadata=%s, edgePropsMetadata=%s, trackNodeProps=%s, sphere=%s, mesh=%s, displayHints=%s, relatedObjects=%s, extra=%s}",
+				geffVersion, directed, Arrays.toString( geffAxes ), nodePropsMetadata, edgePropsMetadata, trackNodeProps, sphere, mesh, displayHints, relatedObjects, extra );
 	}
 
 	@Override
@@ -660,25 +752,158 @@ public class GeffMetadata
 		final GeffMetadata that = ( GeffMetadata ) o;
 		return directed == that.directed && Objects.equals( geffVersion, that.geffVersion ) && Objects.deepEquals( geffAxes, that.geffAxes )
 				&& Objects.equals( nodePropsMetadata, that.nodePropsMetadata ) && Objects.equals( edgePropsMetadata, that.edgePropsMetadata )
-				&& Objects.equals( trackNodeProps, that.trackNodeProps ) && Objects.equals( displayHints, that.displayHints )
+				&& Objects.equals( trackNodeProps, that.trackNodeProps ) && Objects.equals( sphere, that.sphere )
+				&& Objects.equals( mesh, that.mesh ) && Objects.equals( displayHints, that.displayHints )
 				&& Objects.equals( relatedObjects, that.relatedObjects ) && Objects.equals( extra, that.extra );
 	}
 
 	@Override
 	public int hashCode()
 	{
-		return Objects.hash( geffVersion, directed, Arrays.hashCode( geffAxes ), nodePropsMetadata, edgePropsMetadata, trackNodeProps, displayHints, relatedObjects, extra );
+		return Objects.hash( geffVersion, directed, Arrays.hashCode( geffAxes ), nodePropsMetadata, edgePropsMetadata, trackNodeProps, sphere, mesh, displayHints, relatedObjects, extra );
+	}
+
+	/**
+	 * Mesh shape specification for GEFF
+	 *
+	 * Metadata specifying which node properties store the vertices, triangles
+	 * and optional normals of a triangular mesh, corresponding to the
+	 * {@code geff/mesh} attribute of the GEFF specification.
+	 * <p>
+	 * For instance:
+	 *
+	 * <pre>
+	 * "mesh": {
+	 *     "vertices": "mesh_vertices",
+	 *     "triangles": "mesh_triangles",
+	 *     "vertex_normals": "mesh_vertex_normals",
+	 *     "triangle_normals": "mesh_triangle_normals"
+	 * }
+	 * </pre>
+	 *
+	 * {@code vertices} and {@code triangles} are required;
+	 * {@code vertex_normals} and {@code triangle_normals} are optional.
+	 *
+	 * @see <a href=
+	 *      "https://liveimagetrackingtools.org/geff/latest/specification/">GEFF
+	 *      specification</a>
+	 * @author Jean-Yves Tinevez
+	 */
+	public static class MeshMetadata
+	{
+
+		@SerializedName( "vertices" )
+		private String vertices;
+
+		@SerializedName( "triangles" )
+		private String triangles;
+
+		@SerializedName( "vertex_normals" )
+		private String vertexNormals; // Optional - can be null
+
+		@SerializedName( "triangle_normals" )
+		private String triangleNormals; // Optional - can be null
+
+		/**
+		 * Default constructor
+		 */
+		public MeshMetadata()
+		{}
+
+		/**
+		 * Constructor with the required fields
+		 */
+		public MeshMetadata( String vertices, String triangles )
+		{
+			this.vertices = vertices;
+			this.triangles = triangles;
+		}
+
+		/**
+		 * Constructor with all fields
+		 */
+		public MeshMetadata( String vertices, String triangles, String vertexNormals, String triangleNormals )
+		{
+			this.vertices = vertices;
+			this.triangles = triangles;
+			this.vertexNormals = vertexNormals;
+			this.triangleNormals = triangleNormals;
+		}
+
+		// Getters and Setters
+		public String getVertices()
+		{
+			return vertices;
+		}
+
+		public void setVertices( String vertices )
+		{
+			this.vertices = vertices;
+		}
+
+		public String getTriangles()
+		{
+			return triangles;
+		}
+
+		public void setTriangles( String triangles )
+		{
+			this.triangles = triangles;
+		}
+
+		public String getVertexNormals()
+		{
+			return vertexNormals;
+		}
+
+		public void setVertexNormals( String vertexNormals )
+		{
+			this.vertexNormals = vertexNormals;
+		}
+
+		public String getTriangleNormals()
+		{
+			return triangleNormals;
+		}
+
+		public void setTriangleNormals( String triangleNormals )
+		{
+			this.triangleNormals = triangleNormals;
+		}
+
+		@Override
+		public String toString()
+		{
+			return String.format( "MeshMetadata{vertices=%s, triangles=%s, vertexNormals=%s, triangleNormals=%s}",
+					vertices, triangles, vertexNormals, triangleNormals );
+		}
+
+		@Override
+		public boolean equals( final Object o )
+		{
+			if ( !( o instanceof MeshMetadata ) )
+				return false;
+			final MeshMetadata that = ( MeshMetadata ) o;
+			return Objects.equals( vertices, that.vertices ) && Objects.equals( triangles, that.triangles )
+					&& Objects.equals( vertexNormals, that.vertexNormals ) && Objects.equals( triangleNormals, that.triangleNormals );
+		}
+
+		@Override
+		public int hashCode()
+		{
+			return Objects.hash( vertices, triangles, vertexNormals, triangleNormals );
+		}
 	}
 
 	/**
 	 * Display hints for GEFF
-	 * 
+	 *
 	 * Metadata indicating how spatiotemporal axes are displayed by a viewer,
 	 * corresponding to the {@code geff/display_hints} attribute of the GEFF
 	 * specification.
 	 * <p>
 	 * The hints reference axes by {@link GeffAxis#getName() name}, e.g.
-	 * 
+	 *
 	 * <pre>
 	 * "display_hints": {
 	 *     "display_horizontal": "x",
@@ -687,7 +912,7 @@ public class GeffMetadata
 	 *     "display_time": "t"
 	 * }
 	 * </pre>
-	 * 
+	 *
 	 * {@code display_horizontal} and {@code display_vertical} are required,
 	 * {@code display_depth} and {@code display_time} are optional.
 	 *
