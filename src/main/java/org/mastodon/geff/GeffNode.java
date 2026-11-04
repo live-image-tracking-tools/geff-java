@@ -728,13 +728,13 @@ public class GeffNode
 		// See GeffUtils.shouldSkipProperty() and checkForMissingValues() for
 		// implementation
 
-		// Determine axis names dynamically from metadata
-		// Fall back to standard names (t, x, y, z) if axes not defined
-		final String timeAxisName = metadata.getAxisNameByType( GeffAxis.TYPE_TIME );
-		final String[] spaceAxes = metadata.getAxisNamesByType( GeffAxis.TYPE_SPACE );
-		final String xAxisName = spaceAxes.length > 0 ? spaceAxes[ 0 ] : "x";
-		final String yAxisName = spaceAxes.length > 1 ? spaceAxes[ 1 ] : "y";
-		final String zAxisName = spaceAxes.length > 2 ? spaceAxes[ 2 ] : "z";
+		// Determine axis names dynamically by combining display_hints and axes,
+		// falling back to standard names (t, x, y, z) if neither is defined.
+		// zAxisName is null for datasets without a third spatial axis.
+		final String timeAxisName = metadata.getTimeAxisName();
+		final String xAxisName = metadata.getHorizontalAxisName();
+		final String yAxisName = metadata.getVerticalAxisName();
+		final String zAxisName = metadata.getDepthAxisName();
 
 		// Read node IDs from chunks
 		final int[] nodeIds = GeffUtils.readAsIntArray( reader, path + "/nodes/ids", "node IDs" );
@@ -743,7 +743,7 @@ public class GeffNode
 		final int numNodes = nodeIds.length;
 
 		// Read time points from chunks using dynamic axis name
-		final String timePropPath = path + "/nodes/props/" + ( timeAxisName != null ? timeAxisName : "t" ) + "/values";
+		final String timePropPath = path + "/nodes/props/" + timeAxisName + "/values";
 		final int[] timepoints = GeffUtils.readAsIntArray( reader, timePropPath, "timepoints" );
 		verifyLength( timepoints, numNodes, timePropPath );
 
@@ -759,8 +759,8 @@ public class GeffNode
 
 		// Read Z coordinates from chunks using dynamic axis name (optional)
 		final double[] zCoords;
-		final String zPropPath = path + "/nodes/props/" + zAxisName + "/values";
-		if ( spaceAxes.length > 2 && reader.datasetExists( zPropPath ) )
+		final String zPropPath = zAxisName != null ? path + "/nodes/props/" + zAxisName + "/values" : null;
+		if ( zPropPath != null && reader.datasetExists( zPropPath ) )
 		{
 			zCoords = GeffUtils.readAsDoubleArray( reader, zPropPath, "Z coordinates" );
 			verifyLength( zCoords, numNodes, zPropPath );
@@ -1010,7 +1010,7 @@ public class GeffNode
 	 */
 	public static void writeToZarr( List< GeffNode > nodes, String zarrPath )
 	{
-		writeToZarr( nodes, zarrPath, GeffUtils.computeFirstDimChunk( new long[]{ nodes.size() }, Integer.BYTES ) );
+		writeToZarr( nodes, zarrPath, GeffUtils.computeFirstDimChunk( new long[] { nodes.size() }, Integer.BYTES ) );
 	}
 
 	/**
@@ -1033,12 +1033,12 @@ public class GeffNode
 																		// directed
 																		// for
 																		// now
-		writeToZarr( nodes, zarrPath, GeffUtils.computeFirstDimChunk( new long[]{ nodes.size() }, Integer.BYTES ), metadata );
+		writeToZarr( nodes, zarrPath, GeffUtils.computeFirstDimChunk( new long[] { nodes.size() }, Integer.BYTES ), metadata );
 	}
 
 	public static void writeToZarr( List< GeffNode > nodes, String zarrPath, GeffMetadata metadata )
 	{
-		writeToZarr( nodes, zarrPath, GeffUtils.computeFirstDimChunk( new long[]{ nodes.size() }, Integer.BYTES ), metadata );
+		writeToZarr( nodes, zarrPath, GeffUtils.computeFirstDimChunk( new long[] { nodes.size() }, Integer.BYTES ), metadata );
 	}
 
 	public static void writeToZarr( List< GeffNode > nodes, String zarrPath, int chunkSize, GeffMetadata metadata )
@@ -1068,13 +1068,13 @@ public class GeffNode
 		final String path = N5URI.normalizeGroupPath( group );
 		final int numNodes = nodes.size();
 
-		// Determine axis names dynamically from metadata
-		// Fall back to standard names (t, x, y, z) if axes not defined
-		final String timeAxisName = metadata.getAxisNameByType( GeffAxis.TYPE_TIME );
-		final String[] spaceAxes = metadata.getAxisNamesByType( GeffAxis.TYPE_SPACE );
-		final String xAxisName = spaceAxes.length > 0 ? spaceAxes[ 0 ] : "x";
-		final String yAxisName = spaceAxes.length > 1 ? spaceAxes[ 1 ] : "y";
-		final String zAxisName = spaceAxes.length > 2 ? spaceAxes[ 2 ] : "z";
+		// Determine axis names dynamically by combining display_hints and axes,
+		// falling back to standard names (t, x, y, z) if neither is defined.
+		// zAxisName is null for datasets without a third spatial axis.
+		final String timePropName = metadata.getTimeAxisName();
+		final String xAxisName = metadata.getHorizontalAxisName();
+		final String yAxisName = metadata.getVerticalAxisName();
+		final String zAxisName = metadata.getDepthAxisName();
 
 		final Map< String, PropMetadata > metadataNodeProps = metadata.getNodePropsMetadata();
 		final boolean writeAllProps = metadataNodeProps == null;
@@ -1083,7 +1083,6 @@ public class GeffNode
 		GeffUtils.writeIntArray( nodes, GeffNode::getId, writer, path + "/nodes/ids", chunkSize );
 
 		// Write timepoints in chunks using dynamic axis name
-		final String timePropName = timeAxisName != null ? timeAxisName : "t";
 		if ( writeAllProps || metadataNodeProps.containsKey( timePropName ) )
 		{
 			final PropMetadata timeMetadata = metadataNodeProps != null ? metadataNodeProps.get( timePropName ) : null;
@@ -1103,8 +1102,9 @@ public class GeffNode
 		if ( writeAllProps || metadataNodeProps.containsKey( yAxisName ) )
 			GeffUtils.writeDoubleArray( nodes, GeffNode::getY, writer, path + "/nodes/props/" + yAxisName + "/values", chunkSize );
 
-		// Write Z coordinates in chunks using dynamic axis name
-		if ( writeAllProps || metadataNodeProps.containsKey( zAxisName ) )
+		// Write Z coordinates in chunks using dynamic axis name (skipped for
+		// datasets without a third spatial axis)
+		if ( zAxisName != null && ( writeAllProps || metadataNodeProps.containsKey( zAxisName ) ) )
 			GeffUtils.writeDoubleArray( nodes, GeffNode::getZ, writer, path + "/nodes/props/" + zAxisName + "/values", chunkSize );
 
 		// Write color in chunks
@@ -1140,7 +1140,7 @@ public class GeffNode
 			nodePropsMap.put( timePropName, new PropMetadata( timePropName, "int32", false, null, null, null ) );
 			nodePropsMap.put( xAxisName, new PropMetadata( xAxisName, "float64", false, null, null, null ) );
 			nodePropsMap.put( yAxisName, new PropMetadata( yAxisName, "float64", false, null, null, null ) );
-			if ( spaceAxes.length > 2 )
+			if ( zAxisName != null )
 			{
 				nodePropsMap.put( zAxisName, new PropMetadata( zAxisName, "float64", false, null, null, null ) );
 			}
