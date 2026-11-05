@@ -21,33 +21,45 @@ The **Graph Exchange File Format (GEFF)** is a standardized format for storing a
 - **Variable-length properties** - Read and write properties with `varlength: true` (e.g. polygon coordinates per node)
 - **Type safety** - Strong typing with comprehensive validation; graceful skip with warning for unsupported types (`str`, `bytes`)
 - **Adaptive chunking** - Chunk sizes targeting ~8 MiB per chunk (power-of-two on the first dimension)
-- **Builder patterns** - Convenient object construction with builder classes for GeffNode and GeffEdge
+- **Lazy, imglib2-backed properties** - Each property is exposed as a `GeffProperty<T>` backed by an imglib2 `RandomAccessibleInterval`; chunks are read on demand and cached, so files larger than memory work out of the box
+- **Generic property model** - `GeffProperties` gives uniform, type-safe access to arbitrary node and edge properties, without imposing an application-specific data model
+- **Annotation-based binding** - Bind your own node and edge classes to a GEFF file with `@NodeConstructor` / `@EdgeConstructor` and `@FromId` / `@FromProperty` annotations; type conversion happens automatically
 
 ## Core Classes
 
-### GeffNode
-Represents nodes in tracking graphs with spatial and temporal attributes:
-- Time point information (`t` property)
-- Spatial coordinates (x, y, z)
-- Segment identifiers (dynamic property name via metadata)
-- Additional properties: color, radius, covariance2d, covariance3d
-- Polygon geometry stored as a varlength property under `nodes/props/polygon/`
-- Variable-length properties accessible via `getVarlengthProperty(name)` / `setVarlengthProperty(name, ...)`
-- Arbitrary scalar/vector properties accessible via `getProp(name)` / `setProp(name, value)` / `getProps()`
-- **Axis-aware I/O**: property paths for time and spatial coordinates are resolved from `GeffMetadata` by combining `display_hints` and `axes`; falls back to `t`, `x`, `y`, `z` when neither is defined
-- Builder pattern for convenient object construction
-- Chunked Zarr Format 2 I/O
+### GeffProperty
+The central abstraction: one node or edge property, exposed lazily as an imglib2-backed array:
+- `T` is the imglib2 type matching the Zarr dtype (e.g. `DoubleType` for `<f8`)
+- Scalar, vector, matrix and higher-dimensional properties (see `numDimensions()`)
+- Optional properties backed by a `missing` dataset (`isOptional()`)
+- Variable-length properties backed by a `data` dataset (`isVarlength()`)
+- Decorators to convert types, rename identifiers, or expose var-length `uint8` data as `String`
 
-### GeffEdge
-Represents connections between nodes in tracking graphs:
-- Source and target node references
-- Edge properties: score, distance
-- Builder pattern for convenient object construction
-- Chunked storage for efficient large-scale edge data
+### GeffProperties
+A collection of `GeffProperty` of one element type (nodes or edges), plus the mandatory `id` property:
+- Generic read/modify/write access to arbitrary properties, without imposing an application-specific data model
+- Used both by `IoUtils` for generic file I/O and by the binding framework as the source for constructor parameters
+
+### IoUtils
+Reading and writing property data:
+- `loadProperties(n5, elementType)` – read all properties of a GEFF group into a `GeffProperties`
+- `writeProperties(n5, properties, compression, chunkSize, geffGroup)` – write a `GeffProperties` back
+- `loadProperty` / `writeProperty` for single properties, with explicit paths
+- Chunk sizes targeting ~8 MiB per chunk (power-of-two on the first dimension)
+
+### GeffPropertyWriter
+Fluent writer that harvests property values from arbitrary application objects (`<O>`):
+- Accessor methods take an object and return a property value (possibly a `Maybe` for optional properties, or a `String` encoded as var-length `uint8`)
+- Used e.g. by TrackMate's GEFF writer
+
+### Construction / ElementCreator (bind package)
+Annotation-based binding of application objects to `GeffProperties`:
+- `@NodeConstructor` / `@EdgeConstructor` on a static builder method, with `@FromId` and `@FromProperty("...")` parameters
+- `Construction.buildElements(...)` populates your objects from a `GeffProperties`; `ElementCreator` gives step-by-step control
+- Parameters may be primitives, primitive arrays, `Maybe*` / `Optional*` wrappers, `String` (from var-length `uint8`), or a `GeffProperty<?>` escape hatch
 
 ### GeffAxis
 Represents axis metadata for spatial and temporal dimensions:
-- Predefined constants for common axis names (t, x, y, z)
 - Type classifications: `time`, `space`, `channel`
 - Unit specifications with common constants
 - Optional min/max bounds for ROI definition
@@ -59,13 +71,13 @@ Handles GEFF metadata with schema validation:
 - Node/edge property metadata maps (`nodePropsMetadata`, `edgePropsMetadata`)
 - Dynamic tracklet property name from `track_node_props["tracklet"]`
 - Graph properties (directed/undirected)
-- `display_hints` as a `GeffDisplayHint` object, validated against the declared axis names
+- `display_hints` as a `GeffDisplayHints` object, validated against the declared axis names
 - `getAxisNameByType(type)` – returns the name of the first axis matching a given type (e.g. `"time"`)
 - `getAxisNamesByType(type)` – returns all axis names matching a given type (e.g. all `"space"` axes in order)
 - `getAxisNames()` – returns all axis names, in declaration order
 - `getTimeAxisName()` / `getHorizontalAxisName()` / `getVerticalAxisName()` / `getDepthAxisName()` – resolve which axis carries the t/x/y/z coordinate (see below)
 
-### GeffDisplayHint
+### GeffDisplayHints
 Represents the optional `display_hints` metadata, i.e. which axis a viewer shows horizontally, vertically, as depth and as time. Since it is optional, `GeffMetadata` resolves each spatial coordinate from the following sources, in order:
 
 1. the matching display hint, which names the axis explicitly;
@@ -80,23 +92,9 @@ Describes a single node or edge property as required by the v1 spec:
 - Fields: `identifier`, `dtype`, `varlength`, `unit`, `name`, `description`
 - Used to infer data types on write and skip unsupported types on read
 
-### VarlengthProperty
-Stores a variable-length property (one array per node with potentially different shapes):
-- `getNodeData(int nodeIndex)` – extract the data array for a specific node
-- `isMissing(int nodeIndex)` – check the optional missing-value indicator
-- Backed by a flattened data array and an offset/shape index
-
-### GeffSerializableVertex
-Lightweight geometry class internally used for storing polygon vertex coordinates:
-- Simple (x, y) coordinate storage
-- Part of the geometry package for efficient polygon handling
-
-### Geff
-Main utility class demonstrating library usage and providing examples.
-
 ## Requirements
 
-- Java 8 or higher
+- Java 21 or higher
 - Maven 3.6 or higher
 
 ## Dependencies
@@ -110,122 +108,79 @@ Main utility class demonstrating library usage and providing examples.
 ## Usage Example
 
 ```java
-import org.mastodon.geff.GeffEdge;
-import org.mastodon.geff.GeffMetadata;
-import org.mastodon.geff.GeffNode;
-import org.mastodon.geff.GeffAxis;
-import java.util.List;
-import java.util.ArrayList;
+import org.janelia.saalfeldlab.n5.N5Reader;
+import org.janelia.saalfeldlab.n5.N5Writer;
+import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
+import org.janelia.saalfeldlab.n5.zarr.N5ZarrWriter;
+import org.litt.geff.GeffMetadata;
+import org.litt.geff.io.IoUtils;
+import org.litt.geff.props.ElementType;
+import org.litt.geff.props.GeffProperties;
+import org.litt.geff.props.GeffProperty;
 
-// Read Geff data from Zarr
-List<GeffNode> nodes = GeffNode.readFromZarr("/path/to/data.zarr/tracks");
-List<GeffEdge> edges = GeffEdge.readFromZarr("/path/to/data.zarr/tracks");
-GeffMetadata metadata = GeffMetadata.readFromZarr("/path/to/data.zarr/tracks");
+// Open a GEFF file. The generic API works on any GEFF file, without an
+// application-specific data model.
+final N5Reader n5 = new N5ZarrReader("input.zarr");
 
-// Create new Geff data using builder pattern
-List<GeffNode> newNodes = new ArrayList<>();
-GeffNode node0 = new GeffNode.Builder()
-    .id(0)
-    .timepoint(0)
-    .x(10.5)
-    .y(20.3)
-    .z(5.0)
-    .segmentId(0)
-    .color(new double[]{1.0, 0.0, 0.0, 1.0}) // Red color
-    .radius(2.5)
-    .covariance2d(new double[]{1.0, 0.2, 0.2, 1.5}) // 2x2 covariance matrix flattened
-    .polygonX(new double[]{1.0, 2.0, 3.0, 4.0}) // Polygon X coordinates
-    .polygonY(new double[]{5.0, 6.0, 7.0, 8.0}) // Polygon Y coordinates
-    .build();
-newNodes.add(node0);
+// Metadata: version, axes, display hints, property metadata, ...
+final GeffMetadata metadata = GeffMetadata.readFromN5(n5, "/");
 
-GeffNode node1 = new GeffNode.Builder()
-    .id(1)
-    .timepoint(1)
-    .x(11.5)
-    .y(21.3)
-    .z(6.0)
-    .segmentId(1)
-    .covariance2d(new double[]{0.8, 0.1, 0.1, 1.2}) // Different covariance
-    .polygonX(new double[]{-1.0, -2.0, -3.0, -4.0}) // Different polygon X coordinates
-    .polygonY(new double[]{-5.0, -6.0, -7.0, -8.0}) // Different polygon Y coordinates
-    .build();
-newNodes.add(node1);
+// All node properties, read lazily as imglib2-backed GeffProperty.
+final GeffProperties nodes = IoUtils.loadProperties(n5, ElementType.NODE);
+final GeffProperties edges = IoUtils.loadProperties(n5, ElementType.EDGE);
 
-// Write to Zarr format with version specification
-GeffNode.writeToZarr(newNodes, "/path/to/output.zarr/tracks", "1.0.0");
+// Inspect the "x" property: it is a scalar DoubleType property, with one
+// value per node.
+final GeffProperty<?> x = nodes.property("x");
+System.out.println(x); // GeffProperty<DoubleType>{identifier="x", scalar}
+for (int i = 0; i < 3; i++) {
+    x.elementIndex().set(i);
+    System.out.println(i + ": " + x.values().randomAccess().get());
+}
+// prints:
+//   GeffProperty<DoubleType>{identifier="x", scalar}
+//   0: 1.0
+//   1: 0.9
+//   2: 0.8
 
-// Create new edges using builder pattern
-List<GeffEdge> newEdges = new ArrayList<>();
-GeffEdge edge = new GeffEdge.Builder()
-    .setId(0)
-    .setSourceNodeId(0)
-    .setTargetNodeId(1)
-    .setScore(0.95)
-    .setDistance(1.4)
-    .build();
-newEdges.add(edge);
+// Write the properties to a new file...
+try (final N5Writer out = new N5ZarrWriter("output.zarr")) {
+    IoUtils.writeProperties(out, nodes, null, 0, null);
+    IoUtils.writeProperties(out, edges, null, 0, null);
+}
+// ... and the metadata last.
+GeffMetadata.writeToZarr(metadata, "output.zarr");
+```
 
-// Write to Zarr format
-GeffEdge.writeToZarr(newEdges, "/path/to/output.zarr/tracks", "1.0.0");
+To load GEFF data into your own classes, use the annotation-based binding
+framework (see the tutorials in `src/test/java/org/litt/geff/tutorial/` for
+full working examples):
 
-// Set a custom variable-length property per node.
-// Example: per-node UTF-8 label stored as uint8 byte array.
-// (Note: polygon vertices use the dedicated polygonX/polygonY fields instead.)
-String label0 = "cell_A";
-String label1 = "細胞_B"; // multibyte characters are supported via UTF-8 encoding
-byte[] bytes0 = label0.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-byte[] bytes1 = label1.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+```java
+import static org.litt.geff.bind.Construction.buildElements;
 
-Object[] data0 = new Object[bytes0.length];
-for (int i = 0; i < bytes0.length; i++) data0[i] = bytes0[i] & 0xFF;
+import org.litt.geff.bind.Construction.FromId;
+import org.litt.geff.bind.Construction.FromProperty;
+import org.litt.geff.bind.Construction.NodeConstructor;
+import org.litt.geff.props.Maybe;
 
-Object[] data1 = new Object[bytes1.length];
-for (int i = 0; i < bytes1.length; i++) data1[i] = bytes1[i] & 0xFF;
-
-node0.setVarlengthProperty("label", new VarlengthProperty("label", "uint8", data0));
-node1.setVarlengthProperty("label", new VarlengthProperty("label", "uint8", data1));
-
-// Decode the label back after reading
-List<GeffNode> readNodes = GeffNode.readFromZarr("/path/to/data.zarr/tracks");
-VarlengthProperty labelProp = readNodes.get(0).getVarlengthProperty("label");
-if (labelProp != null && !labelProp.isMissing()) {
-    Object[] labelData = labelProp.getData();
-    byte[] labelBytes = new byte[labelData.length];
-    for (int i = 0; i < labelData.length; i++) labelBytes[i] = ((Number) labelData[i]).byteValue();
-    String label = new String(labelBytes, java.nio.charset.StandardCharsets.UTF_8);
+class Builder {
+    @NodeConstructor
+    public void addNode(
+            @FromId final long id,
+            @FromProperty("t") final int t,
+            @FromProperty("x") final double x,
+            @FromProperty("y") final double y,
+            @FromProperty("radius") final Maybe.MaybeDouble radius,
+            @FromProperty("label") final String label) {
+        // ... create and register your node object here.
+        // "radius" is optional: Maybe.MaybeDouble tells whether it is present.
+        // "label" is a var-length uint8 property, decoded from UTF-8.
+    }
 }
 
-// Create metadata with axis information
-GeffAxis[] axes = {
-    new GeffAxis(GeffAxis.NAME_TIME, GeffAxis.TYPE_TIME, GeffAxis.UNIT_SECOND, 0.0, 100.0),
-    new GeffAxis(GeffAxis.NAME_SPACE_X, GeffAxis.TYPE_SPACE, GeffAxis.UNIT_MICROMETER, 0.0, 1024.0),
-    new GeffAxis(GeffAxis.NAME_SPACE_Y, GeffAxis.TYPE_SPACE, GeffAxis.UNIT_MICROMETER, 0.0, 1024.0),
-    new GeffAxis(GeffAxis.NAME_SPACE_Z, GeffAxis.TYPE_SPACE, GeffAxis.UNIT_MICROMETER, 0.0, 100.0)
-};
-GeffMetadata metadata = new GeffMetadata("1.0.0", true, axes);
-GeffMetadata.writeToZarr(metadata, "/path/to/output.zarr/tracks");
-
-// Use custom axis names (e.g. "frame", "cell_x", "cell_y" instead of "t", "x", "y")
-// Node property paths are resolved from the axis names declared in metadata.
-GeffAxis[] customAxes = {
-    new GeffAxis("frame",  GeffAxis.TYPE_TIME,  "frame",  0.0, 500.0),
-    new GeffAxis("cell_x", GeffAxis.TYPE_SPACE, "pixel",  0.0, 1024.0),
-    new GeffAxis("cell_y", GeffAxis.TYPE_SPACE, "pixel",  0.0, 768.0)
-};
-GeffMetadata customMetadata = new GeffMetadata("1.0.0", true, customAxes);
-// GeffNode.writeToZarr will write to nodes/props/frame/values,
-// nodes/props/cell_x/values, nodes/props/cell_y/values automatically.
-GeffNode.writeToZarr(newNodes, "/path/to/output.zarr/tracks", customMetadata);
-GeffMetadata.writeToZarr(customMetadata, "/path/to/output.zarr/tracks");
-
-// When reading back, pass the metadata so axis names are resolved correctly:
-GeffMetadata readMetadata = GeffMetadata.readFromZarr("/path/to/output.zarr/tracks");
-List<GeffNode> readNodes = GeffNode.readFromZarr("/path/to/output.zarr/tracks", readMetadata);
-
-// Query axis names from metadata directly:
-String timeAxis  = readMetadata.getAxisNameByType("time");   // "frame"
-String[] spaceAxes = readMetadata.getAxisNamesByType("space"); // ["cell_x", "cell_y"]
+// Invoke the constructor method for every node in the file.
+buildElements(new Builder(), nodes);
 ```
 
 ## Building
@@ -271,29 +226,22 @@ dataset.zarr/
 │                                   #   node_props_metadata,
 │                                   #   edge_props_metadata,
 │                                   #   track_node_props, display_hints
-└── tracks/
-    ├── .zgroup
-    ├── nodes/
-    │   ├── ids/                    # Node IDs [N]
-    │   ├── props/
-    │   │   ├── <t>/values          # Time points [N]   (name from axes[type=time], default "t")
-    │   │   ├── <x>/values          # X coordinates [N] (name from display_hints/axes, default "x")
-    │   │   ├── <y>/values          # Y coordinates [N] (name from display_hints/axes, default "y")
-    │   │   ├── <z>/values          # Z coordinates [N] (name from display_hints/axes, default "z", optional)
-    │   │   ├── color/values        # RGBA colors [N, 4] (optional)
-    │   │   ├── radius/values       # Node radii [N] (optional)
-    │   │   ├── <tracklet>/values   # Track IDs [N] (name from track_node_props, optional)
-    │   │   ├── covariance2d/values # Flattened 2D covariance [N, 4] (optional)
-    │   │   ├── covariance3d/values # Flattened 3D covariance [N, 6] (optional)
-    │   │   └── <varlength_prop>/   # Variable-length property, e.g. polygon (optional)
-    │   │       ├── data            # Flattened values [V]
-    │   │       ├── values          # Offsets and shapes [N, ndim+1]
-    │   │       └── missing         # Missing-value mask [N] (optional)
-    └── edges/
-        ├── ids/                    # Source/target node ID pairs [N, 2]
-        └── props/
-            ├── distance/values     # Edge distances [N] (optional)
-            └── score/values        # Edge scores [N] (optional)
+├── nodes/
+│   ├── ids/                        # Node IDs [N]
+│   └── props/
+│       ├── <prop_id>/values        # Property values [N, ...]
+│       │   │                       # (first dimension is the element index;
+│       │   │                       #  <prop_id> from node_props_metadata;
+│       │   │                       #  for var-length properties, offsets and
+│       │   │                       #  shapes [N, ndim+1] instead)
+│       │   ├── missing             # Missing-value mask [N] (optional)
+│       │   └── data                # Flattened values [V] (var-length only)
+│       └── ...
+└── edges/
+    ├── ids/                        # Source/target node ID pairs [N, 2]
+    └── props/
+        ├── <prop_id>/values        # Edge property values [N, ...]
+        └── ...
 ```
 
 ## Technical Information

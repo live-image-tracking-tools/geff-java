@@ -6,31 +6,9 @@
     "configurations": [
         {
             "type": "java",
-            "name": "ChunkedWriteTest",
-            "request": "launch",
-            "mainClass": "org.mastodon.geff.ChunkedWriteTest",
-            "projectName": "geff-java",
-            "vmArgs": "-Xmx4g -Djna.library.path=/opt/homebrew/opt/c-blosc/lib"
-        },
-        {
-            "type": "java",
             "name": "Current File",
             "request": "launch",
             "mainClass": "${file}"
-        },
-        {
-            "type": "java",
-            "name": "Geff",
-            "request": "launch",
-            "mainClass": "org.mastodon.geff.Geff",
-            "vmArgs": "-Xmx4g -Djna.library.path=/opt/homebrew/opt/c-blosc/lib"
-        },
-        {
-            "type": "java",
-            "name": "GeffCreateTest",
-            "request": "launch",
-            "mainClass": "org.mastodon.geff.GeffCreateTest",
-            "vmArgs": "-Xmx4g -Djna.library.path=/opt/homebrew/opt/c-blosc/lib"
         }
     ]
 }

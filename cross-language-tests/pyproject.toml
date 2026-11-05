@@ -10,3 +10,6 @@ dependencies = [
 
 [tool.uv]
 # This allows uv sync to work properly
+
+[tool.uv.sources]
+geff = { path = "../../geff/packages/geff", editable = true }
