@@ -656,6 +656,13 @@ public class IoUtils
 			final int chunkSize,
 			final String geffGroup )
 	{
+		final String group = normalizeGroupPath( geffGroup );
+		// The GEFF v1 spec requires the "props" group of a graph group to
+		// exist, even when there are no properties. The group is otherwise
+		// created implicitly as a parent when writing the first property.
+		final String propsGroup = group + properties.elementType().elementGroup() + "/props";
+		if ( !n5.exists( propsGroup ) )
+			n5.createGroup( propsGroup );
 
 		final ElementType elementType = properties.elementType();
 		final Compression compression = optionalCompression != null
