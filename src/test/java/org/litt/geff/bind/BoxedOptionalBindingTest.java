@@ -19,10 +19,9 @@ import org.litt.geff.props.FixedLengthProperty;
 import org.litt.geff.props.GeffProperties;
 import org.litt.geff.props.GeffProperty;
 
-import net.imglib2.img.array.ArrayImgs;
 import net.imglib2.img.array.ArrayImgFactory;
+import net.imglib2.img.array.ArrayImgs;
 import net.imglib2.type.logic.BitType;
-import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.type.numeric.real.DoubleType;
 
 /**
