@@ -6,13 +6,13 @@
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -29,15 +29,24 @@
 package org.litt.geff;
 
 import java.util.Objects;
-import java.util.TreeMap;
+
+import com.google.gson.annotations.SerializedName;
 
 /**
- * Represents an axis in the GEFF format with name, type, unit, and optional
- * bounds. This class handles axis metadata for spatial and temporal dimensions.
- * 
- * Example axis structures: - Time axis: {'name': 't', 'type': "time", 'unit':
- * "seconds", 'min': 0, 'max': 125} - Space axis: {'name': 'x', 'type': "space",
- * 'unit': "micrometers", 'min': 764.42, 'max': 2152.3}
+ * Represents an axis in the GEFF format, modeled on the OME-zarr axes
+ * convention. An axis has a name, an optional type ({@code space}, {@code
+ * time} or {@code channel}), an optional unit, optional bounds, and the
+ * OME-zarr scaling fields ({@code scale}, {@code scaled_unit} and {@code
+ * offset}).
+ * <p>
+ * The order of the axes in {@link GeffMetadata#getGeffAxes()} is meaningful:
+ * it defines the dimension order of array-valued properties, and is used as a
+ * fallback when aligning a graph with image or segmentation data that do not
+ * declare axes of their own.
+ *
+ * @see <a href=
+ *      "https://liveimagetrackingtools.org/geff/latest/specification/">GEFF
+ *      specification</a>
  */
 public class GeffAxis
 {
@@ -77,6 +86,27 @@ public class GeffAxis
 	private Double max; // Optional - can be null
 
 	/**
+	 * The scale of the axis, in OME-zarr convention: a value {@code v} in the
+	 * graph is mapped to {@code scale * v + offset} in {@code scaled_unit}
+	 * physical units. Optional, can be {@code null}.
+	 */
+	private Double scale; // Optional - can be null
+
+	/**
+	 * The physical unit of {@link #getScale() scale} (e.g. {@code "µm"}).
+	 * Optional, can be {@code null}. According to the GEFF specification, if
+	 * {@code scaled_unit} is set, a {@code scale} value must also be provided.
+	 */
+	@SerializedName( "scaled_unit" )
+	private String scaledUnit; // Optional - can be null
+
+	/**
+	 * The offset of the axis in OME-zarr convention: the amount by which to
+	 * offset this axis. Optional, can be {@code null}.
+	 */
+	private Double offset; // Optional - can be null
+
+	/**
 	 * Default constructor
 	 */
 	public GeffAxis()
@@ -85,7 +115,7 @@ public class GeffAxis
 	/**
 	 * Constructor with required fields
 	 */
-	public GeffAxis( String name, String type, String unit )
+	public GeffAxis( final String name, final String type, final String unit )
 	{
 		this.name = name;
 		this.type = type;
@@ -95,7 +125,7 @@ public class GeffAxis
 	/**
 	 * Constructor with all fields
 	 */
-	public GeffAxis( String name, String type, String unit, Double min, Double max )
+	public GeffAxis( final String name, final String type, final String unit, final Double min, final Double max )
 	{
 		this.name = name;
 		this.type = type;
@@ -104,13 +134,12 @@ public class GeffAxis
 		this.max = max;
 	}
 
-	// Getters and Setters
 	public String getName()
 	{
 		return name;
 	}
 
-	public void setName( String name )
+	public void setName( final String name )
 	{
 		this.name = name;
 	}
@@ -120,11 +149,11 @@ public class GeffAxis
 		return type;
 	}
 
-	public void setType( String type )
+	public void setType( final String type )
 	{
 		if ( type != null && !TYPE_TIME.equals( type ) && !TYPE_SPACE.equals( type ) && !TYPE_CHANNEL.equals( type ) )
-		{ throw new IllegalArgumentException(
-				"Axis type must be '" + TYPE_TIME + "', '" + TYPE_SPACE + "', or '" + TYPE_CHANNEL + "', got: " + type ); }
+			throw new IllegalArgumentException( "Axis type must be '"
+					+ TYPE_TIME + "', '" + TYPE_SPACE + "', or '" + TYPE_CHANNEL + "', got: " + type );
 		this.type = type;
 	}
 
@@ -133,7 +162,7 @@ public class GeffAxis
 		return unit;
 	}
 
-	public void setUnit( String unit )
+	public void setUnit( final String unit )
 	{
 		this.unit = unit;
 	}
@@ -143,7 +172,7 @@ public class GeffAxis
 		return min;
 	}
 
-	public void setMin( Double min )
+	public void setMin( final Double min )
 	{
 		this.min = min;
 		validateBounds();
@@ -154,7 +183,7 @@ public class GeffAxis
 		return max;
 	}
 
-	public void setMax( Double max )
+	public void setMax( final Double max )
 	{
 		this.max = max;
 		validateBounds();
@@ -162,13 +191,13 @@ public class GeffAxis
 
 	/**
 	 * Set both min and max bounds
-	 * 
+	 *
 	 * @param min
 	 *            the minimum bound value
 	 * @param max
 	 *            the maximum bound value
 	 */
-	public void setBounds( Double min, Double max )
+	public void setBounds( final Double min, final Double max )
 	{
 		this.min = min;
 		this.max = max;
@@ -189,8 +218,38 @@ public class GeffAxis
 	public Double getRange()
 	{
 		if ( hasBounds() )
-		{ return max - min; }
+			return max - min;
 		return null;
+	}
+
+	public Double getScale()
+	{
+		return scale;
+	}
+
+	public void setScale( final Double scale )
+	{
+		this.scale = scale;
+	}
+
+	public String getScaledUnit()
+	{
+		return scaledUnit;
+	}
+
+	public void setScaledUnit( final String scaledUnit )
+	{
+		this.scaledUnit = scaledUnit;
+	}
+
+	public Double getOffset()
+	{
+		return offset;
+	}
+
+	public void setOffset( final Double offset )
+	{
+		this.offset = offset;
 	}
 
 	/**
@@ -199,7 +258,7 @@ public class GeffAxis
 	private void validateBounds()
 	{
 		if ( min != null && max != null && min > max )
-		{ throw new IllegalArgumentException( "Axis min (" + min + ") cannot be greater than max (" + max + ")" ); }
+			throw new IllegalArgumentException( "Axis min (" + min + ") cannot be greater than max (" + max + ")" );
 	}
 
 	/**
@@ -208,17 +267,17 @@ public class GeffAxis
 	public void validate()
 	{
 		if ( name == null || name.trim().isEmpty() )
-		{ throw new IllegalArgumentException( "Axis name cannot be null or empty" ); }
+			throw new IllegalArgumentException( "Axis name cannot be null or empty" );
 
 		if ( type == null || type.trim().isEmpty() )
-		{ throw new IllegalArgumentException( "Axis type cannot be null or empty" ); }
+			throw new IllegalArgumentException( "Axis type cannot be null or empty" );
 
 		if ( !TYPE_TIME.equals( type ) && !TYPE_SPACE.equals( type ) && !TYPE_CHANNEL.equals( type ) )
-		{ throw new IllegalArgumentException(
-				"Axis type must be '" + TYPE_TIME + "', '" + TYPE_SPACE + "', or '" + TYPE_CHANNEL + "', got: " + type ); }
+			throw new IllegalArgumentException( "Axis type must be '" + TYPE_TIME
+					+ "', '" + TYPE_SPACE + "', or '" + TYPE_CHANNEL + "', got: " + type );
 
 		if ( unit == null || unit.trim().isEmpty() )
-		{ throw new IllegalArgumentException( "Axis unit cannot be null or empty" ); }
+			throw new IllegalArgumentException( "Axis unit cannot be null or empty" );
 
 		validateBounds();
 	}
@@ -226,7 +285,7 @@ public class GeffAxis
 	/**
 	 * Create a time axis
 	 */
-	public static GeffAxis createTimeAxis( String name, String unit, Double min, Double max )
+	public static GeffAxis createTimeAxis( final String name, final String unit, final Double min, final Double max )
 	{
 		return new GeffAxis( name, TYPE_TIME, unit, min, max );
 	}
@@ -234,7 +293,7 @@ public class GeffAxis
 	/**
 	 * Create a space axis
 	 */
-	public static GeffAxis createSpaceAxis( String name, String unit, Double min, Double max )
+	public static GeffAxis createSpaceAxis( final String name, final String unit, final Double min, final Double max )
 	{
 		return new GeffAxis( name, TYPE_SPACE, unit, min, max );
 	}
@@ -242,7 +301,7 @@ public class GeffAxis
 	/**
 	 * Create a time axis without bounds
 	 */
-	public static GeffAxis createTimeAxis( String name, String unit )
+	public static GeffAxis createTimeAxis( final String name, final String unit )
 	{
 		return new GeffAxis( name, TYPE_TIME, unit );
 	}
@@ -250,66 +309,62 @@ public class GeffAxis
 	/**
 	 * Create a space axis without bounds
 	 */
-	public static GeffAxis createSpaceAxis( String name, String unit )
+	public static GeffAxis createSpaceAxis( final String name, final String unit )
 	{
 		return new GeffAxis( name, TYPE_SPACE, unit );
-	}
-
-	/**
-	 * Write this axis to json format for serialization. This is a placeholder
-	 * method for future implementation.
-	 */
-	public TreeMap< String, Object > toTreeMap()
-	{
-		TreeMap< String, Object > map = new TreeMap<>();
-		map.put( "name", name );
-		map.put( "type", type );
-		map.put( "unit", unit );
-		map.put( "min", min );
-		map.put( "max", max );
-		return map;
 	}
 
 	@Override
 	public String toString()
 	{
-		StringBuilder sb = new StringBuilder();
+		final StringBuilder sb = new StringBuilder();
 		sb.append( "GeffAxis{" );
 		sb.append( "name='" ).append( name ).append( '\'' );
 		sb.append( ", type='" ).append( type ).append( '\'' );
 		sb.append( ", unit='" ).append( unit ).append( '\'' );
+
 		if ( min != null )
-		{
 			sb.append( ", min=" ).append( min );
-		}
+
 		if ( max != null )
-		{
 			sb.append( ", max=" ).append( max );
-		}
+
+		if ( scale != null )
+			sb.append( ", scale=" ).append( scale );
+
+		if ( scaledUnit != null )
+			sb.append( ", scaledUnit='" ).append( scaledUnit ).append( '\'' );
+
+		if ( offset != null )
+			sb.append( ", offset=" ).append( offset );
+
 		sb.append( '}' );
 		return sb.toString();
 	}
 
 	@Override
-	public boolean equals( Object obj )
+	public boolean equals( final Object obj )
 	{
 		if ( this == obj )
 			return true;
 		if ( obj == null || getClass() != obj.getClass() )
 			return false;
 
-		GeffAxis geffAxis = ( GeffAxis ) obj;
+		final GeffAxis geffAxis = ( GeffAxis ) obj;
 
 		return Objects.equals( name, geffAxis.name ) &&
 				Objects.equals( type, geffAxis.type ) &&
 				Objects.equals( unit, geffAxis.unit ) &&
 				Objects.equals( min, geffAxis.min ) &&
-				Objects.equals( max, geffAxis.max );
+				Objects.equals( max, geffAxis.max ) &&
+				Objects.equals( scale, geffAxis.scale ) &&
+				Objects.equals( scaledUnit, geffAxis.scaledUnit ) &&
+				Objects.equals( offset, geffAxis.offset );
 	}
 
 	@Override
 	public int hashCode()
 	{
-		return Objects.hash( name, type, unit, min, max );
+		return Objects.hash( name, type, unit, min, max, scale, scaledUnit, offset );
 	}
 }
