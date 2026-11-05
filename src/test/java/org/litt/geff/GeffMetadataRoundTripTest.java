@@ -206,6 +206,73 @@ public class GeffMetadataRoundTripTest
 	}
 
 	@Test
+	@DisplayName( "Unknown keys in props metadata round-trip losslessly" )
+	void testUnknownPropMetadataAttributes( @TempDir final Path tempDir ) throws IOException
+	{
+		final String path = tempDir.resolve( "props.zarr" ).toString();
+		final GeffMetadata metadata = new GeffMetadata( "1.3", true );
+		metadata.setNodePropsMetadata( Map.of( "x", new PropMetadata( "x", "float64", null, GeffAxis.UNIT_MICROMETER, null, null ) ) );
+		GeffMetadata.writeToZarr( metadata, path );
+
+		// Hand-write an extra key inside a property metadata dict, as a
+		// future version of the spec would, and omit the optional varlength.
+		final Path zattrs = Path.of( path, ".zattrs" );
+		final String json = new String( Files.readAllBytes( zattrs ) );
+		final String withUnknown = json.replace( "{\"identifier\":\"x\",\"dtype\":\"float64\",\"unit\":\"micrometer\"}",
+				"{\"identifier\":\"x\",\"dtype\":\"float64\",\"unit\":\"micrometer\",\"future_thing\":{\"a\":1},\"smoothing\":true}" );
+		assertTrue( !withUnknown.equals( json ), "the hand-edited .zattrs must differ from the written one" );
+		Files.write( zattrs, withUnknown.getBytes() );
+
+		final GeffMetadata read = GeffMetadata.readFromZarr( path );
+		final PropMetadata xProp = read.getNodePropsMetadata().get( "x" );
+		assertEquals( "x", xProp.getIdentifier() );
+		assertEquals( "float64", xProp.getDtype() );
+		assertNull( xProp.getVarlength(), "an omitted varlength must be read as absent" );
+		assertEquals( 2, xProp.getUnknownAttributes().size() );
+		assertEquals( 1.0, ( ( Map< ?, ? > ) xProp.getUnknownAttributes().get( "future_thing" ) ).get( "a" ) );
+		assertEquals( Boolean.TRUE, xProp.getUnknownAttributes().get( "smoothing" ) );
+
+		// And they must be written back unchanged, with known keys first.
+		@SuppressWarnings( "unchecked" )
+		final Map< String, Object > geff = ( Map< String, Object > ) readZattrs( path ).get( "geff" );
+		@SuppressWarnings( "unchecked" )
+		final Map< String, Object > xMeta = ( Map< String, Object > ) ( ( Map< ?, ? > ) geff.get( "node_props_metadata" ) ).get( "x" );
+		assertEquals( List.of( "identifier", "dtype", "unit", "future_thing", "smoothing" ), List.copyOf( xMeta.keySet() ),
+				"known keys first in specification order, then unknown keys" );
+		assertEquals( 1.0, ( ( Map< ?, ? > ) xMeta.get( "future_thing" ) ).get( "a" ) );
+	}
+
+	@Test
+	@DisplayName( "Props metadata identifier falls back to the map key" )
+	void testPropMetadataIdentifierFallback( @TempDir final Path tempDir ) throws IOException
+	{
+		final String path = tempDir.resolve( "noid.zarr" ).toString();
+		GeffMetadata.writeToZarr( new GeffMetadata( "1.3", true ), path );
+
+		// Hand-write a props metadata entry that does not carry its
+		// identifier, as the identifier is redundant with the map key.
+		final Path zattrs = Path.of( path, ".zattrs" );
+		final String json = new String( Files.readAllBytes( zattrs ) );
+		final String withProp = json.replace( "}}", "},\"node_props_metadata\":{\"trackmate_spot_id\":{\"dtype\":\"uint64\"}}}" );
+		Files.write( zattrs, withProp.getBytes() );
+
+		final GeffMetadata read = GeffMetadata.readFromZarr( path );
+		final PropMetadata prop = read.getNodePropsMetadata().get( "trackmate_spot_id" );
+		assertNotNull( prop );
+		assertEquals( "trackmate_spot_id", prop.getIdentifier(), "the identifier must fall back to the map key" );
+		assertEquals( "uint64", prop.getDtype() );
+
+		// Re-writing restores the identifier into the dict, as the spec
+		// requires it.
+		GeffMetadata.writeToZarr( read, path );
+		@SuppressWarnings( "unchecked" )
+		final Map< String, Object > geff = ( Map< String, Object > ) readZattrs( path ).get( "geff" );
+		@SuppressWarnings( "unchecked" )
+		final Map< String, Object > propMeta = ( Map< String, Object > ) ( ( Map< ?, ? > ) geff.get( "node_props_metadata" ) ).get( "trackmate_spot_id" );
+		assertEquals( "trackmate_spot_id", propMeta.get( "identifier" ) );
+	}
+
+	@Test
 	@DisplayName( "Display hints referencing undeclared axes are rejected on read" )
 	void testInvalidDisplayHintsOnRead( @TempDir final Path tempDir ) throws IOException
 	{

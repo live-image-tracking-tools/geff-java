@@ -101,16 +101,22 @@ public class IoUtils
 			throw new IllegalArgumentException( idValuesDataset + " must be an integer type" );
 
 		final List< GeffPropertySpec > properties = new ArrayList<>();
-		final Map< String, PropMetadata > propsMetadata = n5.getAttribute( group,
+		final Map< String, Object > propsMetadata = n5.getAttribute( group,
 				elementType.propMetadataAttribute(),
-				new TypeToken< Map< String, PropMetadata > >()
+				new TypeToken< Map< String, Object > >()
 				{}.getType() );
 
-		for ( final PropMetadata metadata : propsMetadata.values() )
-		{
-			final GeffPropertySpec spec = loadPropertySpec( n5, group, elementType, metadata );
-			properties.add( spec );
-		}
+		if ( propsMetadata != null )
+			for ( final Map.Entry< String, Object > entry : propsMetadata.entrySet() )
+			{
+				@SuppressWarnings( "unchecked" )
+				final Map< String, Object > propMap = entry.getValue() instanceof Map
+						? ( Map< String, Object > ) entry.getValue()
+						: null;
+				final PropMetadata metadata = PropMetadata.fromMap( propMap, entry.getKey() );
+				final GeffPropertySpec spec = loadPropertySpec( n5, group, elementType, metadata );
+				properties.add( spec );
+			}
 		return new GeffPropertySpecs( elementType, id, properties );
 	}
 
@@ -141,7 +147,8 @@ public class IoUtils
 	{
 
 		final String propsGroup = group + elementType.elementGroup() + "/props/" + metadata.getIdentifier();
-		final boolean isVarLength = metadata.getVarlength();
+		// The spec default for the optional varlength flag is false.
+		final boolean isVarLength = Boolean.TRUE.equals( metadata.getVarlength() );
 
 		final ZarrDatasetAttributes attrValues = attrs( n5, propsGroup + "/values" );
 		if ( attrValues == null )

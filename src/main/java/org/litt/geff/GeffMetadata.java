@@ -31,7 +31,6 @@ package org.litt.geff;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -765,12 +764,8 @@ public class GeffMetadata
 		// Optional fields.
 		metadata.geffAxes = attribute( geff.get( "axes" ), new TypeToken< List< GeffAxis > >()
 		{}, "axes" );
-		metadata.nodePropsMetadata = attribute( geff.get( "node_props_metadata" ),
-				new TypeToken< Map< String, PropMetadata > >()
-				{}, "node_props_metadata" );
-		metadata.edgePropsMetadata = attribute( geff.get( "edge_props_metadata" ),
-				new TypeToken< Map< String, PropMetadata > >()
-				{}, "edge_props_metadata" );
+		metadata.nodePropsMetadata = propsMetadata( geff.get( "node_props_metadata" ), "node_props_metadata" );
+		metadata.edgePropsMetadata = propsMetadata( geff.get( "edge_props_metadata" ), "edge_props_metadata" );
 		metadata.trackNodeProps = attribute( geff.get( "track_node_props" ), new TypeToken< Map< String, String > >()
 		{}, "track_node_props" );
 		metadata.sphere = attribute( geff.get( "sphere" ), String.class, "sphere" );
@@ -788,6 +783,49 @@ public class GeffMetadata
 				metadata.unknownAttributes.put( entry.getKey(), entry.getValue() );
 
 		metadata.validate();
+		return metadata;
+	}
+
+	/**
+	 * Convert the typed props metadata map to a raw map for the props
+	 * metadata attribute of a geff file. Each {@link PropMetadata} is
+	 * converted with {@link PropMetadata#toMap()}, preserving unknown keys.
+	 * A {@code null} input yields an empty map, as the props metadata
+	 * attributes are required.
+	 */
+	private static Map< String, Object > toRawPropsMetadata( final Map< String, PropMetadata > metadata, final String key )
+	{
+		final Map< String, Object > raw = new LinkedHashMap<>();
+		if ( metadata == null )
+			return raw;
+		LOG.debug( "writing geff/{} {}", key, metadata );
+		for ( final Map.Entry< String, PropMetadata > entry : metadata.entrySet() )
+			raw.put( entry.getKey(), entry.getValue().toMap() );
+		return raw;
+	}
+
+	/**
+	 * Convert a raw props metadata attribute value (a map from property
+	 * identifier to metadata dict) to a typed map of {@link PropMetadata},
+	 * preserving unknown keys in each entry. Returns {@code null} and logs if
+	 * the value is not convertible, as {@link #attribute(Object, Type,
+	 * String)} does.
+	 */
+	private static Map< String, PropMetadata > propsMetadata( final Object raw, final String key )
+	{
+		if ( raw == null )
+			return null;
+		final Map< String, Object > map = attribute( raw, new TypeToken< Map< String, Object > >()
+		{}, key );
+		if ( map == null )
+			return null;
+		final Map< String, PropMetadata > metadata = new LinkedHashMap<>();
+		for ( final Map.Entry< String, Object > entry : map.entrySet() )
+		{
+			final Map< String, Object > propMap = attribute( entry.getValue(), new TypeToken< Map< String, Object > >()
+			{}, key + "/" + entry.getKey() );
+			metadata.put( entry.getKey(), PropMetadata.fromMap( propMap, entry.getKey() ) );
+		}
 		return metadata;
 	}
 
@@ -864,13 +902,8 @@ public class GeffMetadata
 			geff.put( "axes", geffAxes );
 		}
 
-		final Map< String, PropMetadata > nodeMeta = nodePropsMetadata != null ? nodePropsMetadata : new HashMap<>();
-		LOG.debug( "writing geff/node_props_metadata {}", nodeMeta );
-		geff.put( "node_props_metadata", nodeMeta );
-
-		final Map< String, PropMetadata > edgeMeta = edgePropsMetadata != null ? edgePropsMetadata : new HashMap<>();
-		LOG.debug( "writing geff/edge_props_metadata {}", edgeMeta );
-		geff.put( "edge_props_metadata", edgeMeta );
+		geff.put( "node_props_metadata", toRawPropsMetadata( nodePropsMetadata, "node_props_metadata" ) );
+		geff.put( "edge_props_metadata", toRawPropsMetadata( edgePropsMetadata, "edge_props_metadata" ) );
 
 		if ( trackNodeProps != null )
 		{
