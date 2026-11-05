@@ -38,11 +38,11 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.litt.geff.GeffMetadata.GeffDisplayHints;
 
 /**
  * Test class for resolving axis names from display_hints and axes.
@@ -52,7 +52,7 @@ public class GeffDisplayHintsTest
 
 	private static GeffMetadata metadata( final GeffAxis... axes )
 	{
-		return new GeffMetadata( GeffMetadata.VERSION, true, axes );
+		return new GeffMetadata( GeffMetadata.VERSION, true, List.of( axes ) );
 	}
 
 	/**

@@ -35,6 +35,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -55,12 +57,10 @@ public class GeffMetadataTest
 		testMetadata = new GeffMetadata( "0.2.2", true );
 
 		// Create axes using GeffAxis
-		final GeffAxis[] axes = {
+		testMetadata.setGeffAxes( List.of(
 				GeffAxis.createSpaceAxis( "x", GeffAxis.UNIT_MICROMETER, 0.0, 100.0 ),
 				GeffAxis.createSpaceAxis( "y", GeffAxis.UNIT_MICROMETER, 0.0, 100.0 ),
-				GeffAxis.createSpaceAxis( "z", GeffAxis.UNIT_MICROMETER, 0.0, 50.0 )
-		};
-		testMetadata.setGeffAxes( axes );
+				GeffAxis.createSpaceAxis( "z", GeffAxis.UNIT_MICROMETER, 0.0, 50.0 ) ) );
 	}
 
 	@Test
@@ -80,20 +80,20 @@ public class GeffMetadataTest
 		assertEquals( "0.2.2", testMetadata.getGeffVersion() );
 		assertTrue( testMetadata.isDirected() );
 
-		// Test GeffAxis array
-		final GeffAxis[] axes = testMetadata.getGeffAxes();
+		// Test GeffAxis list
+		final List< GeffAxis > axes = testMetadata.getGeffAxes();
 		assertNotNull( axes );
-		assertEquals( 3, axes.length );
+		assertEquals( 3, axes.size() );
 
 		// Test individual axes
-		assertEquals( "x", axes[ 0 ].getName() );
-		assertEquals( GeffAxis.TYPE_SPACE, axes[ 0 ].getType() );
-		assertEquals( GeffAxis.UNIT_MICROMETER, axes[ 0 ].getUnit() );
-		assertEquals( 0.0, axes[ 0 ].getMin(), 0.001 );
-		assertEquals( 100.0, axes[ 0 ].getMax(), 0.001 );
+		assertEquals( "x", axes.get( 0 ).getName() );
+		assertEquals( GeffAxis.TYPE_SPACE, axes.get( 0 ).getType() );
+		assertEquals( GeffAxis.UNIT_MICROMETER, axes.get( 0 ).getUnit() );
+		assertEquals( 0.0, axes.get( 0 ).getMin(), 0.001 );
+		assertEquals( 100.0, axes.get( 0 ).getMax(), 0.001 );
 
-		assertEquals( "y", axes[ 1 ].getName() );
-		assertEquals( "z", axes[ 2 ].getName() );
+		assertEquals( "y", axes.get( 1 ).getName() );
+		assertEquals( "z", axes.get( 2 ).getName() );
 	}
 
 	@Test
@@ -108,11 +108,8 @@ public class GeffMetadataTest
 		invalidMetadata.setDirected( false );
 
 		// Create invalid axes (min > max)
-		final GeffAxis[] invalidAxes = {
-				new GeffAxis( "x", GeffAxis.TYPE_SPACE, GeffAxis.UNIT_MICROMETER, 100.0, 50.0 ) // min
-					// >
-					// max
-		};
+		final List< GeffAxis > invalidAxes = List.of(
+				new GeffAxis( "x", GeffAxis.TYPE_SPACE, GeffAxis.UNIT_MICROMETER, 100.0, 50.0 ) );
 
 		assertThrows( IllegalArgumentException.class, () -> {
 			invalidMetadata.setGeffAxes( invalidAxes );

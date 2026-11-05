@@ -28,16 +28,17 @@
  */
 package org.litt.geff;
 
-
-import java.io.IOException;
 import java.lang.reflect.Type;
-import java.util.ArrayList;
+import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
@@ -47,53 +48,82 @@ import org.scijava.util.VersionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.annotations.SerializedName;
 import com.google.gson.reflect.TypeToken;
 
 /**
- * Represents metadata for a Geff (Graph Exchange Format for Features) dataset.
- * This class handles reading and writing metadata from/to Zarr format.
- *
- * This is the Java equivalent of the Python GeffMetadata schema from:
+ * Represents metadata for a GEFF (Graph Exchange File Format) dataset,
+ * corresponding to the {@code geff} key of the zarr attributes file.
+ * <p>
+ * This class handles reading and writing metadata from/to Zarr format, and is
+ * the Java equivalent of the Python {@code GeffMetadata} schema from:
  * https://github.com/live-image-tracking-tools/geff/blob/main/src/geff/metadata_schema.py
+ * <p>
+ * Reading and writing are performed on the raw {@code geff} attribute map:
+ * known keys are parsed into the typed fields of this class, and unknown keys
+ * are preserved as-is (see {@link #getUnknownAttributes()}) so that files
+ * written by future versions of the specification round-trip losslessly.
+ *
+ * @see <a href=
+ *      "https://liveimagetrackingtools.org/geff/latest/specification/">GEFF
+ *      specification</a>
  */
 public class GeffMetadata
 {
 
 	private static final Logger LOG = LoggerFactory.getLogger( GeffMetadata.class );
 
+	private static final Gson GSON = new Gson();
+
 	/** The GEFF-Java library version. */
 	public static final String VERSION = VersionUtils.getVersion( GeffMetadata.class );
 
-	// Supported GEFF versions
-	public static final List< String > SUPPORTED_VERSIONS = Arrays.asList( "0.2", "0.3", "0.4", "1.0", "1.1" );
+	/**
+	 * The type of the raw {@code geff} attribute map.
+	 */
+	private static final Type MAP_TYPE = new TypeToken< Map< String, Object > >()
+	{}.getType();
+
+	/**
+	 * The keys of the {@code geff} attribute map that are parsed into typed
+	 * fields of this class. All other keys found on read are kept as-is in
+	 * {@link #getUnknownAttributes() unknownAttributes} and written back
+	 * unchanged, so that attributes introduced by future versions of the
+	 * specification round-trip losslessly.
+	 */
+	private static final Set< String > KNOWN_KEYS = Set.of(
+			"geff_version", "directed", "axes",
+			"node_props_metadata", "edge_props_metadata",
+			"track_node_props", "sphere", "ellipsoid", "polygon", "mesh",
+			"related_objects", "display_hints", "extra" );
 
 	/*
-	 * Pattern to match major.minor versions, allowing for patch versions and
-	 * development versions Examples: 0.1.1, 0.2.2.dev20+g611e7a2.d20250719,
+	 * Pattern to match semantic versions, allowing for patch versions and
+	 * development versions. Examples: 0.1.1, 0.2.2.dev20+g611e7a2.d20250719,
 	 * 0.2.0-alpha.1, etc.
 	 */
-	private static final Pattern SUPPORTED_VERSIONS_PATTERN = Pattern
+	private static final Pattern SEMVER_PATTERN = Pattern
 			.compile( "^\\d+\\.\\d+(?:\\.\\d+)?(?:\\.dev\\d+)?(?:[.-][a-zA-Z0-9-]+(?:[.-][a-zA-Z0-9-]+)*)?(?:\\+[a-zA-Z0-9.-]+)?$" );
 
 	/**
-	 * Checks that the specified version string matches the supported semver
+	 * Checks that the specified version string matches the semantic versioning
 	 * pattern, throws an {@link IllegalArgumentException} otherwise.
-	 * Formerly in {@code GeffUtils}.
 	 */
-	private static void checkSupportedVersion( final String version )
+	private static void checkSemver( final String version )
 	{
-		if ( !SUPPORTED_VERSIONS_PATTERN.matcher( version ).matches() )
-			throw new IllegalArgumentException( "geff_version " + version + " does not match semver pattern." );
+		if ( !SEMVER_PATTERN.matcher( version ).matches() )
+			throw new IllegalArgumentException(
+					"geff_version " + version + " does not follow semantic versioning (e.g. 1.3, 1.3.1, 0.3.1.dev6+g61d5f18)." );
 	}
 
 	// Metadata attributes - matching the Python schema
+
 	private String geffVersion;
 
 	private boolean directed;
 
-	private GeffAxis[] geffAxes; // TODO make List<GeffAxis>
+	private List< GeffAxis > geffAxes;
 
 	private Map< String, PropMetadata > nodePropsMetadata;
 
@@ -113,6 +143,34 @@ public class GeffMetadata
 	 *      Specification: sphere</a>
 	 */
 	private String sphere;
+
+	/**
+	 * Identifier of the node property that defines the ellipsoid shape of
+	 * nodes, or {@code null} if the graph does not have ellipsoid shapes.
+	 * Corresponds to the {@code geff/ellipsoid} attribute of the GEFF
+	 * specification. The ellipsoid property is a matrix property storing a
+	 * symmetric positive-definite covariance matrix, as a {@code 2x2} or
+	 * {@code 3x3} array; its center is given by the spatial axes properties.
+	 *
+	 * @see <a href=
+	 *      "https://liveimagetrackingtools.org/geff/latest/specification/#geff_spec.GeffMetadata">GEFF
+	 *      Specification: ellipsoid</a>
+	 */
+	private String ellipsoid;
+
+	/**
+	 * Identifier of the node property that defines the polygon shape of nodes,
+	 * or {@code null} if the graph does not have polygon shapes. Corresponds
+	 * to the {@code geff/polygon} attribute of the GEFF specification. The
+	 * polygon property is a property storing {@code (n_points, n_dimensions)}
+	 * arrays of points relative to the node position; since the number of
+	 * points may differ for each node, it is typically a var-length property.
+	 *
+	 * @see <a href=
+	 *      "https://liveimagetrackingtools.org/geff/latest/specification/#geff_spec.GeffMetadata">GEFF
+	 *      Specification: polygon</a>
+	 */
+	private String polygon;
 
 	/**
 	 * The mesh shape specification of nodes, or {@code null} if the graph does
@@ -144,6 +202,16 @@ public class GeffMetadata
 	private RelatedObjects relatedObjects;
 
 	/**
+	 * The attributes of the {@code geff} map that this class does not know
+	 * about (i.e. attributes introduced by a version of the specification
+	 * newer than this library). They are preserved on read and written back
+	 * unchanged, so that files round-trip losslessly. Never {@code null} after
+	 * {@link #readFromN5(N5Reader, String)}; may be modified through
+	 * {@link #getUnknownAttributes()}.
+	 */
+	private Map< String, Object > unknownAttributes = new LinkedHashMap<>();
+
+	/**
 	 * Default constructor
 	 */
 	public GeffMetadata()
@@ -156,16 +224,6 @@ public class GeffMetadata
 	{
 		setGeffVersion( geffVersion );
 		this.directed = directed;
-	}
-
-	/**
-	 * Constructor with all parameters
-	 */
-	public GeffMetadata( final String geffVersion, final boolean directed, final GeffAxis[] geffAxes )
-	{
-		setGeffVersion( geffVersion );
-		this.directed = directed;
-		setGeffAxes( geffAxes );
 	}
 
 	/**
@@ -186,12 +244,10 @@ public class GeffMetadata
 
 	public void setGeffVersion( final String geffVersion )
 	{
-		if ( geffVersion != null && !SUPPORTED_VERSIONS_PATTERN.matcher( geffVersion ).matches() )
+		if ( geffVersion != null && !SEMVER_PATTERN.matcher( geffVersion ).matches() )
 		{ throw new IllegalArgumentException(
 				"Unsupported Geff version: " + geffVersion +
-						". Supported major.minor versions are: " + SUPPORTED_VERSIONS +
-						" (patch versions, development versions, and metadata are also supported, " +
-						"e.g., 0.1.1, 0.2.2.dev20+g611e7a2.d20250719)" ); }
+						". The version must follow semantic versioning, e.g. 1.3, 1.3.1, 0.3.1.dev6+g61d5f18." ); }
 		this.geffVersion = geffVersion;
 	}
 
@@ -205,26 +261,46 @@ public class GeffMetadata
 		this.directed = directed;
 	}
 
-	public GeffAxis[] getGeffAxes() // TODO make List<GeffAxis>
+	/**
+	 * Returns the axes of this dataset, in declaration order. The order is
+	 * meaningful: it defines the dimension order of array-valued properties,
+	 * and is used as a fallback when aligning a graph with image data that do
+	 * not declare axes of their own.
+	 *
+	 * @return the axes, or {@code null} if the dataset declares no axes.
+	 */
+	public List< GeffAxis > getGeffAxes()
 	{
 		return geffAxes;
 	}
 
-	public List< GeffAxis > getGeffAxesList() // TODO rename getGeffAxes()
-	{
-		return ( geffAxes != null ) ? Arrays.asList( geffAxes ) : null;
-	}
-
-	public void setGeffAxes( final GeffAxis[] geffAxes ) // TODO make List<GeffAxis>
-	{
-		this.geffAxes = geffAxes != null ? geffAxes.clone() : null;
-		validate();
-	}
-
+	/**
+	 * Sets the axes of this dataset, validating them. The order of the axes is
+	 * meaningful; see {@link #getGeffAxes()}.
+	 *
+	 * @param geffAxes
+	 *            the axes, or {@code null} if the dataset declares no axes.
+	 */
 	public void setGeffAxes( final List< GeffAxis > geffAxes )
 	{
-		this.geffAxes = ( geffAxes != null ) ? geffAxes.toArray( new GeffAxis[ 0 ] ) : null;
-		validate();
+		this.geffAxes = geffAxes;
+		if ( geffAxes != null )
+		{
+			for ( final GeffAxis axis : geffAxes )
+				axis.validate();
+		}
+	}
+
+	/**
+	 * Alias for {@link #getGeffAxes()}.
+	 *
+	 * @return the axes, or {@code null} if the dataset declares no axes.
+	 * @deprecated use {@link #getGeffAxes()} instead.
+	 */
+	@Deprecated
+	public List< GeffAxis > getGeffAxesList()
+	{
+		return getGeffAxes();
 	}
 
 	public Map< String, PropMetadata > getNodePropsMetadata()
@@ -252,6 +328,15 @@ public class GeffMetadata
 		return trackNodeProps;
 	}
 
+	/**
+	 * Sets the track node properties, mapping the special keys {@code
+	 * lineage} and {@code tracklet} to the identifiers of the node properties
+	 * that store the corresponding IDs. Both keys are optional, and no other
+	 * key is defined by the specification.
+	 *
+	 * @param trackNodeProps
+	 *            the track node properties, or {@code null} to unset.
+	 */
 	public void setTrackNodeProps( final Map< String, String > trackNodeProps )
 	{
 		this.trackNodeProps = trackNodeProps;
@@ -279,6 +364,57 @@ public class GeffMetadata
 	public void setSphere( final String sphere )
 	{
 		this.sphere = sphere;
+	}
+
+	/**
+	 * Returns the identifier of the node property that defines the ellipsoid
+	 * shape of nodes, or {@code null} if the graph does not have ellipsoid
+	 * shapes.
+	 *
+	 * @return the ellipsoid property identifier, or {@code null}.
+	 */
+	public String getEllipsoid()
+	{
+		return ellipsoid;
+	}
+
+	/**
+	 * Sets the identifier of the node property that defines the ellipsoid
+	 * shape of nodes. The property must store a symmetric positive-definite
+	 * covariance matrix as a {@code 2x2} or {@code 3x3} array.
+	 *
+	 * @param ellipsoid
+	 *            the ellipsoid property identifier, or {@code null} to unset.
+	 */
+	public void setEllipsoid( final String ellipsoid )
+	{
+		this.ellipsoid = ellipsoid;
+	}
+
+	/**
+	 * Returns the identifier of the node property that defines the polygon
+	 * shape of nodes, or {@code null} if the graph does not have polygon
+	 * shapes.
+	 *
+	 * @return the polygon property identifier, or {@code null}.
+	 */
+	public String getPolygon()
+	{
+		return polygon;
+	}
+
+	/**
+	 * Sets the identifier of the node property that defines the polygon shape
+	 * of nodes. The property must store {@code (n_points, n_dimensions)}
+	 * arrays of points relative to the node position, and is typically a
+	 * var-length property.
+	 *
+	 * @param polygon
+	 *            the polygon property identifier, or {@code null} to unset.
+	 */
+	public void setPolygon( final String polygon )
+	{
+		this.polygon = polygon;
 	}
 
 	/**
@@ -318,10 +454,73 @@ public class GeffMetadata
 		return displayHints;
 	}
 
+	/**
+	 * Sets the display hints, validating them. If axes are declared, the
+	 * hints must name declared axes; see {@link #validate()}.
+	 *
+	 * @param displayHints
+	 *            the display hints, or {@code null} to unset.
+	 */
 	public void setDisplayHints( final GeffDisplayHints displayHints )
 	{
 		this.displayHints = displayHints;
-		validate();
+		if ( displayHints != null )
+			displayHints.validate();
+		checkDisplayHints();
+	}
+
+	/**
+	 * Checks that the display hints, if any, name axes that are declared in
+	 * {@link #getGeffAxes()}. Does nothing when there are no hints or no
+	 * axes.
+	 */
+	private void checkDisplayHints()
+	{
+		if ( displayHints == null || geffAxes == null )
+			return;
+
+		final List< String > axisNames = Arrays.asList( getAxisNames() );
+		checkDisplayHint( "display_horizontal", displayHints.getDisplayHorizontal(), axisNames );
+		checkDisplayHint( "display_vertical", displayHints.getDisplayVertical(), axisNames );
+		checkDisplayHint( "display_depth", displayHints.getDisplayDepth(), axisNames );
+		checkDisplayHint( "display_time", displayHints.getDisplayTime(), axisNames );
+	}
+
+	/**
+	 * Returns the related objects of this dataset, or {@code null} if there
+	 * are none.
+	 *
+	 * @return the related objects, or {@code null}.
+	 */
+	public RelatedObjects getRelatedObjects()
+	{
+		return relatedObjects;
+	}
+
+	/**
+	 * Sets the related objects of this dataset.
+	 *
+	 * @param relatedObjects
+	 *            the related objects, or {@code null} to unset.
+	 */
+	public void setRelatedObjects( final RelatedObjects relatedObjects )
+	{
+		this.relatedObjects = relatedObjects;
+	}
+
+	/**
+	 * Returns the attributes of the {@code geff} map that this class does not
+	 * know about (i.e. attributes introduced by a version of the
+	 * specification newer than this library). They are preserved on read and
+	 * written back unchanged by {@link #writeToN5(N5Writer, String)}, so that
+	 * files round-trip losslessly. The returned map is writable: entries added
+	 * there are written as {@code geff/&lt;key&gt;} attributes.
+	 *
+	 * @return the unknown attributes, never {@code null}.
+	 */
+	public Map< String, Object > getUnknownAttributes()
+	{
+		return unknownAttributes;
 	}
 
 	/**
@@ -438,17 +637,6 @@ public class GeffMetadata
 		return ( spaceAxes.length == 0 || indexFromLast < 2 ) ? standardName : null;
 	}
 
-	public RelatedObjects getRelatedObjects()
-	{
-		return relatedObjects;
-	}
-
-	public void setRelatedObjects( final RelatedObjects relatedObjects )
-	{
-		this.relatedObjects = relatedObjects;
-		validate();
-	}
-
 	/**
 	 * Get the axis name for a given axis type. Returns the name of the first
 	 * axis matching the specified type, or null if no such axis exists.
@@ -483,7 +671,7 @@ public class GeffMetadata
 		if ( geffAxes == null )
 			return new String[ 0 ];
 
-		return Arrays.stream( geffAxes )
+		return geffAxes.stream()
 				.filter( axis -> type.equals( axis.getType() ) )
 				.map( GeffAxis::getName )
 				.toArray( String[]::new );
@@ -499,50 +687,28 @@ public class GeffMetadata
 		if ( geffAxes == null )
 			return new String[ 0 ];
 
-		return Arrays.stream( geffAxes )
+		return geffAxes.stream()
 				.map( GeffAxis::getName )
 				.toArray( String[]::new );
 	}
 
 	/**
-	 * Validates the metadata according to the GEFF schema rules
+	 * Validates the metadata according to the GEFF schema rules.
+	 * <p>
+	 * This is called once by {@link #readFromN5(N5Reader, String)} after all
+	 * fields are parsed, and by {@link #writeToN5(N5Writer, String)} before
+	 * anything is written. Individual fields are validated by their own
+	 * setters; this method only checks cross-field consistency.
 	 */
 	public void validate()
 	{
 		if ( geffVersion == null )
 		{ throw new IllegalArgumentException( "geff_version is missing." ); }
 
-		// Check spatial metadata consistency if position is provided
-		if ( geffAxes != null )
-		{
-			for ( final GeffAxis axis : geffAxes )
-			{
-				if ( !Arrays.asList( GeffAxis.TYPE_TIME, GeffAxis.TYPE_SPACE, GeffAxis.TYPE_CHANNEL ).contains( axis.getType() ) )
-				{ throw new IllegalArgumentException(
-						"Invalid axis type: " + axis.getType() + ". Supported types are: " +
-								GeffAxis.TYPE_TIME + ", " + GeffAxis.TYPE_SPACE + ", " + GeffAxis.TYPE_CHANNEL ); }
-				if ( axis.getMin() != null && axis.getMax() != null && axis.getMin() > axis.getMax() )
-				{ throw new IllegalArgumentException(
-						"Roi min " + axis.getMin() + " is greater than " +
-								"max " + axis.getMax() + " in dimension " + axis.getName() ); }
-			}
-		}
-
 		// Check display hints consistency if provided
 		if ( displayHints != null )
-		{
 			displayHints.validate();
-
-			// Display hints must reference axes that exist
-			if ( geffAxes != null )
-			{
-				final List< String > axisNames = Arrays.asList( getAxisNames() );
-				checkDisplayHint( "display_horizontal", displayHints.getDisplayHorizontal(), axisNames );
-				checkDisplayHint( "display_vertical", displayHints.getDisplayVertical(), axisNames );
-				checkDisplayHint( "display_depth", displayHints.getDisplayDepth(), axisNames );
-				checkDisplayHint( "display_time", displayHints.getDisplayTime(), axisNames );
-			}
-		}
+		checkDisplayHints();
 	}
 
 	private static void checkDisplayHint( final String hintName, final String axisName, final List< String > axisNames )
@@ -563,116 +729,97 @@ public class GeffMetadata
 		}
 	}
 
+	/**
+	 * Read metadata from an N5/Zarr reader. All known keys of the raw {@code
+	 * geff} attribute map are parsed into the typed fields of this class;
+	 * unknown keys are preserved in {@link #getUnknownAttributes()}. Unknown
+	 * or unparseable values are reported as {@code null} with a debug log
+	 * message.
+	 *
+	 * @param reader
+	 *            the {@code N5Reader}
+	 * @param group
+	 *            path to the geff group (relative to container root)
+	 * @return the metadata
+	 * @throws IllegalArgumentException
+	 *             if the {@code geff} attribute map is missing, or if the
+	 *             required {@code geff_version} or {@code geff/directed}
+	 *             attributes are missing or invalid.
+	 */
 	public static GeffMetadata readFromN5( final N5Reader reader, final String group )
 	{
-		final String geffVersion = reader.getAttribute( group, "geff/geff_version", String.class );
-		LOG.debug( "found geff/geff_version = {}", geffVersion );
-		if ( geffVersion == null )
+		final Map< String, Object > geff = reader.getAttribute( group, "geff", MAP_TYPE );
+		LOG.debug( "found geff = {}", geff );
+		if ( geff == null || geff.get( "geff_version" ) == null )
 		{ throw new IllegalArgumentException(
-				"No geff_version found in " + group + ". This may indicate the path is incorrect or " +
+				"No geff/geff_version found in " + group + ". This may indicate the path is incorrect or " +
 						"zarr group name is not specified (e.g. /dataset.zarr/tracks/ instead of " +
 						"/dataset.zarr/)." ); }
-		checkSupportedVersion( geffVersion );
 
-		final Boolean directed = reader.getAttribute( group, "geff/directed", Boolean.class );
-		LOG.debug( "found geff/directed = {}", directed );
+		final GeffMetadata metadata = new GeffMetadata();
+
+		// Required fields.
+		metadata.geffVersion = attribute( geff.get( "geff_version" ), String.class, "geff_version" );
+		checkSemver( metadata.geffVersion );
+		final Boolean directed = attribute( geff.get( "directed" ), Boolean.class, "directed" );
 		if ( directed == null )
 		{ throw new IllegalArgumentException( "required attribute 'geff/directed' is missing." ); }
+		metadata.directed = directed.booleanValue();
 
-		final List< GeffAxis > axes = reader.getAttribute( group, "geff/axes",
-				new TypeToken< List< GeffAxis > >()
-				{}.getType() );
-		LOG.debug( "found geff/axes = {}", axes );
-
-		final Map< String, PropMetadata > nodePropsMetadata = reader.getAttribute( group, "geff/node_props_metadata",
+		// Optional fields.
+		metadata.geffAxes = attribute( geff.get( "axes" ), new TypeToken< List< GeffAxis > >()
+		{}, "axes" );
+		metadata.nodePropsMetadata = attribute( geff.get( "node_props_metadata" ),
 				new TypeToken< Map< String, PropMetadata > >()
-				{}.getType() );
-		LOG.debug( "found geff/node_props_metadata = {}", nodePropsMetadata );
-
-		final Map< String, PropMetadata > edgePropsMetadata = reader.getAttribute( group, "geff/edge_props_metadata",
+				{}, "node_props_metadata" );
+		metadata.edgePropsMetadata = attribute( geff.get( "edge_props_metadata" ),
 				new TypeToken< Map< String, PropMetadata > >()
-				{}.getType() );
-		LOG.debug( "found geff/edge_props_metadata = {}", edgePropsMetadata );
+				{}, "edge_props_metadata" );
+		metadata.trackNodeProps = attribute( geff.get( "track_node_props" ), new TypeToken< Map< String, String > >()
+		{}, "track_node_props" );
+		metadata.sphere = attribute( geff.get( "sphere" ), String.class, "sphere" );
+		metadata.ellipsoid = attribute( geff.get( "ellipsoid" ), String.class, "ellipsoid" );
+		metadata.polygon = attribute( geff.get( "polygon" ), String.class, "polygon" );
+		metadata.mesh = attribute( geff.get( "mesh" ), MeshMetadata.class, "mesh" );
+		metadata.displayHints = attribute( geff.get( "display_hints" ), GeffDisplayHints.class, "display_hints" );
+		metadata.relatedObjects = attribute( geff.get( "related_objects" ), RelatedObjects.class, "related_objects" );
+		metadata.extra = attribute( geff.get( "extra" ), new TypeToken< Map< String, Object > >()
+		{}, "extra" );
 
-		// trackNodeProps may be null, so safe-read it
-		final Map< String, String > trackNodeProps = readOptionalAttribute( reader, group, "geff/track_node_props",
-				new TypeToken< Map< String, String > >()
-				{}.getType() );
-		LOG.debug( "found geff/track_node_props = {}", trackNodeProps );
+		// Preserve attributes that this class does not know about.
+		for ( final Map.Entry< String, Object > entry : geff.entrySet() )
+			if ( !KNOWN_KEYS.contains( entry.getKey() ) )
+				metadata.unknownAttributes.put( entry.getKey(), entry.getValue() );
 
-		// sphere may be null, so safe-read it
-		final String sphere = readOptionalAttribute( reader, group, "geff/sphere", String.class );
-		LOG.debug( "found geff/sphere = {}", sphere );
-
-		// mesh may be null, so safe-read it
-		final MeshMetadata mesh = readOptionalAttribute( reader, group, "geff/mesh", MeshMetadata.class );
-		LOG.debug( "found geff/mesh = {}", mesh );
-
-		// displayHints may be null, so safe-read it
-		final GeffDisplayHints displayHints = readOptionalAttribute( reader, group, "geff/display_hints", GeffDisplayHints.class );
-		LOG.debug( "found geff/display_hints = {}", displayHints );
-
-		// RelatedObjects
-		RelatedObjects relatedObjects = null;
-		try
-		{
-			@SuppressWarnings( "unchecked" )
-			final List< Map< String, String > > roMap = reader.getAttribute( group, "geff/related_objects", List.class );
-			relatedObjects = new RelatedObjects();
-			relatedObjects.relatedObjects.addAll( roMap );
-		}
-		catch ( final Exception e )
-		{
-			LOG.debug( "Could not parse geff/related_objects as RelatedObjects, setting to null: {}", e.getMessage() );
-		}
-
-		// Extra may be null, so safe-read it
-		Map< String, Object > extra = null;
-		try
-		{
-			extra = reader.getAttribute( group, "geff/extra",
-					new TypeToken< Map< String, Object > >()
-					{}.getType() );
-		}
-		catch ( final Exception e )
-		{
-			// If the attribute cannot be parsed as Map<String, String> (e.g.,
-			// if it's null in JSON), just leave it as null
-			LOG.debug( "Could not parse geff/extra as Map<String,Object>, setting to null: {}", e.getMessage() );
-		}
-		LOG.debug( "found geff/extra = {}", extra );
-
-		final GeffMetadata metadata = new GeffMetadata( geffVersion, directed, axes );
-		metadata.setNodePropsMetadata( nodePropsMetadata );
-		metadata.setEdgePropsMetadata( edgePropsMetadata );
-		metadata.setTrackNodeProps( trackNodeProps );
-		metadata.setSphere( sphere );
-		metadata.setMesh( mesh );
-		metadata.setDisplayHints( displayHints );
-		metadata.setRelatedObjects( relatedObjects );
-		metadata.setExtra( extra );
 		metadata.validate();
-
 		return metadata;
 	}
 
 	/**
-	 * Read an optional attribute. An attribute that is explicitly written as
-	 * JSON {@code null}, as the Python implementation does for the optional
-	 * fields it leaves unset, cannot be parsed into the target type; report it
-	 * as absent instead of failing.
+	 * Convert a raw attribute value to the given type with Gson, returning
+	 * {@code null} and logging if the value is not convertible. A {@code
+	 * null} input yields a {@code null} output: attributes explicitly written
+	 * as JSON {@code null}, as the Python implementation does for the
+	 * optional fields it leaves unset, are reported as absent.
 	 */
-	private static < T > T readOptionalAttribute( final N5Reader reader, final String group, final String key, final Type type )
+	private static < T > T attribute( final Object raw, final Type type, final String key )
 	{
+		if ( raw == null )
+			return null;
 		try
 		{
-			return reader.getAttribute( group, key, type );
+			return GSON.fromJson( GSON.toJsonTree( raw ), type );
 		}
 		catch ( final Exception e )
 		{
-			LOG.debug( "Could not parse {} as {}, setting to null: {}", key, type.getTypeName(), e.getMessage() );
+			LOG.debug( "Could not parse geff/{} as {}, setting to null: {}", key, type.getTypeName(), e.getMessage() );
 			return null;
 		}
+	}
+
+	private static < T > T attribute( final Object raw, final TypeToken< T > type, final String key )
+	{
+		return attribute( raw, type.getType(), key );
 	}
 
 	/**
@@ -686,78 +833,109 @@ public class GeffMetadata
 		}
 	}
 
+	/**
+	 * Write this metadata to an N5/Zarr writer, as the {@code geff} attribute
+	 * map. Known fields are written from the typed fields of this class, in
+	 * specification order; the attributes in {@link #getUnknownAttributes()
+	 * unknownAttributes} are written back unchanged. Fields that are unset
+	 * are omitted, except for the required {@code node_props_metadata} and
+	 * {@code edge_props_metadata} maps, which are written as empty objects if
+	 * unset.
+	 *
+	 * @param writer
+	 *            the {@code N5Writer}
+	 * @param group
+	 *            path to the geff group (relative to container root)
+	 */
 	public void writeToN5( final N5Writer writer, final String group )
 	{
 		// Validate before writing
 		validate();
+		checkSemver( geffVersion );
 
-		checkSupportedVersion( geffVersion );
+		final Map< String, Object > geff = new LinkedHashMap<>();
 
 		// required
-		LOG.debug( "writing geff/geff_version {}", getGeffVersion() );
-		writer.setAttribute( group, "geff/geff_version", getGeffVersion() );
-		LOG.debug( "writing geff/directed {}", isDirected() );
-		writer.setAttribute( group, "geff/directed", isDirected() );
+		LOG.debug( "writing geff/geff_version {}", geffVersion );
+		geff.put( "geff_version", geffVersion );
+		LOG.debug( "writing geff/directed {}", directed );
+		geff.put( "directed", directed );
 
 		// optional
-		final List< GeffAxis > axes = getGeffAxesList();
-		if ( axes != null )
+		if ( geffAxes != null )
 		{
-			LOG.debug( "writing geff/axes {}", axes );
-			writer.setAttribute( group, "geff/axes", axes );
+			LOG.debug( "writing geff/axes {}", geffAxes );
+			geff.put( "axes", geffAxes );
 		}
 
-		final Map< String, PropMetadata > nodeMeta = nodePropsMetadata != null ? nodePropsMetadata : new java.util.HashMap<>();
+		final Map< String, PropMetadata > nodeMeta = nodePropsMetadata != null ? nodePropsMetadata : new HashMap<>();
 		LOG.debug( "writing geff/node_props_metadata {}", nodeMeta );
-		writer.setAttribute( group, "geff/node_props_metadata", nodeMeta );
+		geff.put( "node_props_metadata", nodeMeta );
 
-		final Map< String, PropMetadata > edgeMeta = edgePropsMetadata != null ? edgePropsMetadata : new java.util.HashMap<>();
+		final Map< String, PropMetadata > edgeMeta = edgePropsMetadata != null ? edgePropsMetadata : new HashMap<>();
 		LOG.debug( "writing geff/edge_props_metadata {}", edgeMeta );
-		writer.setAttribute( group, "geff/edge_props_metadata", edgeMeta );
+		geff.put( "edge_props_metadata", edgeMeta );
 
 		if ( trackNodeProps != null )
 		{
 			LOG.debug( "writing geff/track_node_props {}", trackNodeProps );
-			writer.setAttribute( group, "geff/track_node_props", trackNodeProps );
+			geff.put( "track_node_props", trackNodeProps );
 		}
 
 		if ( sphere != null )
 		{
 			LOG.debug( "writing geff/sphere {}", sphere );
-			writer.setAttribute( group, "geff/sphere", sphere );
+			geff.put( "sphere", sphere );
+		}
+
+		if ( ellipsoid != null )
+		{
+			LOG.debug( "writing geff/ellipsoid {}", ellipsoid );
+			geff.put( "ellipsoid", ellipsoid );
+		}
+
+		if ( polygon != null )
+		{
+			LOG.debug( "writing geff/polygon {}", polygon );
+			geff.put( "polygon", polygon );
 		}
 
 		if ( mesh != null )
 		{
 			LOG.debug( "writing geff/mesh {}", mesh );
-			writer.setAttribute( group, "geff/mesh", mesh );
+			geff.put( "mesh", mesh );
 		}
 
 		if ( displayHints != null )
 		{
 			LOG.debug( "writing geff/display_hints {}", displayHints );
-			writer.setAttribute( group, "geff/display_hints", displayHints );
+			geff.put( "display_hints", displayHints );
 		}
 
-		if ( relatedObjects != null )
+		if ( relatedObjects != null && !relatedObjects.isEmpty() )
 		{
-			LOG.debug( "writing geff/related_objects {}", relatedObjects.relatedObjects );
-			writer.setAttribute( group, "geff/related_objects", relatedObjects.relatedObjects );
+			LOG.debug( "writing geff/related_objects {}", relatedObjects );
+			geff.put( "related_objects", relatedObjects );
 		}
 
 		if ( extra != null )
 		{
 			LOG.debug( "writing geff/extra {}", extra );
-			writer.setAttribute( group, "geff/extra", extra );
+			geff.put( "extra", extra );
 		}
+
+		// Write back attributes that this class does not know about.
+		geff.putAll( unknownAttributes );
+
+		writer.setAttribute( group, "geff", geff );
 	}
 
 	@Override
 	public String toString()
 	{
 		return String.format(
-				"GeffMetadata{geffVersion='%s', directed=%s, geffAxes=%s, nodePropsMetadata=%s, edgePropsMetadata=%s, trackNodeProps=%s, sphere=%s, mesh=%s, displayHints=%s, relatedObjects=%s, extra=%s}",
-				geffVersion, directed, Arrays.toString( geffAxes ), nodePropsMetadata, edgePropsMetadata, trackNodeProps, sphere, mesh, displayHints, relatedObjects, extra );
+				"GeffMetadata{geffVersion='%s', directed=%s, geffAxes=%s, nodePropsMetadata=%s, edgePropsMetadata=%s, trackNodeProps=%s, sphere=%s, ellipsoid=%s, polygon=%s, mesh=%s, displayHints=%s, relatedObjects=%s, extra=%s, unknownAttributes=%s}",
+				geffVersion, directed, geffAxes, nodePropsMetadata, edgePropsMetadata, trackNodeProps, sphere, ellipsoid, polygon, mesh, displayHints, relatedObjects, extra, unknownAttributes );
 	}
 
 	@Override
@@ -766,372 +944,19 @@ public class GeffMetadata
 		if ( !( o instanceof GeffMetadata ) )
 			return false;
 		final GeffMetadata that = ( GeffMetadata ) o;
-		return directed == that.directed && Objects.equals( geffVersion, that.geffVersion ) && Objects.deepEquals( geffAxes, that.geffAxes )
+		return directed == that.directed && Objects.equals( geffVersion, that.geffVersion ) && Objects.equals( geffAxes, that.geffAxes )
 				&& Objects.equals( nodePropsMetadata, that.nodePropsMetadata ) && Objects.equals( edgePropsMetadata, that.edgePropsMetadata )
 				&& Objects.equals( trackNodeProps, that.trackNodeProps ) && Objects.equals( sphere, that.sphere )
+				&& Objects.equals( ellipsoid, that.ellipsoid ) && Objects.equals( polygon, that.polygon )
 				&& Objects.equals( mesh, that.mesh ) && Objects.equals( displayHints, that.displayHints )
-				&& Objects.equals( relatedObjects, that.relatedObjects ) && Objects.equals( extra, that.extra );
+				&& Objects.equals( relatedObjects, that.relatedObjects ) && Objects.equals( extra, that.extra )
+				&& Objects.equals( unknownAttributes, that.unknownAttributes );
 	}
 
 	@Override
 	public int hashCode()
 	{
-		return Objects.hash( geffVersion, directed, Arrays.hashCode( geffAxes ), nodePropsMetadata, edgePropsMetadata, trackNodeProps, sphere, mesh, displayHints, relatedObjects, extra );
-	}
-
-	/**
-	 * Mesh shape specification for GEFF
-	 *
-	 * Metadata specifying which node properties store the vertices, triangles
-	 * and optional normals of a triangular mesh, corresponding to the
-	 * {@code geff/mesh} attribute of the GEFF specification.
-	 * <p>
-	 * For instance:
-	 *
-	 * <pre>
-	 * "mesh": {
-	 *     "vertices": "mesh_vertices",
-	 *     "triangles": "mesh_triangles",
-	 *     "vertex_normals": "mesh_vertex_normals",
-	 *     "triangle_normals": "mesh_triangle_normals"
-	 * }
-	 * </pre>
-	 *
-	 * {@code vertices} and {@code triangles} are required;
-	 * {@code vertex_normals} and {@code triangle_normals} are optional.
-	 *
-	 * @see <a href=
-	 *      "https://liveimagetrackingtools.org/geff/latest/specification/">GEFF
-	 *      specification</a>
-	 * @author Jean-Yves Tinevez
-	 */
-	public static class MeshMetadata
-	{
-
-		@SerializedName( "vertices" )
-		private String vertices;
-
-		@SerializedName( "triangles" )
-		private String triangles;
-
-		@SerializedName( "vertex_normals" )
-		private String vertexNormals; // Optional - can be null
-
-		@SerializedName( "triangle_normals" )
-		private String triangleNormals; // Optional - can be null
-
-		/**
-		 * Default constructor
-		 */
-		public MeshMetadata()
-		{}
-
-		/**
-		 * Constructor with the required fields
-		 */
-		public MeshMetadata( final String vertices, final String triangles )
-		{
-			this.vertices = vertices;
-			this.triangles = triangles;
-		}
-
-		/**
-		 * Constructor with all fields
-		 */
-		public MeshMetadata( final String vertices, final String triangles, final String vertexNormals, final String triangleNormals )
-		{
-			this.vertices = vertices;
-			this.triangles = triangles;
-			this.vertexNormals = vertexNormals;
-			this.triangleNormals = triangleNormals;
-		}
-
-		// Getters and Setters
-		public String getVertices()
-		{
-			return vertices;
-		}
-
-		public void setVertices( final String vertices )
-		{
-			this.vertices = vertices;
-		}
-
-		public String getTriangles()
-		{
-			return triangles;
-		}
-
-		public void setTriangles( final String triangles )
-		{
-			this.triangles = triangles;
-		}
-
-		public String getVertexNormals()
-		{
-			return vertexNormals;
-		}
-
-		public void setVertexNormals( final String vertexNormals )
-		{
-			this.vertexNormals = vertexNormals;
-		}
-
-		public String getTriangleNormals()
-		{
-			return triangleNormals;
-		}
-
-		public void setTriangleNormals( final String triangleNormals )
-		{
-			this.triangleNormals = triangleNormals;
-		}
-
-		@Override
-		public String toString()
-		{
-			return String.format( "MeshMetadata{vertices=%s, triangles=%s, vertexNormals=%s, triangleNormals=%s}",
-					vertices, triangles, vertexNormals, triangleNormals );
-		}
-
-		@Override
-		public boolean equals( final Object o )
-		{
-			if ( !( o instanceof MeshMetadata ) )
-				return false;
-			final MeshMetadata that = ( MeshMetadata ) o;
-			return Objects.equals( vertices, that.vertices ) && Objects.equals( triangles, that.triangles )
-					&& Objects.equals( vertexNormals, that.vertexNormals ) && Objects.equals( triangleNormals, that.triangleNormals );
-		}
-
-		@Override
-		public int hashCode()
-		{
-			return Objects.hash( vertices, triangles, vertexNormals, triangleNormals );
-		}
-	}
-
-	/**
-	 * Display hints for GEFF
-	 *
-	 * Metadata indicating how spatiotemporal axes are displayed by a viewer,
-	 * corresponding to the {@code geff/display_hints} attribute of the GEFF
-	 * specification.
-	 * <p>
-	 * The hints reference axes by {@link GeffAxis#getName() name}, e.g.
-	 *
-	 * <pre>
-	 * "display_hints": {
-	 *     "display_horizontal": "x",
-	 *     "display_vertical": "y",
-	 *     "display_depth": "z",
-	 *     "display_time": "t"
-	 * }
-	 * </pre>
-	 *
-	 * {@code display_horizontal} and {@code display_vertical} are required,
-	 * {@code display_depth} and {@code display_time} are optional.
-	 *
-	 * @see <a href=
-	 *      "https://liveimagetrackingtools.org/geff/latest/specification/">GEFF
-	 *      specification</a>
-	 * @author Jean-Yves Tinevez
-	 * @author Ko Sugawara
-	 */
-	public static class GeffDisplayHints
-	{
-
-		@SerializedName( "display_horizontal" )
-		private String displayHorizontal;
-
-		@SerializedName( "display_vertical" )
-		private String displayVertical;
-
-		@SerializedName( "display_depth" )
-		private String displayDepth; // Optional - can be null
-
-		@SerializedName( "display_time" )
-		private String displayTime; // Optional - can be null
-
-		/**
-		 * Default constructor
-		 */
-		public GeffDisplayHints()
-		{}
-
-		/**
-		 * Constructor with the required fields
-		 */
-		public GeffDisplayHints( final String displayHorizontal, final String displayVertical )
-		{
-			this.displayHorizontal = displayHorizontal;
-			this.displayVertical = displayVertical;
-		}
-
-		/**
-		 * Constructor with all fields
-		 */
-		public GeffDisplayHints( final String displayHorizontal, final String displayVertical, final String displayDepth, final String displayTime )
-		{
-			this.displayHorizontal = displayHorizontal;
-			this.displayVertical = displayVertical;
-			this.displayDepth = displayDepth;
-			this.displayTime = displayTime;
-		}
-
-		// Getters and Setters
-		public String getDisplayHorizontal()
-		{
-			return displayHorizontal;
-		}
-
-		public void setDisplayHorizontal( final String displayHorizontal )
-		{
-			this.displayHorizontal = displayHorizontal;
-		}
-
-		public String getDisplayVertical()
-		{
-			return displayVertical;
-		}
-
-		public void setDisplayVertical( final String displayVertical )
-		{
-			this.displayVertical = displayVertical;
-		}
-
-		public String getDisplayDepth()
-		{
-			return displayDepth;
-		}
-
-		public void setDisplayDepth( final String displayDepth )
-		{
-			this.displayDepth = displayDepth;
-		}
-
-		public String getDisplayTime()
-		{
-			return displayTime;
-		}
-
-		public void setDisplayTime( final String displayTime )
-		{
-			this.displayTime = displayTime;
-		}
-
-		/**
-		 * Validate the display hints according to GEFF rules
-		 */
-		public void validate()
-		{
-			if ( displayHorizontal == null || displayHorizontal.trim().isEmpty() )
-			{ throw new IllegalArgumentException( "display_horizontal cannot be null or empty" ); }
-
-			if ( displayVertical == null || displayVertical.trim().isEmpty() )
-			{ throw new IllegalArgumentException( "display_vertical cannot be null or empty" ); }
-		}
-
-		@Override
-		public String toString()
-		{
-			final StringBuilder sb = new StringBuilder();
-			sb.append( "GeffDisplayHint{" );
-			sb.append( "displayHorizontal='" ).append( displayHorizontal ).append( '\'' );
-			sb.append( ", displayVertical='" ).append( displayVertical ).append( '\'' );
-			if ( displayDepth != null )
-			{
-				sb.append( ", displayDepth='" ).append( displayDepth ).append( '\'' );
-			}
-			if ( displayTime != null )
-			{
-				sb.append( ", displayTime='" ).append( displayTime ).append( '\'' );
-			}
-			sb.append( '}' );
-			return sb.toString();
-		}
-
-		@Override
-		public boolean equals( final Object obj )
-		{
-			if ( this == obj )
-				return true;
-			if ( obj == null || getClass() != obj.getClass() )
-				return false;
-
-			final GeffDisplayHints that = ( GeffDisplayHints ) obj;
-
-			return Objects.equals( displayHorizontal, that.displayHorizontal ) &&
-					Objects.equals( displayVertical, that.displayVertical ) &&
-					Objects.equals( displayDepth, that.displayDepth ) &&
-					Objects.equals( displayTime, that.displayTime );
-		}
-
-		@Override
-		public int hashCode()
-		{
-			return Objects.hash( displayHorizontal, displayVertical, displayDepth, displayTime );
-		}
-	}
-
-	/**
-	 * A set of metadata for data that is associated with the graph. The types
-	 * 'labels' and 'image' should be used for label and image objects,
-	 * respectively. Other types are also allowed.
-	 *
-	 * @see <a
-	 *      href=https://liveimagetrackingtools.org/geff/latest/reference/geff_spec/#geff_spec.RelatedObject>GEFF
-	 *      Specification: RelatedObject</a>
-	 * @author Jean-Yves Tinevez
-	 */
-	public static class RelatedObjects
-	{
-
-		private final List< Map< String, String > > relatedObjects = new ArrayList<>();
-
-		/**
-		 * Add a related object of type 'labels' with the specified path and
-		 * label property.
-		 *
-		 * @param path
-		 *            Path of the labels within the zarr group, relative to the
-		 *            geff zarr-attributes file. It is strongly recommended all
-		 *            related objects are stored as siblings of the geff group
-		 *            within the top-level zarr group.
-		 * @param labelProp
-		 *            Property name for label objects. This is the node property
-		 *            that will be used to identify the labels in the related
-		 *            object.
-		 * @return this RelatedObject instance for method chaining.
-		 */
-		public RelatedObjects labels( final String path, final String labelProp )
-		{
-			relatedObjects.add( Map.of( "type", "labels", "path", path, "label_prop", labelProp ) );
-			return this;
-		}
-
-		/**
-		 * Add a related object of type 'image' with the specified path.
-		 *
-		 * @param path
-		 *            Path of the image within the zarr group, relative to the
-		 *            geff zarr-attributes file. It is strongly recommended all
-		 *            related objects are stored as siblings of the geff group
-		 *            within the top-level zarr group.
-		 * @return this RelatedObject instance for method chaining.
-		 */
-		public RelatedObjects image( final String path )
-		{
-			relatedObjects.add( Map.of( "type", "image", "path", path ) );
-			return this;
-		}
-
-		public List< String > getImagePaths()
-		{
-			return relatedObjects.stream()
-					.filter( obj -> "image".equals( obj.get( "type" ) ) )
-					.map( obj -> obj.get( "path" ) )
-					.collect( Collectors.toList() );
-		}
+		return Objects.hash( geffVersion, directed, geffAxes, nodePropsMetadata, edgePropsMetadata, trackNodeProps,
+				sphere, ellipsoid, polygon, mesh, displayHints, relatedObjects, extra, unknownAttributes );
 	}
 }
