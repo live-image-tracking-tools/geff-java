@@ -1,21 +1,21 @@
 package org.litt.geff.tutorial;
 
-import net.imglib2.type.numeric.integer.UnsignedByteType;
+import java.util.Arrays;
+import java.util.function.Supplier;
+
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
 import org.litt.geff.io.IoUtils;
 import org.litt.geff.props.ElementIndex;
 import org.litt.geff.props.GeffProperty;
-import org.litt.geff.props.Maybe;
-import org.litt.geff.props.Suppliers;
 import org.litt.geff.props.Maybe.MaybeByteArray;
 import org.litt.geff.props.Maybe.MaybeString;
+import org.litt.geff.props.Suppliers;
 
-import java.util.Arrays;
-import java.util.function.Supplier;
+import net.imglib2.type.numeric.integer.UnsignedByteType;
 
 public class Tutorial02 {
-    public static void main(String[] args) {
+    public static void main(final String[] args) {
 
         // More about GeffProperty<T> ...
         //
@@ -58,7 +58,7 @@ public class Tutorial02 {
         // scalar property:
         for (int i = 0; i < 3; ++i) {
             name.elementIndex().set(i);
-            int size = (int) name.values().dimension(0);
+            final int size = (int) name.values().dimension(0);
             final byte[] bytes = new byte[size];
             for (int j = 0; j < size; ++j) {
                 bytes[j] = name.values().randomAccess().setPositionAndGet(j).getByte();
@@ -73,7 +73,7 @@ public class Tutorial02 {
         // This is made minimally easier by the convenience shortcut getAt(int)
         for (int i = 0; i < 3; ++i) {
             name.elementIndex().set(i);
-            int size = (int) name.dimensions().dimension(0);
+            final int size = (int) name.dimensions().dimension(0);
             final byte[] bytes = new byte[size];
             for (int j = 0; j < size; ++j) {
                 bytes[j] = name.getAt(j).getByte();
@@ -85,7 +85,7 @@ public class Tutorial02 {
         // Knowing that this property describes a UnsignedByteType vector, we
         // can wrap is as a Supplier that does the above value-harvesting for
         // us:
-        Supplier<MaybeByteArray> vectorSupplier = Suppliers.asMaybeByteArraySupplier(name);
+        final Supplier<MaybeByteArray> vectorSupplier = Suppliers.asMaybeByteArraySupplier(name);
         // Note that the property is "optional", which is why we have to wrap it
         // asMaybeByteArraySupplier instead of
         // asByteArraySupplier (which would give a Supplier<byte[]>).
@@ -97,7 +97,7 @@ public class Tutorial02 {
 
         // We know that this is actually encoding a UTF8 String.
         // This special-case can also be handled by a Supplier:
-        Supplier<MaybeString> stringSupplier = Suppliers.asMaybeStringSupplier(name);
+        final Supplier<MaybeString> stringSupplier = Suppliers.asMaybeStringSupplier(name);
         for (int i = 0; i < 3; ++i) {
             name.elementIndex().set(i);
             System.out.println(i + ": " + stringSupplier.get().get());

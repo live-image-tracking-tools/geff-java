@@ -28,10 +28,13 @@
  */
 package org.litt.geff;
 
-import org.junit.jupiter.api.Test;
-import org.litt.geff.GeffMetadata;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import org.junit.jupiter.api.DisplayName;
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
 
 /**
  * Test class to verify the version pattern works with development versions
@@ -44,7 +47,7 @@ public class VersionPatternTest
 	public void testValidVersionPatterns()
 	{
 		// Test cases for different version formats that should be accepted
-		String[] validVersions = {
+		final String[] validVersions = {
 				"0.2", // Basic major.minor
 				"0.2.1", // With patch version
 				"0.2.2", // Another patch version
@@ -56,10 +59,10 @@ public class VersionPatternTest
 				"0.2.5.rc1", // Release candidate
 		};
 
-		for ( String version : validVersions )
+		for ( final String version : validVersions )
 		{
 			assertDoesNotThrow( () -> {
-				GeffMetadata metadata = new GeffMetadata();
+				final GeffMetadata metadata = new GeffMetadata();
 				metadata.setGeffVersion( version );
 			}, "Version " + version + " should be accepted but was rejected" );
 		}
@@ -70,15 +73,15 @@ public class VersionPatternTest
 	public void testInvalidVersionPatterns()
 	{
 		// Test cases for version formats that should be rejected
-		String[] invalidVersions = {
+		final String[] invalidVersions = {
 				"invalid", // Not a version at all
 				"0.1..x", // Invalid patch format
 		};
 
-		for ( String version : invalidVersions )
+		for ( final String version : invalidVersions )
 		{
 			assertThrows( IllegalArgumentException.class, () -> {
-				GeffMetadata metadata = new GeffMetadata();
+				final GeffMetadata metadata = new GeffMetadata();
 				metadata.setGeffVersion( version );
 			}, "Version " + version + " should be rejected but was accepted" );
 		}
@@ -88,10 +91,10 @@ public class VersionPatternTest
 	@DisplayName( "Test specific development version format" )
 	public void testDevelopmentVersionFormat()
 	{
-		String devVersion = "0.2.2.dev20+g611e7a2.d20250719";
+		final String devVersion = "0.2.2.dev20+g611e7a2.d20250719";
 
 		assertDoesNotThrow( () -> {
-			GeffMetadata metadata = new GeffMetadata();
+			final GeffMetadata metadata = new GeffMetadata();
 			metadata.setGeffVersion( devVersion );
 			assertEquals( devVersion, metadata.getGeffVersion() );
 		}, "Development version format should be supported" );
@@ -102,7 +105,7 @@ public class VersionPatternTest
 	public void testNullVersion()
 	{
 		assertDoesNotThrow( () -> {
-			GeffMetadata metadata = new GeffMetadata();
+			final GeffMetadata metadata = new GeffMetadata();
 			metadata.setGeffVersion( null );
 			assertNull( metadata.getGeffVersion() );
 		}, "Null version should be accepted" );

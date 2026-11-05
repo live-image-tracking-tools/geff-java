@@ -42,8 +42,6 @@ import java.nio.file.Paths;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.litt.geff.GeffAxis;
-import org.litt.geff.GeffMetadata;
 import org.litt.geff.GeffMetadata.GeffDisplayHints;
 
 /**
