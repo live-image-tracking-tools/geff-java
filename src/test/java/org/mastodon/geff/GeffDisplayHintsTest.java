@@ -38,8 +38,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -54,7 +52,7 @@ public class GeffDisplayHintsTest
 
 	private static GeffMetadata metadata( final GeffAxis... axes )
 	{
-		return new GeffMetadata( Geff.VERSION, true, axes );
+		return new GeffMetadata( GeffMetadata.VERSION, true, axes );
 	}
 
 	/**
@@ -154,8 +152,7 @@ public class GeffDisplayHintsTest
 	@DisplayName( "Test standard names are used when no axes are declared" )
 	void testNoAxes()
 	{
-		final GeffMetadata meta = new GeffMetadata( Geff.VERSION, true );
-
+		final GeffMetadata meta = new GeffMetadata( GeffMetadata.VERSION, true );
 		assertEquals( "t", meta.getTimeAxisName() );
 		assertEquals( "x", meta.getHorizontalAxisName() );
 		assertEquals( "y", meta.getVerticalAxisName() );
@@ -202,7 +199,7 @@ public class GeffDisplayHintsTest
 
 	@Test
 	@DisplayName( "Test display hints round trip through Zarr" )
-	void testDisplayHintsRoundTrip( @TempDir Path tempDir ) throws IOException
+	void testDisplayHintsRoundTrip( @TempDir final Path tempDir ) throws IOException
 	{
 		final GeffMetadata meta = metadata(
 				new GeffAxis( "frame", GeffAxis.TYPE_TIME, "frame" ),
@@ -232,7 +229,7 @@ public class GeffDisplayHintsTest
 
 	@Test
 	@DisplayName( "Test unset optional display hint fields stay null" )
-	void testOptionalDisplayHintsUnset( @TempDir Path tempDir ) throws IOException
+	void testOptionalDisplayHintsUnset( @TempDir final Path tempDir ) throws IOException
 	{
 		final GeffMetadata meta = metadata(
 				new GeffAxis( "y", GeffAxis.TYPE_SPACE, GeffAxis.UNIT_MICROMETER ),
@@ -255,51 +252,13 @@ public class GeffDisplayHintsTest
 		assertNull( read.getDisplayTime() );
 	}
 
-	@Test
-	@DisplayName( "Test nodes are stored under the axes named by the display hints" )
-	void testNodesUseDisplayHintedAxes( @TempDir Path tempDir ) throws IOException
-	{
-		final GeffMetadata meta = metadata(
-				new GeffAxis( "frame", GeffAxis.TYPE_TIME, "frame" ),
-				new GeffAxis( "depth", GeffAxis.TYPE_SPACE, GeffAxis.UNIT_MICROMETER ),
-				new GeffAxis( "row", GeffAxis.TYPE_SPACE, GeffAxis.UNIT_MICROMETER ),
-				new GeffAxis( "column", GeffAxis.TYPE_SPACE, GeffAxis.UNIT_MICROMETER ) );
-		meta.setDisplayHints( new GeffDisplayHints( "column", "row", "depth", "frame" ) );
-
-		final List< GeffNode > nodes = new ArrayList<>();
-		for ( int i = 0; i < 3; i++ )
-		{
-			final GeffNode node = new GeffNode();
-			node.setId( i );
-			node.setT( i );
-			node.setX( i * 10.0 );
-			node.setY( i * 20.0 );
-			node.setZ( i * 30.0 );
-			nodes.add( node );
-		}
-
-		final String tempPath = tempDir.toString() + "/test-hinted-nodes.zarr/tracks";
-		GeffNode.writeToZarr( nodes, tempPath, meta );
-		GeffMetadata.writeToZarr( meta, tempPath );
-
-		// Coordinates must land in the props named by the display hints
-		for ( final String propName : new String[] { "frame", "depth", "row", "column" } )
-			assertTrue( Files.isDirectory( Paths.get( tempPath, "nodes", "props", propName, "values" ) ),
-					"missing node property " + propName );
-
-		final GeffMetadata readMeta = GeffMetadata.readFromZarr( tempPath );
-		assertEquals( meta.getDisplayHints(), readMeta.getDisplayHints() );
-
-		final List< GeffNode > readNodes = GeffNode.readFromZarr( tempPath, readMeta );
-		assertEquals( nodes.size(), readNodes.size() );
-		for ( int i = 0; i < nodes.size(); i++ )
-		{
-			final GeffNode expected = nodes.get( i );
-			final GeffNode actual = readNodes.get( i );
-			assertEquals( expected.getT(), actual.getT(), "timepoint mismatch at node " + i );
-			assertEquals( expected.getX(), actual.getX(), 1e-9, "x mismatch at node " + i );
-			assertEquals( expected.getY(), actual.getY(), 1e-9, "y mismatch at node " + i );
-			assertEquals( expected.getZ(), actual.getZ(), 1e-9, "z mismatch at node " + i );
-		}
-	}
+	/*
+	 * Note: there was formerly a test asserting that node coordinates are
+	 * stored under the property names given by the display hints. That
+	 * behavior belonged to the old {@code GeffNode} writer, which mapped
+	 * {@code t}/{@code x}/{@code y}/{@code z} onto the hinted axis names. The
+	 * new property writer stores props under whatever identifiers the caller
+	 * gives, so the mapping is the responsibility of the application writing
+	 * the file (see TrackMate's {@code TmGeffWriter}).
+	 */
 }
