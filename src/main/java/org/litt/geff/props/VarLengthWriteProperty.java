@@ -7,9 +7,10 @@ import net.imglib2.type.BooleanType;
 import net.imglib2.type.Type;
 import net.imglib2.type.numeric.integer.UnsignedLongType;
 
-public class VarLengthWriteProperty<T extends Type<T>> extends VarLengthProperty<T> {
+public class VarLengthWriteProperty< T extends Type< T > > extends VarLengthProperty< T >
+{
 
-    private final VarLengthData<T> propertyData;
+	private final VarLengthData< T > propertyData;
 
 	/*
 	 * Reusable cursors for set(). They are only valid for the same
@@ -19,55 +20,60 @@ public class VarLengthWriteProperty<T extends Type<T>> extends VarLengthProperty
 	 * lifetime of this property.
 	 */
 
-    private Cursor<T> sourceCursor;
+	private Cursor< T > sourceCursor;
 
-    private Cursor<T> targetCursor;
+	private Cursor< T > targetCursor;
 
-    private Object sourceCursorSource;
+	private Object sourceCursorSource;
 
-    public VarLengthWriteProperty(
-            final String identifier,
-            final RandomAccessibleInterval<UnsignedLongType> propertyValues,
-            final VarLengthData<T> propertyData,
-            final RandomAccessibleInterval<? extends BooleanType<?>> propertyMissing, // optional
-            final ElementIndex sharedElementIndex
-    ) {
-        super(identifier, propertyValues, propertyData, propertyMissing, sharedElementIndex);
-        this.propertyData = propertyData;
-    }
+	public VarLengthWriteProperty(
+			final String identifier,
+			final RandomAccessibleInterval< UnsignedLongType > propertyValues,
+			final VarLengthData< T > propertyData,
+			final RandomAccessibleInterval< ? extends BooleanType< ? > > propertyMissing, // optional
+			final ElementIndex sharedElementIndex )
+	{
+		super( identifier, propertyValues, propertyData, propertyMissing, sharedElementIndex );
+		this.propertyData = propertyData;
+	}
 
-    @Override
-    public void set(final GeffProperty<T> property) {
-        if (isOptional()) {
-            final boolean missing = property.isMissing();
-            missingAccess.get().set(missing);
-            if(missing)
-                return;
-        }
+	@Override
+	public void set( final GeffProperty< T > property )
+	{
+		if ( isOptional() )
+		{
+			final boolean missing = property.isMissing();
+			missingAccess.get().set( missing );
+			if ( missing )
+				return;
+		}
 
-        final long offset = propertyData.size();
-        valuesAccess.setPositionAndGet(0).set(offset);
-        final Dimensions dims = property.dimensions();
-        final int n = numDimensions();
-        for (int i = 0; i < n; i++) {
-            valuesAccess.setPositionAndGet(n - i).set(dims.dimension(i));
-        }
-        updateDataOffset(true);
+		final long offset = propertyData.size();
+		valuesAccess.setPositionAndGet( 0 ).set( offset );
+		final Dimensions dims = property.dimensions();
+		final int n = numDimensions();
+		for ( int i = 0; i < n; i++ )
+			valuesAccess.setPositionAndGet( n - i ).set( dims.dimension( i ) );
 
-        final int size = (int) property.values().size();
-        propertyData.growBy(size);
-        if (targetCursor == null)
-            targetCursor = values().cursor();
-        else
-            targetCursor.reset();
-        final RandomAccessibleInterval<T> source = property.values();
-        if (sourceCursor == null || sourceCursorSource != source) {
-            sourceCursor = source.cursor();
-            sourceCursorSource = source;
-        } else {
-            sourceCursor.reset();
-        }
-        while (sourceCursor.hasNext())
-            targetCursor.next().set(sourceCursor.next());
-    }
+		updateDataOffset( true );
+
+		final int size = ( int ) property.values().size();
+		propertyData.growBy( size );
+		if ( targetCursor == null )
+			targetCursor = values().cursor();
+		else
+			targetCursor.reset();
+		final RandomAccessibleInterval< T > source = property.values();
+		if ( sourceCursor == null || sourceCursorSource != source )
+		{
+			sourceCursor = source.cursor();
+			sourceCursorSource = source;
+		}
+		else
+		{
+			sourceCursor.reset();
+		}
+		while ( sourceCursor.hasNext() )
+			targetCursor.next().set( sourceCursor.next() );
+	}
 }
