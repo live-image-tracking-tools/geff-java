@@ -156,6 +156,7 @@ public class GeffMetadataRoundTripTest
 		assertTrue( !labelObject.containsKey( "label_prop" ), "the deprecated label_prop key must not be written" );
 	}
 
+	@SuppressWarnings( "unchecked" )
 	@Test
 	@DisplayName( "Unknown geff attributes round-trip losslessly" )
 	void testUnknownAttributes( @TempDir final Path tempDir ) throws IOException
@@ -173,7 +174,6 @@ public class GeffMetadataRoundTripTest
 
 		final GeffMetadata read = GeffMetadata.readFromZarr( path );
 		assertEquals( 2, read.getUnknownAttributes().size() );
-		@SuppressWarnings( "unchecked" )
 		final Map< String, Object > future = ( Map< String, Object > ) read.getUnknownAttributes().get( "future_thing" );
 		assertEquals( List.of( 1.0, 2.0, 3.0 ), future.get( "a" ) );
 		assertEquals( 42.0, read.getUnknownAttributes().get( "another" ) );
@@ -181,7 +181,6 @@ public class GeffMetadataRoundTripTest
 		// And they must be written back unchanged.
 		final String out = tempDir.resolve( "rewritten.zarr" ).toString();
 		GeffMetadata.writeToZarr( read, out );
-		@SuppressWarnings( "unchecked" )
 		final Map< String, Object > geff = ( Map< String, Object > ) readZattrs( out ).get( "geff" );
 		assertEquals( List.of( 1.0, 2.0, 3.0 ), ( ( Map< String, Object > ) geff.get( "future_thing" ) ).get( "a" ) );
 		assertEquals( 42.0, geff.get( "another" ) );

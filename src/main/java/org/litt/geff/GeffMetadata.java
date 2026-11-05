@@ -28,10 +28,9 @@
  */
 package org.litt.geff;
 
-import java.lang.reflect.Type;
 import java.io.IOException;
+import java.lang.reflect.Type;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -160,11 +159,11 @@ public class GeffMetadata
 
 	/**
 	 * Identifier of the node property that defines the polygon shape of nodes,
-	 * or {@code null} if the graph does not have polygon shapes. Corresponds
-	 * to the {@code geff/polygon} attribute of the GEFF specification. The
-	 * polygon property is a property storing {@code (n_points, n_dimensions)}
-	 * arrays of points relative to the node position; since the number of
-	 * points may differ for each node, it is typically a var-length property.
+	 * or {@code null} if the graph does not have polygon shapes. Corresponds to
+	 * the {@code geff/polygon} attribute of the GEFF specification. The polygon
+	 * property is a property storing {@code (n_points, n_dimensions)} arrays of
+	 * points relative to the node position; since the number of points may
+	 * differ for each node, it is typically a var-length property.
 	 *
 	 * @see <a href=
 	 *      "https://liveimagetrackingtools.org/geff/latest/specification/#geff_spec.GeffMetadata">GEFF
@@ -203,13 +202,13 @@ public class GeffMetadata
 
 	/**
 	 * The attributes of the {@code geff} map that this class does not know
-	 * about (i.e. attributes introduced by a version of the specification
-	 * newer than this library). They are preserved on read and written back
+	 * about (i.e. attributes introduced by a version of the specification newer
+	 * than this library). They are preserved on read and written back
 	 * unchanged, so that files round-trip losslessly. Never {@code null} after
 	 * {@link #readFromN5(N5Reader, String)}; may be modified through
 	 * {@link #getUnknownAttributes()}.
 	 */
-	private Map< String, Object > unknownAttributes = new LinkedHashMap<>();
+	private final Map< String, Object > unknownAttributes = new LinkedHashMap<>();
 
 	/**
 	 * Default constructor
@@ -343,9 +342,8 @@ public class GeffMetadata
 	}
 
 	/**
-	 * Returns the identifier of the node property that defines the sphere
-	 * shape of nodes, or {@code null} if the graph does not have sphere
-	 * shapes.
+	 * Returns the identifier of the node property that defines the sphere shape
+	 * of nodes, or {@code null} if the graph does not have sphere shapes.
 	 *
 	 * @return the sphere property identifier, or {@code null}.
 	 */
@@ -355,8 +353,8 @@ public class GeffMetadata
 	}
 
 	/**
-	 * Sets the identifier of the node property that defines the sphere shape
-	 * of nodes.
+	 * Sets the identifier of the node property that defines the sphere shape of
+	 * nodes.
 	 *
 	 * @param sphere
 	 *            the sphere property identifier, or {@code null} to unset.
@@ -379,8 +377,8 @@ public class GeffMetadata
 	}
 
 	/**
-	 * Sets the identifier of the node property that defines the ellipsoid
-	 * shape of nodes. The property must store a symmetric positive-definite
+	 * Sets the identifier of the node property that defines the ellipsoid shape
+	 * of nodes. The property must store a symmetric positive-definite
 	 * covariance matrix as a {@code 2x2} or {@code 3x3} array.
 	 *
 	 * @param ellipsoid
@@ -405,9 +403,9 @@ public class GeffMetadata
 
 	/**
 	 * Sets the identifier of the node property that defines the polygon shape
-	 * of nodes. The property must store {@code (n_points, n_dimensions)}
-	 * arrays of points relative to the node position, and is typically a
-	 * var-length property.
+	 * of nodes. The property must store {@code (n_points, n_dimensions)} arrays
+	 * of points relative to the node position, and is typically a var-length
+	 * property.
 	 *
 	 * @param polygon
 	 *            the polygon property identifier, or {@code null} to unset.
@@ -455,8 +453,8 @@ public class GeffMetadata
 	}
 
 	/**
-	 * Sets the display hints, validating them. If axes are declared, the
-	 * hints must name declared axes; see {@link #validate()}.
+	 * Sets the display hints, validating them. If axes are declared, the hints
+	 * must name declared axes; see {@link #validate()}.
 	 *
 	 * @param displayHints
 	 *            the display hints, or {@code null} to unset.
@@ -471,8 +469,7 @@ public class GeffMetadata
 
 	/**
 	 * Checks that the display hints, if any, name axes that are declared in
-	 * {@link #getGeffAxes()}. Does nothing when there are no hints or no
-	 * axes.
+	 * {@link #getGeffAxes()}. Does nothing when there are no hints or no axes.
 	 */
 	private void checkDisplayHints()
 	{
@@ -487,8 +484,8 @@ public class GeffMetadata
 	}
 
 	/**
-	 * Returns the related objects of this dataset, or {@code null} if there
-	 * are none.
+	 * Returns the related objects of this dataset, or {@code null} if there are
+	 * none.
 	 *
 	 * @return the related objects, or {@code null}.
 	 */
@@ -510,11 +507,11 @@ public class GeffMetadata
 
 	/**
 	 * Returns the attributes of the {@code geff} map that this class does not
-	 * know about (i.e. attributes introduced by a version of the
-	 * specification newer than this library). They are preserved on read and
-	 * written back unchanged by {@link #writeToN5(N5Writer, String)}, so that
-	 * files round-trip losslessly. The returned map is writable: entries added
-	 * there are written as {@code geff/&lt;key&gt;} attributes.
+	 * know about (i.e. attributes introduced by a version of the specification
+	 * newer than this library). They are preserved on read and written back
+	 * unchanged by {@link #writeToN5(N5Writer, String)}, so that files
+	 * round-trip losslessly. The returned map is writable: entries added there
+	 * are written as {@code geff/&lt;key&gt;} attributes.
 	 *
 	 * @return the unknown attributes, never {@code null}.
 	 */
@@ -732,9 +729,8 @@ public class GeffMetadata
 	/**
 	 * Read metadata from an N5/Zarr reader. All known keys of the raw {@code
 	 * geff} attribute map are parsed into the typed fields of this class;
-	 * unknown keys are preserved in {@link #getUnknownAttributes()}. Unknown
-	 * or unparseable values are reported as {@code null} with a debug log
-	 * message.
+	 * unknown keys are preserved in {@link #getUnknownAttributes()}. Unknown or
+	 * unparseable values are reported as {@code null} with a debug log message.
 	 *
 	 * @param reader
 	 *            the {@code N5Reader}
@@ -799,8 +795,8 @@ public class GeffMetadata
 	 * Convert a raw attribute value to the given type with Gson, returning
 	 * {@code null} and logging if the value is not convertible. A {@code
 	 * null} input yields a {@code null} output: attributes explicitly written
-	 * as JSON {@code null}, as the Python implementation does for the
-	 * optional fields it leaves unset, are reported as absent.
+	 * as JSON {@code null}, as the Python implementation does for the optional
+	 * fields it leaves unset, are reported as absent.
 	 */
 	private static < T > T attribute( final Object raw, final Type type, final String key )
 	{
@@ -837,8 +833,8 @@ public class GeffMetadata
 	 * Write this metadata to an N5/Zarr writer, as the {@code geff} attribute
 	 * map. Known fields are written from the typed fields of this class, in
 	 * specification order; the attributes in {@link #getUnknownAttributes()
-	 * unknownAttributes} are written back unchanged. Fields that are unset
-	 * are omitted, except for the required {@code node_props_metadata} and
+	 * unknownAttributes} are written back unchanged. Fields that are unset are
+	 * omitted, except for the required {@code node_props_metadata} and
 	 * {@code edge_props_metadata} maps, which are written as empty objects if
 	 * unset.
 	 *
