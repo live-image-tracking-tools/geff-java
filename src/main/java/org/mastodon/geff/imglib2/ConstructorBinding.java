@@ -84,13 +84,13 @@ class ConstructorBinding {
      * @return a method handle of type {@code T()}
      * @throws NoSuchMethodException
      * @throws IllegalAccessException
-     * @throws Construction.GeffBindError
+     * @throws GeffBindError
      */
     static MethodHandle propertyHandle(
             final MethodHandles.Lookup lookup,
             final GeffProperties properties,
             final Construction.ResolvedConstructorParameter param
-    ) throws NoSuchMethodException, IllegalAccessException, Construction.GeffBindError {
+    ) throws NoSuchMethodException, IllegalAccessException, GeffBindError {
 
         final GeffPropertyType targetType = param.propertyType();
         final GeffProperty<?> sourceProperty = param.isId()

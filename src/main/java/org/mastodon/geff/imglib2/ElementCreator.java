@@ -21,8 +21,9 @@ public interface ElementCreator {
      * to the given {@code properties}.
      */
     static ElementCreator of(final Object builder, final GeffProperties properties)
-    // TODO: revise exceptions... Reflection exceptions should be wrapped into appropriate GeffException
-            throws IllegalAccessException, Construction.GeffBindError, NoSuchMethodException {
+    // NB: reflection exceptions should be wrapped into GeffBindError once
+    // clients no longer rely on the throws clause (see TrackMate's catch clause).
+            throws IllegalAccessException, GeffBindError, NoSuchMethodException {
 
         final Class<? extends Annotation> annotationClass = properties.elementType() == NODE ? Construction.NodeConstructor.class : Construction.EdgeConstructor.class;
         final Method method = Construction.getAnnotatedMethod(builder.getClass(), annotationClass);
