@@ -792,31 +792,36 @@ public class IoUtils
 	 * <p>
 	 * Otherwise (the geff hierarchy is nested in a subgroup), {@code geffGroup}
 	 * should end in a trailing slash. If there is no trailing slash, we append
-	 * one.
+	 * one. Leading slashes, empty components ({@code "//"}) and {@code "."}
+	 * components are dropped; a {@code ".."} component is rejected.
 	 */
-	// TODO: This is inherently fragile. We should revisit later, and use N5Path
-	// (once that is available).
-	// TODO: make private (?)
+	// package-private for testing; internal API
 	static String normalizeGroupPath( final String geffGroup )
 	{
-		final String group;
 		if ( geffGroup == null || geffGroup.isEmpty() )
+			return "";
+
+		// Rebuild from components, rejecting parent references and dropping
+		// empty and current-directory components. This also removes leading
+		// slashes and collapses duplicated slashes.
+		final StringBuilder sb = new StringBuilder();
+		for ( final String component : geffGroup.split( "/" ) )
 		{
-			group = "";
+			if ( component.isEmpty() || component.equals( "." ) )
+				continue;
+			if ( component.equals( ".." ) )
+				throw new IllegalArgumentException(
+						"The geff group path \"" + geffGroup + "\" must not contain \"..\" components." );
+			sb.append( component ).append( "/" );
 		}
-		else
-		{
-			group = geffGroup.endsWith( "/" ) ? geffGroup : geffGroup + "/";
-		}
-		return group;
+		return sb.toString();
 	}
 
 	/**
 	 * Get the {@link ZarrDatasetAttributes} of the given {@code Dataset}.
 	 * (Assumes, that the given {@code n5} reads from a Zarr dataset.)
 	 */
-	// TODO: make private (?)
-	static ZarrDatasetAttributes attrs( final N5Reader n5, final String dataset )
+	private static ZarrDatasetAttributes attrs( final N5Reader n5, final String dataset )
 	{
 		return ( ZarrDatasetAttributes ) n5.getDatasetAttributes( dataset );
 	}
