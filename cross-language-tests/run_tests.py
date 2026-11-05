@@ -56,24 +56,43 @@ def get_blosc_lib_path():
 
 
 def get_java_classpath():
-    """Find the Java classpath including dependencies."""
+    """Find the Java classpath including dependencies.
+
+    Prefers the shaded jar (built by 'mvn package'). Otherwise uses
+    target/classes, with dependencies resolved by maven itself
+    (dependency:build-classpath), so that no extra setup is required.
+    """
     # Look for the jar with dependencies
     jars = list(JAVA_TARGET_DIR.glob("*-jar-with-dependencies.jar"))
     if jars:
         return str(jars[0])
 
-    # Fall back to classes directory + dependency jars
     classes_dir = JAVA_TARGET_DIR / "classes"
-    dep_dir = JAVA_TARGET_DIR / "dependency"
+    if not classes_dir.exists():
+        raise RuntimeError(
+            f"Could not find Java classes. "
+            f"Please run 'mvn package -DskipTests' in {JAVA_PROJECT_ROOT}"
+        )
 
-    if classes_dir.exists():
-        cp_parts = [str(classes_dir)]
-        if dep_dir.exists():
-            cp_parts.extend(str(j) for j in dep_dir.glob("*.jar"))
-        return ":".join(cp_parts)
+    cp_file = JAVA_TARGET_DIR / "classpath.txt"
+    print("  Running 'mvn dependency:build-classpath' to assemble the classpath...")
+    subprocess.run(
+        [
+            "mvn",
+            "-q",
+            "dependency:build-classpath",
+            f"-Dmdep.outputFile={cp_file}",
+        ],
+        cwd=JAVA_PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    if cp_file.exists() and cp_file.read_text().strip():
+        return ":".join([str(classes_dir), cp_file.read_text().strip()])
 
     raise RuntimeError(
-        f"Could not find Java classes. Please run 'mvn package' in {JAVA_PROJECT_ROOT}"
+        f"Could not assemble the Java classpath. "
+        f"Please run 'mvn package -DskipTests' in {JAVA_PROJECT_ROOT}"
     )
 
 
