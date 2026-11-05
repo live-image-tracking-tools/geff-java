@@ -11,6 +11,20 @@ public class VarLengthWriteProperty<T extends Type<T>> extends VarLengthProperty
 
     private final VarLengthData<T> propertyData;
 
+	/*
+	 * Reusable cursors for set(). They are only valid for the same
+	 * RandomAccessibleInterval they were created for; set() may be called with
+	 * varying source properties, in which case the source cursor is re-created.
+	 * The target values() RAI is stable, so its cursor is reused throughout the
+	 * lifetime of this property.
+	 */
+
+    private Cursor<T> sourceCursor;
+
+    private Cursor<T> targetCursor;
+
+    private Object sourceCursorSource;
+
     public VarLengthWriteProperty(
             final String identifier,
             final RandomAccessibleInterval<UnsignedLongType> propertyValues,
@@ -40,16 +54,20 @@ public class VarLengthWriteProperty<T extends Type<T>> extends VarLengthProperty
         }
         updateDataOffset(true);
 
-        // TODO: reuse Cursor instances:
-        //   Override cursor() in values() implementations.
-        //   PropertyRAI
-        //   Wrappers.ScalarRandomAccessibleInterval
-        //
         final int size = (int) property.values().size();
         propertyData.growBy(size);
-        final Cursor<T> s = property.values().cursor();
-        final Cursor<T> t = values().cursor();
-        while (s.hasNext())
-            t.next().set(s.next());
+        if (targetCursor == null)
+            targetCursor = values().cursor();
+        else
+            targetCursor.reset();
+        final RandomAccessibleInterval<T> source = property.values();
+        if (sourceCursor == null || sourceCursorSource != source) {
+            sourceCursor = source.cursor();
+            sourceCursorSource = source;
+        } else {
+            sourceCursor.reset();
+        }
+        while (sourceCursor.hasNext())
+            targetCursor.next().set(sourceCursor.next());
     }
 }
