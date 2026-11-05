@@ -258,6 +258,44 @@ public class Suppliers {
         return () -> p.isMissing() ? Optional.empty() : Optional.of(p.getAt());
     }
 
+    // Boxed Optional scalar suppliers, for constructor parameters declared as
+    // Optional<Byte>, Optional<Short>, etc. (as opposed to OptionalInt, ...).
+
+    public static <T extends GenericByteType<T>> Supplier<Optional<Byte>> asOptionalBoxedByteSupplier(final GeffProperty<?> property) {
+        final GeffProperty<T> p = Cast.unchecked(property);
+        return () -> p.isMissing() ? Optional.empty() : Optional.of(p.getAt().getByte());
+    }
+
+    public static <T extends GenericShortType<T>> Supplier<Optional<Short>> asOptionalBoxedShortSupplier(final GeffProperty<?> property) {
+        final GeffProperty<T> p = Cast.unchecked(property);
+        return () -> p.isMissing() ? Optional.empty() : Optional.of(p.getAt().getShort());
+    }
+
+    public static <T extends GenericIntType<T>> Supplier<Optional<Integer>> asOptionalBoxedIntSupplier(final GeffProperty<?> property) {
+        final GeffProperty<T> p = Cast.unchecked(property);
+        return () -> p.isMissing() ? Optional.empty() : Optional.of(p.getAt().getInt());
+    }
+
+    public static <T extends GenericLongType<T>> Supplier<Optional<Long>> asOptionalBoxedLongSupplier(final GeffProperty<?> property) {
+        final GeffProperty<T> p = Cast.unchecked(property);
+        return () -> p.isMissing() ? Optional.empty() : Optional.of(p.getAt().getLong());
+    }
+
+    public static <T extends BooleanType<T>> Supplier<Optional<Boolean>> asOptionalBoxedBooleanSupplier(final GeffProperty<?> property) {
+        final GeffProperty<T> p = Cast.unchecked(property);
+        return () -> p.isMissing() ? Optional.empty() : Optional.of(p.getAt().get());
+    }
+
+    public static Supplier<Optional<Float>> asOptionalBoxedFloatSupplier(final GeffProperty<?> property) {
+        final GeffProperty<FloatType> p = Cast.unchecked(property);
+        return () -> p.isMissing() ? Optional.empty() : Optional.of(p.getAt().get());
+    }
+
+    public static Supplier<Optional<Double>> asOptionalBoxedDoubleSupplier(final GeffProperty<?> property) {
+        final GeffProperty<DoubleType> p = Cast.unchecked(property);
+        return () -> p.isMissing() ? Optional.empty() : Optional.of(p.getAt().get());
+    }
+
 
 
     // ------------------------------------------------------------------------

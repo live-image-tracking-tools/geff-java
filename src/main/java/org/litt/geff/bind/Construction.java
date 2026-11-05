@@ -18,7 +18,6 @@ import org.litt.geff.props.GeffProperties;
 import org.litt.geff.props.GeffProperty;
 import org.litt.geff.props.GeffPropertyType;
 import org.litt.geff.props.Maybe;
-import org.litt.geff.props.VarLengthAsStringProperty;
 import org.litt.geff.props.Maybe.MaybeBoolean;
 import org.litt.geff.props.Maybe.MaybeByte;
 import org.litt.geff.props.Maybe.MaybeDouble;
@@ -26,6 +25,7 @@ import org.litt.geff.props.Maybe.MaybeFloat;
 import org.litt.geff.props.Maybe.MaybeInt;
 import org.litt.geff.props.Maybe.MaybeLong;
 import org.litt.geff.props.Maybe.MaybeShort;
+import org.litt.geff.props.VarLengthAsStringProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -129,7 +129,8 @@ public class Construction
 	@Target( ElementType.PARAMETER )
 	public @interface FromId
 	{}
-/**
+
+	/**
 	 * Find the method (there must be exactly one) in {@code targetClass}
 	 * annotated with the given {@code annotationClass}.
 	 *
@@ -196,12 +197,26 @@ public class Construction
 	 */
 	// TODO: Keep this internal and just return ResolvedConstructorParameter[]
 	// for target method directly
-	private record ConstructorParameter( Type type, String identifier, boolean isId, int length )
+	private record ConstructorParameter( Type type, String identifier, boolean isId, int length, boolean wrapped )
 	{
+
+		public ConstructorParameter( final Type type, final String identifier, final boolean isId, final int length )
+		{
+			this( type, identifier, isId, length, false );
+		}
 
 		public ConstructorParameter withType( final Type type )
 		{
-			return new ConstructorParameter( type, identifier, isId, length );
+			return new ConstructorParameter( type, identifier, isId, length, wrapped );
+		}
+
+		/**
+		 * Marks the type as wrapped in an {@code Optional} or {@code Maybe}, so
+		 * that boxed scalar types are accepted for it.
+		 */
+		public ConstructorParameter asWrapped()
+		{
+			return new ConstructorParameter( type, identifier, isId, length, true );
 		}
 
 		/**
@@ -294,6 +309,24 @@ public class Construction
 			return new ResolvedConstructorParameter( identifier, isId, propertyType, rawType );
 
 		}
+		else if ( rawType == Boolean.class
+				|| rawType == Byte.class
+				|| rawType == Short.class
+				|| rawType == Integer.class
+				|| rawType == Long.class
+				|| rawType == Float.class
+				|| rawType == Double.class )
+		{
+			if ( !param.wrapped() )
+				throw new IllegalArgumentException( "Boxed scalar type " + rawType.getName()
+						+ " for property \"" + param.identifier() + "\" is only supported wrapped in Optional<...> or Maybe<...>. "
+						+ "Use the primitive type " + unboxName( rawType ) + " for non-optional parameters." );
+			final Class< ? > type = primitiveToImgLibType( unboxName( rawType ) );
+			final Dimensions dimensions = new FinalDimensions( new long[ 0 ] );
+			final GeffPropertyType propertyType = new GeffPropertyType( type, false, false, dimensions );
+			return new ResolvedConstructorParameter( identifier, isId, propertyType, rawType );
+
+		}
 		else if ( rawType == boolean[].class
 				|| rawType == byte[].class
 				|| rawType == short[].class
@@ -332,14 +365,14 @@ public class Construction
 		else if ( rawType == Optional.class || rawType == Maybe.class )
 		{
 			final Type inner = ( ( ParameterizedType ) param.type() ).getActualTypeArguments()[ 0 ];
-			final ResolvedConstructorParameter resolved = resolveConstructorParameter( param.withType( inner ) );
+			final ResolvedConstructorParameter resolved = resolveConstructorParameter( param.withType( inner ).asWrapped() );
 			return resolved.withOptionalType( rawType );
 
 		}
 		else if ( Maybe.class.isAssignableFrom( rawType ) )
 		{
 			final Type inner = getMaybeTypeArgument( param.type() );
-			final ResolvedConstructorParameter resolved = resolveConstructorParameter( param.withType( inner ) );
+			final ResolvedConstructorParameter resolved = resolveConstructorParameter( param.withType( inner ).asWrapped() );
 			return resolved.withOptionalType( rawType );
 
 		}
@@ -367,6 +400,25 @@ public class Construction
 		if ( t instanceof ParameterizedType )
 			return ( Class< ? > ) ( ( ParameterizedType ) t ).getRawType();
 		throw new IllegalArgumentException( "Unsupported parameter type " + t );
+	}
+
+	private static Class< ? > unboxName( final Class< ? > boxed )
+	{
+		if ( boxed == Boolean.class )
+			return boolean.class;
+		if ( boxed == Byte.class )
+			return byte.class;
+		if ( boxed == Short.class )
+			return short.class;
+		if ( boxed == Integer.class )
+			return int.class;
+		if ( boxed == Long.class )
+			return long.class;
+		if ( boxed == Float.class )
+			return float.class;
+		if ( boxed == Double.class )
+			return double.class;
+		throw new IllegalArgumentException( "Not a boxed scalar type: " + boxed );
 	}
 
 	private static Class< ? > primitiveToImgLibType( final Class< ? > primitive )
