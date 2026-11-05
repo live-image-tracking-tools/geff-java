@@ -23,6 +23,8 @@ import org.mastodon.geff.imglib2.Maybe.MaybeFloat;
 import org.mastodon.geff.imglib2.Maybe.MaybeInt;
 import org.mastodon.geff.imglib2.Maybe.MaybeLong;
 import org.mastodon.geff.imglib2.Maybe.MaybeShort;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
@@ -38,7 +40,57 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.function.Supplier;
 
+/**
+ * The annotation framework for constructing elements from a GEFF properties
+ * collection.
+ * <p>
+ * A client describes its element type with a <em>builder</em>: an object with
+ * a single method annotated with {@link NodeConstructor} or {@link
+ * EdgeConstructor}, whose parameters are annotated with {@link FromId} or
+ * {@link FromProperty}. Binding the builder to a {@link GeffProperties}
+ * collection &mdash; via {@link ElementCreator#of(Object, GeffProperties)} or
+ * the convenience method {@link #buildElements(Object, GeffProperties)}
+ * &mdash; yields an element factory that invokes the method once per element,
+ * feeding each parameter from the matching property, with automatic type
+ * conversion where needed.
+ * <p>
+ * Accepted parameter types:
+ * <ul>
+ * <li>primitive scalars ({@code boolean}, {@code byte}, {@code short},
+ * {@code int}, {@code long}, {@code float}, {@code double});
+ * <li>primitive arrays ({@code double[]} etc.) for vector properties; by
+ * default any length matches, including var-length; use the {@link
+ * FromProperty#length()} attribute to pin the expected length;
+ * <li>{@code Maybe*} types ({@link MaybeDouble}, {@link MaybeInt}, &hellip;)
+ * and {@code OptionalDouble}/{@code OptionalInt}/{@code OptionalLong} for
+ * properties that may have missing values;
+ * <li>{@code Optional<T>} / {@code Maybe<T>} and subclasses of {@link Maybe},
+ * resolved recursively on their type argument;
+ * <li>{@code String}, auto-converted from var-length uint8 properties (the
+ * way GEFF stores strings);
+ * <li>{@code GeffProperty<?>} as an escape hatch for edge cases not covered
+ * by the standard type matching (no conversion checks are made).
+ * </ul>
+ * <p>
+ * Example:
+ *
+ * <pre>
+ * class MyBuilder {
+ *     &#64;NodeConstructor
+ *     public void addNode(
+ *             &#64;FromId long id,
+ *             &#64;FromProperty("x") double x,
+ *             &#64;FromProperty("name") String name,
+ *             &#64;FromProperty("radius") MaybeDouble radius) {
+ *         // build your node here
+ *     }
+ * }
+ * Construction.buildElements( new MyBuilder(), nodeProps );
+ * </pre>
+ */
 public class Construction {
+
+    private static final Logger LOG = LoggerFactory.getLogger(Construction.class);
 
     @Retention(RetentionPolicy.RUNTIME)
     @Target(ElementType.METHOD)
@@ -85,10 +137,18 @@ public class Construction {
 
 
     /**
-     * Find the method (there must be exactly one) in {@code targetClass} annotated with the given {@code annotationClass}.
+     * Find the method (there must be exactly one) in {@code targetClass}
+     * annotated with the given {@code annotationClass}.
+     *
      * @param targetClass
+     *            the class to search; all public methods, including inherited
+     *            ones, are considered.
      * @param annotationClass
-     * @return
+     *            the method annotation to look for (e.g. {@link
+     *            NodeConstructor} or {@link EdgeConstructor}).
+     * @return the unique annotated method.
+     * @throws IllegalArgumentException
+     *             if no method, or more than one method, is annotated.
      */
     static Method getAnnotatedMethod(final Class<?> targetClass, final Class<? extends Annotation> annotationClass) {
 
@@ -131,7 +191,6 @@ public class Construction {
      * @param length the length, for fixed-length vector parameters. {@code -1} for scalar or var-length vectors parameters.
      */
     // TODO: Keep this internal and just return ResolvedConstructorParameter[] for target method directly
-    // TODO: convert record to class (for Java 8)
     private record ConstructorParameter(Type type, String identifier, boolean isId, int length) {
 
         public ConstructorParameter withType(final Type type) {
@@ -180,7 +239,6 @@ public class Construction {
      * @param rawType the {@code Class} of the parameter, or nested {@code Class<T>} if the parameter is {@code Optional<T>} or {@code Maybe<T>}.
      * @param rawOptionalType the {@code Class} of the parameter (for {@code Optional<T>} this is {@code Optional.class})
      */
-    // TODO: convert record to class (for Java 8)
     record ResolvedConstructorParameter(String identifier, boolean isId, GeffPropertyType propertyType, Class<?> rawType, Class<?> rawOptionalType) {
 
         public ResolvedConstructorParameter(String identifier, boolean isId, GeffPropertyType propertyType, Class<?> rawType) {
@@ -262,7 +320,9 @@ public class Construction {
             // escape hatch for stuff we have not implemented yet.
             return new ResolvedConstructorParameter(identifier, isId, ESCAPE_HATCH, rawType);
         }
-        throw new IllegalArgumentException("TODO? " + param);
+        throw new IllegalArgumentException("Unsupported constructor parameter type " + param.type()
+                + " for property \"" + param.identifier() + "\". Supported types are primitive scalars, "
+                + "primitive arrays, Maybe*/Optional* wrappers, String, and GeffProperty<?>.");
     }
 
     private static Class<?> getRawType(Type t) {
@@ -270,7 +330,7 @@ public class Construction {
             return (Class<?>)t;
         if (t instanceof ParameterizedType)
             return (Class<?>) ((ParameterizedType) t).getRawType();
-        throw new IllegalArgumentException("TODO? " + t);
+        throw new IllegalArgumentException("Unsupported parameter type " + t);
     }
 
     private static Class<?> primitiveToImgLibType(Class<?> primitive) {
@@ -289,7 +349,7 @@ public class Construction {
         } else if (primitive == double.class) {
             return DoubleType.class;
         }
-        throw new IllegalArgumentException("TODO? " + primitive);
+        throw new IllegalArgumentException("Unsupported primitive type " + primitive);
     }
 
     private static Class<?> maybeToImgLibType(Class<?> maybe) {
@@ -308,7 +368,9 @@ public class Construction {
         } else if (maybe == MaybeDouble.class || maybe == OptionalDouble.class) {
             return DoubleType.class;
         }
-        throw new IllegalArgumentException("TODO? " + maybe);
+        throw new IllegalArgumentException("Unsupported Maybe type " + maybe
+                + ". Supported types are MaybeBoolean, MaybeByte, MaybeShort, MaybeInt, MaybeLong, "
+                + "MaybeFloat, MaybeDouble, OptionalInt, OptionalLong, and OptionalDouble.");
     }
 
     private static Type getMaybeTypeArgument(final Type maybe) {
@@ -325,7 +387,8 @@ public class Construction {
                 }
             }
         }
-        throw new IllegalArgumentException("TODO? " + maybe);
+        throw new IllegalArgumentException("Cannot resolve the type argument of Maybe subclass " + maybe
+                + ". The subclass must directly extend Maybe<T> with a concrete type argument.");
     }
 
     // We allow to take GeffProperty<?> as a constructor type for a field.
@@ -376,9 +439,8 @@ public class Construction {
             return sourceProperty;
         } else {
             // NB: we have to convert to a concrete type (e.g., UnsignedLongType instead of GenericLongType).
+            LOG.debug( "Converting property \"{}\" from {} to {}", sourceProperty.identifier(), sourceType, targetType );
             return sourceProperty.convert(convertTargetSupplier(targetType.type()));
-
-            // TODO: warn if type conversion loses precision or range?
         }
     }
 
@@ -407,7 +469,7 @@ public class Construction {
         } else if (targetType == DoubleType.class) {
             return DoubleType::new;
         }
-        throw new IllegalArgumentException(targetType.toString());
+        throw new IllegalArgumentException("No imglib2 type converter for target type " + targetType);
     }
 
 
@@ -437,26 +499,6 @@ public class Construction {
         }
     }
 
-    // ------ exceptions. TODO revise --------
-
-    // TODO: move to separate file
-    public static class GeffBindError extends GeffException {
-
-        public GeffBindError(String message) {
-            super(message);
-        }
-
-        public GeffBindError(String message, Throwable cause) {
-            super(message, cause);
-        }
-    }
-
-    // TODO: move to separate file
-    public static class GeffConvertError extends GeffBindError {
-
-        public GeffConvertError(GeffPropertyType sourceType, GeffPropertyType targetType, String explanation) {
-            super("Cannot convert " + sourceType + " to " + targetType + ": " + explanation);
-        }
-    }
+    // ------ exceptions --------
 
 }
