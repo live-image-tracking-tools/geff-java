@@ -67,7 +67,9 @@ public class VarLengthDataImpl<T extends NativeType<T>, A extends ArrayDataAcces
 
     @Override
     public void setLinkedType(T type) {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException(
+                "VarLengthData does not support setting the linked type. "
+                        + "It is created once from the type passed to the constructor.");
     }
 
     @Override
@@ -77,12 +79,16 @@ public class VarLengthDataImpl<T extends NativeType<T>, A extends ArrayDataAcces
 
     @Override
     public ImgFactory<T> factory() {
-        throw new UnsupportedOperationException("TODO?");
+        throw new UnsupportedOperationException(
+                "VarLengthData is a virtual container backed by lazily allocated chunks "
+                        + "and has no ImgFactory. To copy it, iterate its elements with randomAccess().");
     }
 
     @Override
     public Img<T> copy() {
-        throw new UnsupportedOperationException("TODO?");
+        throw new UnsupportedOperationException(
+                "Copying a VarLengthData is not supported. "
+                        + "To copy it, iterate its elements with randomAccess().");
     }
 
     @Override

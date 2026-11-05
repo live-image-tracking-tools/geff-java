@@ -484,7 +484,11 @@ public class GeffPropertyWriter<O> {
                 return (T) new DoubleType();
             else if (type == BitType.class)
                 return (T) new BitType();
-            throw new UnsupportedOperationException("TODO " + type);
+            throw new UnsupportedOperationException(
+                    "Unsupported property type " + type.getName()
+                            + ". Supported types are ByteType, UnsignedByteType, ShortType, UnsignedShortType, "
+                            + "IntType, UnsignedIntType, LongType, UnsignedLongType, FloatType, DoubleType and BitType. "
+                            + "Convert the property to one of these types before writing, e.g. with GeffProperty.convert().");
         }
     }
 }

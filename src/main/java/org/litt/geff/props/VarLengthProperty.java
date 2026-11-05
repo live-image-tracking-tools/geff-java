@@ -123,7 +123,9 @@ public class VarLengthProperty<T extends Type<T>> implements GeffProperty<T>, Im
 
     @Override
     public void set(final GeffProperty<T> property) {
-        throw new UnsupportedOperationException("TODO");
+        throw new UnsupportedOperationException(
+                "This is a read-only property. Only write properties (VarLengthWriteProperty, FixedLengthProperty) "
+                        + "created by GeffPropertyWriter support set().");
     }
 
     @Override
