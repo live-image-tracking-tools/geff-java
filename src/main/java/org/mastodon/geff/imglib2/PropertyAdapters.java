@@ -377,11 +377,6 @@ public class PropertyAdapters {
             return missing;
         }
 
-        public boolean setMissing(boolean missing) {
-            this.missing = missing;
-            return missing;
-        }
-
         public boolean setPresent(boolean present) {
             this.missing = !present;
             return present;

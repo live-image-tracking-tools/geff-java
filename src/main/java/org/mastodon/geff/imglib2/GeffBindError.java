@@ -8,6 +8,8 @@ package org.mastodon.geff.imglib2;
 public class GeffBindError extends GeffException
 {
 
+	private static final long serialVersionUID = 1L;
+
 	public GeffBindError( final String message )
 	{
 		super( message );

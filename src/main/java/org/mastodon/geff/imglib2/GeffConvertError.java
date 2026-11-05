@@ -8,6 +8,8 @@ package org.mastodon.geff.imglib2;
 public class GeffConvertError extends GeffBindError
 {
 
+	private static final long serialVersionUID = 1L;
+
 	public GeffConvertError( final GeffPropertyType sourceType, final GeffPropertyType targetType, final String explanation )
 	{
 		super( "Cannot convert " + sourceType + " to " + targetType + ": " + explanation );
