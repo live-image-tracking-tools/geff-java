@@ -1,17 +1,22 @@
 package org.mastodon.geff.imglib2;
 
-// TODO: move to separate file
-public class GeffException extends Exception {
+public class GeffException extends Exception
+{
 
-    public GeffException(Throwable cause) {
-        super(cause);
-    }
+	private static final long serialVersionUID = 1L;
 
-    public GeffException(String message) {
-        super(message);
-    }
+	public GeffException( final Throwable cause )
+	{
+		super( cause );
+	}
 
-    public GeffException(String message, Throwable cause) {
-        super(message, cause);
-    }
+	public GeffException( final String message )
+	{
+		super( message );
+	}
+
+	public GeffException( final String message, final Throwable cause )
+	{
+		super( message, cause );
+	}
 }
