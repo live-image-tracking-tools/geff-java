@@ -80,7 +80,7 @@ def get_java_classpath():
 def run_java_roundtrip(
     input_path: Path, output_path: Path
 ) -> subprocess.CompletedProcess:
-    """Run the Java RoundTripGeff tool."""
+    """Run the Java RoundTrip tool."""
     classpath = get_java_classpath()
 
     # Get blosc library path for -Djava.library.path
@@ -98,7 +98,7 @@ def run_java_roundtrip(
         [
             "-cp",
             classpath,
-            "org.mastodon.geff.RoundTripGeff",
+            "org.litt.geff.io.RoundTrip",
             str(input_path),
             str(output_path),
         ]
