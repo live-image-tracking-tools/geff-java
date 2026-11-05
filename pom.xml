@@ -25,13 +25,6 @@
 
 		<scijava.jvm.version>21</scijava.jvm.version>
 
-		<n5.version>4.0.1</n5.version>
-		<n5-zarr.version>2.0.1</n5-zarr.version>
-		<n5-blosc.version>2.0.0</n5-blosc.version>
-		<n5-zstandard.version>2.0.0</n5-zstandard.version>
-		<n5-imglib2.version>8.0.0</n5-imglib2.version>
-		<logback.version>1.5.25</logback.version>
-
 		<!-- Path to the native Blosc library used by the n5-blosc tests,
 		as required by JNA. The default is the Homebrew location on macOS.
 		It can be overridden on the command line with
@@ -43,8 +36,7 @@
 		<sonar.host.url>https://sonarcloud.io</sonar.host.url>
 		<sonar.java.coveragePlugin>jacoco</sonar.java.coveragePlugin>
 		<sonar.dynamicAnalysis>reuseReports</sonar.dynamicAnalysis>
-		<sonar.coverage.jacoco.xmlReportPaths>
-			${project.basedir}/target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
+		<sonar.coverage.jacoco.xmlReportPaths>${project.basedir}/target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
 		<sonar.language>java</sonar.language>
 		<sonar.verbose>false</sonar.verbose>
 	</properties>
