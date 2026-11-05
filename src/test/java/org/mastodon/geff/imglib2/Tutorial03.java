@@ -12,7 +12,7 @@ import org.mastodon.geff.imglib2.Construction.NodeConstructor;
 import java.util.function.DoubleSupplier;
 import java.util.function.IntSupplier;
 
-import static org.mastodon.geff.imglib2.ConstructorPlayground.buildNodes;
+import static org.mastodon.geff.imglib2.Construction.buildElements;
 
 public class Tutorial03 {
     public static void main(String[] args) throws Throwable {
@@ -88,7 +88,7 @@ public class Tutorial03 {
                 System.out.println("id=" + id + ": x=" + sx.getAsDouble() + ", y=" + sy.getAsDouble() + ", t=" + st.getAsInt());
             }
         }
-        buildNodes(new Builder(), nodeProps);
+        buildElements(new Builder(), nodeProps);
         // prints:
         //   id=0: x=1.0, y=100.0, t=1
         //   id=1: x=0.9, y=144.44444444444446, t=1
@@ -132,7 +132,7 @@ public class Tutorial03 {
                 System.out.println("id=" + id + ": x=" + sx.getAsDouble() + ", manual t=" + st.getAsInt());
             }
         }
-        buildNodes(new Builder2(nodeProps), nodeProps);
+        buildElements(new Builder2(nodeProps), nodeProps);
         // prints:
         //   id=0: x=1.0, manual t=1
         //   id=1: x=0.9, manual t=1

@@ -414,6 +414,29 @@ public class Construction {
 
 
 
+    // ------ convenience builders --------
+
+    /**
+     * Construct all elements of the node (or edge) properties collection,
+     * invoking the constructor methods of {@code target} for every element.
+     * This is the simple case of using {@link ElementCreator}: binding a
+     * builder object to a {@link GeffProperties} collection and looping over
+     * all elements.
+     *
+     * @param target
+     *            object with {@code @NodeConstructor} / {@code
+     *            @EdgeConstructor} methods.
+     * @param properties
+     *            the properties collection to construct from.
+     */
+    public static void buildElements(final Object target, final GeffProperties properties) throws Throwable {
+
+        final ElementCreator c = ElementCreator.of(target, properties);
+        for (int i = 0; i < properties.numElements(); i++) {
+            c.createElement(i);
+        }
+    }
+
     // ------ exceptions. TODO revise --------
 
     // TODO: move to separate file
