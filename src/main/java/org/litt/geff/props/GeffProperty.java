@@ -146,7 +146,9 @@ public interface GeffProperty<T> {
         }
     }
 
-    // TODO: exploratory. probably should be overridden by implementations such that it is not frequently re-created.
+    // NB: This is not hot: it is called once per property (e.g. by the bind
+    // framework and GeffPropertyWriter), not per element. Measured with
+    // org.litt.geff.bench.BenchProps; no caching needed for now.
     default GeffPropertyType propertyType() {
         final Dimensions dimensions = isVarlength()
                 ? FinalDimensions.wrap(new long[numDimensions()])
