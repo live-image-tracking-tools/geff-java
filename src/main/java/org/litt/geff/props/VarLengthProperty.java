@@ -149,6 +149,11 @@ public class VarLengthProperty<T extends Type<T>> implements GeffProperty<T>, Im
         }
 
         @Override
+        public T getType() {
+            return dataAccess.getType();
+        }
+
+        @Override
         public RA copy() {
             return new RA(dataAccess.copy());
         }
