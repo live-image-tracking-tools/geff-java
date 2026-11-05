@@ -112,14 +112,16 @@ import net.imglib2.util.Cast;
  * signature, not by an explicit descriptor:
  * <ul>
  * <li>a scalar accessor ({@code Node::x}, that is, {@link ToDoubleFunction} and
- *     the corresponding scalar interfaces in {@link FunctionTypes}) yields a
+ *     the corresponding scalar interfaces in
+ *     {@link org.litt.geff.props.FunctionTypes}) yields a
  *     scalar property;</li>
  * <li>an array accessor with an explicit {@code length} argument yields a
  *     fixed-length vector property of that length;</li>
  * <li>an array accessor <em>without</em> {@code length} yields a var-length
  *     property, whose rows may differ in length per element;</li>
- * <li>an accessor returning one of the {@link Maybe} types yields an optional
- *     property, which additionally writes a {@code missing} dataset;</li>
+ * <li>an accessor returning one of the {@link org.litt.geff.props.Maybe} types
+ *     yields an optional property, which additionally writes a {@code missing}
+ *     dataset;</li>
  * <li>an accessor returning {@code String} is encoded as UTF-8 and stored as a
  *     var-length {@code uint8} property.</li>
  * </ul>
