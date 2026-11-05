@@ -289,18 +289,6 @@ public class GeffMetadata
 		}
 	}
 
-	/**
-	 * Alias for {@link #getGeffAxes()}.
-	 *
-	 * @return the axes, or {@code null} if the dataset declares no axes.
-	 * @deprecated use {@link #getGeffAxes()} instead.
-	 */
-	@Deprecated
-	public List< GeffAxis > getGeffAxesList()
-	{
-		return getGeffAxes();
-	}
-
 	public Map< String, PropMetadata > getNodePropsMetadata()
 	{
 		return nodePropsMetadata;
