@@ -28,7 +28,6 @@
  */
 package org.mastodon.geff;
 
-import static org.mastodon.geff.GeffUtils.checkSupportedVersion;
 
 import java.io.IOException;
 import java.lang.reflect.Type;
@@ -44,6 +43,7 @@ import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrWriter;
+import org.scijava.util.VersionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -63,14 +63,30 @@ public class GeffMetadata
 
 	private static final Logger LOG = LoggerFactory.getLogger( GeffMetadata.class );
 
+	/** The GEFF-Java library version. */
+	public static final String VERSION = VersionUtils.getVersion( GeffMetadata.class );
+
 	// Supported GEFF versions
 	public static final List< String > SUPPORTED_VERSIONS = Arrays.asList( "0.2", "0.3", "0.4", "1.0", "1.1" );
 
-	// Pattern to match major.minor versions, allowing for patch versions and
-	// development versions
-	// Examples: 0.1.1, 0.2.2.dev20+g611e7a2.d20250719, 0.2.0-alpha.1, etc.
+	/*
+	 * Pattern to match major.minor versions, allowing for patch versions and
+	 * development versions Examples: 0.1.1, 0.2.2.dev20+g611e7a2.d20250719,
+	 * 0.2.0-alpha.1, etc.
+	 */
 	private static final Pattern SUPPORTED_VERSIONS_PATTERN = Pattern
 			.compile( "^\\d+\\.\\d+(?:\\.\\d+)?(?:\\.dev\\d+)?(?:[.-][a-zA-Z0-9-]+(?:[.-][a-zA-Z0-9-]+)*)?(?:\\+[a-zA-Z0-9.-]+)?$" );
+
+	/**
+	 * Checks that the specified version string matches the supported semver
+	 * pattern, throws an {@link IllegalArgumentException} otherwise.
+	 * Formerly in {@code GeffUtils}.
+	 */
+	private static void checkSupportedVersion( final String version )
+	{
+		if ( !SUPPORTED_VERSIONS_PATTERN.matcher( version ).matches() )
+			throw new IllegalArgumentException( "geff_version " + version + " does not match semver pattern." );
+	}
 
 	// Metadata attributes - matching the Python schema
 	private String geffVersion;
@@ -199,8 +215,7 @@ public class GeffMetadata
 		return ( geffAxes != null ) ? Arrays.asList( geffAxes ) : null;
 	}
 
-	public void setGeffAxes( final GeffAxis[] geffAxes ) // TODO make
-															// List<GeffAxis>
+	public void setGeffAxes( final GeffAxis[] geffAxes ) // TODO make List<GeffAxis>
 	{
 		this.geffAxes = geffAxes != null ? geffAxes.clone() : null;
 		validate();
@@ -449,7 +464,7 @@ public class GeffMetadata
 			for ( final GeffAxis axis : geffAxes )
 			{
 				if ( type.equals( axis.getType() ) )
-				{ return axis.getName(); }
+					return axis.getName();
 			}
 		}
 		return null;
@@ -601,6 +616,7 @@ public class GeffMetadata
 		RelatedObjects relatedObjects = null;
 		try
 		{
+			@SuppressWarnings( "unchecked" )
 			final List< Map< String, String > > roMap = reader.getAttribute( group, "geff/related_objects", List.class );
 			relatedObjects = new RelatedObjects();
 			relatedObjects.relatedObjects.addAll( roMap );
@@ -813,7 +829,7 @@ public class GeffMetadata
 		/**
 		 * Constructor with the required fields
 		 */
-		public MeshMetadata( String vertices, String triangles )
+		public MeshMetadata( final String vertices, final String triangles )
 		{
 			this.vertices = vertices;
 			this.triangles = triangles;
@@ -822,7 +838,7 @@ public class GeffMetadata
 		/**
 		 * Constructor with all fields
 		 */
-		public MeshMetadata( String vertices, String triangles, String vertexNormals, String triangleNormals )
+		public MeshMetadata( final String vertices, final String triangles, final String vertexNormals, final String triangleNormals )
 		{
 			this.vertices = vertices;
 			this.triangles = triangles;
@@ -836,7 +852,7 @@ public class GeffMetadata
 			return vertices;
 		}
 
-		public void setVertices( String vertices )
+		public void setVertices( final String vertices )
 		{
 			this.vertices = vertices;
 		}
@@ -846,7 +862,7 @@ public class GeffMetadata
 			return triangles;
 		}
 
-		public void setTriangles( String triangles )
+		public void setTriangles( final String triangles )
 		{
 			this.triangles = triangles;
 		}
@@ -856,7 +872,7 @@ public class GeffMetadata
 			return vertexNormals;
 		}
 
-		public void setVertexNormals( String vertexNormals )
+		public void setVertexNormals( final String vertexNormals )
 		{
 			this.vertexNormals = vertexNormals;
 		}
@@ -866,7 +882,7 @@ public class GeffMetadata
 			return triangleNormals;
 		}
 
-		public void setTriangleNormals( String triangleNormals )
+		public void setTriangleNormals( final String triangleNormals )
 		{
 			this.triangleNormals = triangleNormals;
 		}
@@ -946,7 +962,7 @@ public class GeffMetadata
 		/**
 		 * Constructor with the required fields
 		 */
-		public GeffDisplayHints( String displayHorizontal, String displayVertical )
+		public GeffDisplayHints( final String displayHorizontal, final String displayVertical )
 		{
 			this.displayHorizontal = displayHorizontal;
 			this.displayVertical = displayVertical;
@@ -955,7 +971,7 @@ public class GeffMetadata
 		/**
 		 * Constructor with all fields
 		 */
-		public GeffDisplayHints( String displayHorizontal, String displayVertical, String displayDepth, String displayTime )
+		public GeffDisplayHints( final String displayHorizontal, final String displayVertical, final String displayDepth, final String displayTime )
 		{
 			this.displayHorizontal = displayHorizontal;
 			this.displayVertical = displayVertical;
@@ -969,7 +985,7 @@ public class GeffMetadata
 			return displayHorizontal;
 		}
 
-		public void setDisplayHorizontal( String displayHorizontal )
+		public void setDisplayHorizontal( final String displayHorizontal )
 		{
 			this.displayHorizontal = displayHorizontal;
 		}
@@ -979,7 +995,7 @@ public class GeffMetadata
 			return displayVertical;
 		}
 
-		public void setDisplayVertical( String displayVertical )
+		public void setDisplayVertical( final String displayVertical )
 		{
 			this.displayVertical = displayVertical;
 		}
@@ -989,7 +1005,7 @@ public class GeffMetadata
 			return displayDepth;
 		}
 
-		public void setDisplayDepth( String displayDepth )
+		public void setDisplayDepth( final String displayDepth )
 		{
 			this.displayDepth = displayDepth;
 		}
@@ -999,7 +1015,7 @@ public class GeffMetadata
 			return displayTime;
 		}
 
-		public void setDisplayTime( String displayTime )
+		public void setDisplayTime( final String displayTime )
 		{
 			this.displayTime = displayTime;
 		}
@@ -1019,7 +1035,7 @@ public class GeffMetadata
 		@Override
 		public String toString()
 		{
-			StringBuilder sb = new StringBuilder();
+			final StringBuilder sb = new StringBuilder();
 			sb.append( "GeffDisplayHint{" );
 			sb.append( "displayHorizontal='" ).append( displayHorizontal ).append( '\'' );
 			sb.append( ", displayVertical='" ).append( displayVertical ).append( '\'' );
@@ -1036,14 +1052,14 @@ public class GeffMetadata
 		}
 
 		@Override
-		public boolean equals( Object obj )
+		public boolean equals( final Object obj )
 		{
 			if ( this == obj )
 				return true;
 			if ( obj == null || getClass() != obj.getClass() )
 				return false;
 
-			GeffDisplayHints that = ( GeffDisplayHints ) obj;
+			final GeffDisplayHints that = ( GeffDisplayHints ) obj;
 
 			return Objects.equals( displayHorizontal, that.displayHorizontal ) &&
 					Objects.equals( displayVertical, that.displayVertical ) &&
