@@ -85,7 +85,7 @@ public class GeffProperties {
         properties.put(newIdentifier, new RenamedProperty<>(property, newIdentifier));
     }
 
-    // TODO remove?
+    // The typed accessor to the property collection; core API.
     public <T> GeffProperty<T> property(final String identifier) {
         final GeffProperty<?> property = properties.get(identifier);
         if (property == null)
@@ -93,7 +93,8 @@ public class GeffProperties {
         return Cast.unchecked(property);
     }
 
-    // TODO remove?
+    // The escape hatch for inserting hand-built or foreign GeffProperty
+    // instances that do not come from GeffPropertyWriter or the reader.
     public void put(final GeffProperty<?> property) {
         properties.put(property.identifier(), property);
     }
