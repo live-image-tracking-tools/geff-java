@@ -1,7 +1,6 @@
 package org.mastodon.geff.imglib2;
 
 import net.imglib2.type.numeric.integer.UnsignedByteType;
-import net.imglib2.type.numeric.real.DoubleType;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
 import org.mastodon.geff.imglib2.Maybe.MaybeByteArray;
@@ -46,7 +45,8 @@ public class Tutorial02 {
         //
         // Before we go on: We know that the property generic type in this case
         // is UnsignedByteType, so let's cast to avoid further casting below...
-        final GeffProperty<UnsignedByteType> name = (GeffProperty<UnsignedByteType>) property;
+        @SuppressWarnings( "unchecked" )
+		final GeffProperty<UnsignedByteType> name = (GeffProperty<UnsignedByteType>) property;
 
         // We can again access the property's values for the current element
         // using values(), but this is already more cumbersome than for the

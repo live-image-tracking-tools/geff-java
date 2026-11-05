@@ -1,27 +1,27 @@
 package org.mastodon.geff.imglib2;
 
-import net.imglib2.type.numeric.integer.IntType;
-import net.imglib2.type.numeric.real.DoubleType;
-import net.imglib2.type.numeric.real.FloatType;
+import static org.mastodon.geff.imglib2.Construction.buildElements;
+
+import java.util.function.DoubleSupplier;
+import java.util.function.IntSupplier;
+
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
 import org.mastodon.geff.imglib2.Construction.FromId;
 import org.mastodon.geff.imglib2.Construction.FromProperty;
 import org.mastodon.geff.imglib2.Construction.NodeConstructor;
 
-import java.util.function.DoubleSupplier;
-import java.util.function.IntSupplier;
-
-import static org.mastodon.geff.imglib2.Construction.buildElements;
+import net.imglib2.type.numeric.integer.IntType;
+import net.imglib2.type.numeric.real.DoubleType;
 
 public class Tutorial03 {
-    public static void main(String[] args) throws Throwable {
+    public static void main(final String[] args) throws Throwable {
 
         // As mentioned before, you typically won't load individual properties manually.
         // Instead, you can open all node or edge properties in a geff dataset as follows:
         final String path = "cross-language-tests/data/basic_2d_original.zarr";
         final N5Reader n5 = new N5ZarrReader(path);
-        GeffProperties nodeProps = IoUtils.loadProperties(n5, ElementType.NODE);
+        final GeffProperties nodeProps = IoUtils.loadProperties(n5, ElementType.NODE);
 
         // This loads the PropMetadata map and then loads one GeffProperty for
         // every listed property (with the canonical paths determined by
@@ -40,9 +40,9 @@ public class Tutorial03 {
         //   }
 
         // Individual properties can be obtained by identifier:
-        GeffProperty<DoubleType> x = nodeProps.property("x");
-        GeffProperty<DoubleType> y = nodeProps.property("y");
-        GeffProperty<DoubleType> t = nodeProps.property("t");
+        final GeffProperty<DoubleType> x = nodeProps.property("x");
+        final GeffProperty<DoubleType> y = nodeProps.property("y");
+        final GeffProperty<DoubleType> t = nodeProps.property("t");
 
         // All these properties are linked with a shared .elementIndex() so that
         // they can be iterated through elements in lock-step.
@@ -56,9 +56,9 @@ public class Tutorial03 {
         //   t.elementIndex = 5
 
         // Using converter and supplier wrappers as before ...
-        DoubleSupplier sx = Suppliers.asDoubleSupplier(x);
-        DoubleSupplier sy = Suppliers.asDoubleSupplier(y);
-        IntSupplier st = Suppliers.asIntSupplier(t.convert(IntType::new));
+        final DoubleSupplier sx = Suppliers.asDoubleSupplier(x);
+        final DoubleSupplier sy = Suppliers.asDoubleSupplier(y);
+        final IntSupplier st = Suppliers.asIntSupplier(t.convert(IntType::new));
         //
         // ... we can now easily iterate through all nodes:
         for (int i = 0; i < nodeProps.numElements(); i++) {
@@ -81,10 +81,10 @@ public class Tutorial03 {
         class Builder {
             @NodeConstructor
             public void addNode(
-                    @FromId long id,
-                    @FromProperty("x") double x,
-                    @FromProperty("y") double y,
-                    @FromProperty("t") int t) {
+                    @FromId final long id,
+                    @FromProperty("x") final double x,
+                    @FromProperty("y") final double y,
+                    @FromProperty("t") final int t) {
                 System.out.println("id=" + id + ": x=" + sx.getAsDouble() + ", y=" + sy.getAsDouble() + ", t=" + st.getAsInt());
             }
         }
@@ -118,7 +118,7 @@ public class Tutorial03 {
 
             private final IntSupplier st;
 
-            Builder2(GeffProperties props) {
+            Builder2(final GeffProperties props) {
                 st = Suppliers.asIntSupplier(
                         nodeProps.<DoubleType>property("t")
                                 .convert(IntType::new));
@@ -126,10 +126,10 @@ public class Tutorial03 {
 
             @NodeConstructor
             public void addNode(
-                    @FromId long id,
-                    @FromProperty("x") double x) {
-                int t = st.getAsInt();
-                System.out.println("id=" + id + ": x=" + sx.getAsDouble() + ", manual t=" + st.getAsInt());
+                    @FromId final long id,
+                    @FromProperty("x") final double x) {
+                final int t = st.getAsInt();
+                System.out.println("id=" + id + ": x=" + sx.getAsDouble() + ", manual t=" + t);
             }
         }
         buildElements(new Builder2(nodeProps), nodeProps);

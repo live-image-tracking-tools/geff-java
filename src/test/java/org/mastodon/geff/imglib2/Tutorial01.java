@@ -48,7 +48,8 @@ public class Tutorial01 {
 
         // Before we go on: We know that the property generic type in this case
         // is DoubleType, so let's cast to avoid further casting below...
-        final GeffProperty<DoubleType> x = (GeffProperty<DoubleType>) property;
+        @SuppressWarnings( "unchecked" )
+		final GeffProperty<DoubleType> x = (GeffProperty<DoubleType>) property;
 
         // Let's look at some general information about the GeffProperty:
         System.out.println("x.identifier() = " + x.identifier());
@@ -105,7 +106,8 @@ public class Tutorial01 {
         // There are various decorators to wrap GeffProperty, for example
         // changing the property identifier or type.
         // Here we turn the DoubleType "x" property into FloatType:
-        GeffProperty<FloatType> fx = x.convert(FloatType::new);
+        @SuppressWarnings( "unused" )
+		GeffProperty<FloatType> fx = x.convert(FloatType::new);
         // When using the annotation-based constructor parameters, this happens
         // automatically under the hood.
         // Given this parameter:
