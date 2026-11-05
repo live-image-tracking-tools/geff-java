@@ -304,15 +304,23 @@ public class Suppliers {
     //
     // ------------------------------------------------------------------------
 
-    // TODO: could reuse one-time allocated primitive array for fixed-length properties
+    // NB: The Maybe*Array suppliers below reuse a single Maybe instance and a
+    // single scratch array across calls, like the scalar Maybe suppliers
+    // above. Callers must not retain the returned Maybe (or the array it
+    // wraps) across calls; copy it if needed.
 
     public static <T extends GenericByteType<T>> Supplier<MaybeByteArray> asMaybeByteArraySupplier(final GeffProperty<?> property) {
         final GeffProperty<T> p = Cast.unchecked(property);
         final MaybeByteArray v = new MaybeByteArray();
+        final byte[][] scratch = new byte[1][];
         return () -> {
             if (v.setPresent(!p.isMissing())) {
                 final int len = (int) p.values().dimension(0);
-                final byte[] array = new byte[len];
+                byte[] array = scratch[0];
+                if (array == null || array.length != len) {
+                    array = new byte[len];
+                    scratch[0] = array;
+                }
                 for (int i = 0; i < len; i++)
                     array[i] = p.getAt(i).getByte();
                 v.set(array);
@@ -324,10 +332,15 @@ public class Suppliers {
     public static <T extends GenericShortType<T>> Supplier<MaybeShortArray> asMaybeShortArraySupplier(final GeffProperty<?> property) {
         final GeffProperty<T> p = Cast.unchecked(property);
         final MaybeShortArray v = new MaybeShortArray();
+        final short[][] scratch = new short[1][];
         return () -> {
             if (v.setPresent(!p.isMissing())) {
                 final int len = (int) p.values().dimension(0);
-                final short[] array = new short[len];
+                short[] array = scratch[0];
+                if (array == null || array.length != len) {
+                    array = new short[len];
+                    scratch[0] = array;
+                }
                 for (int i = 0; i < len; i++)
                     array[i] = p.getAt(i).getShort();
                 v.set(array);
@@ -339,10 +352,15 @@ public class Suppliers {
     public static <T extends GenericIntType<T>> Supplier<MaybeIntArray> asMaybeIntArraySupplier(final GeffProperty<?> property) {
         final GeffProperty<T> p = Cast.unchecked(property);
         final MaybeIntArray v = new MaybeIntArray();
+        final int[][] scratch = new int[1][];
         return () -> {
             if (v.setPresent(!p.isMissing())) {
                 final int len = (int) p.values().dimension(0);
-                final int[] array = new int[len];
+                int[] array = scratch[0];
+                if (array == null || array.length != len) {
+                    array = new int[len];
+                    scratch[0] = array;
+                }
                 for (int i = 0; i < len; i++)
                     array[i] = p.getAt(i).getInt();
                 v.set(array);
@@ -354,10 +372,15 @@ public class Suppliers {
     public static <T extends GenericLongType<T>> Supplier<MaybeLongArray> asMaybeLongArraySupplier(final GeffProperty<?> property) {
         final GeffProperty<T> p = Cast.unchecked(property);
         final MaybeLongArray v = new MaybeLongArray();
+        final long[][] scratch = new long[1][];
         return () -> {
             if (v.setPresent(!p.isMissing())) {
                 final int len = (int) p.values().dimension(0);
-                final long[] array = new long[len];
+                long[] array = scratch[0];
+                if (array == null || array.length != len) {
+                    array = new long[len];
+                    scratch[0] = array;
+                }
                 for (int i = 0; i < len; i++)
                     array[i] = p.getAt(i).getLong();
                 v.set(array);
@@ -369,10 +392,15 @@ public class Suppliers {
     public static <T extends BooleanType<T>> Supplier<MaybeBooleanArray> asMaybeBooleanArraySupplier(final GeffProperty<?> property) {
         final GeffProperty<T> p = Cast.unchecked(property);
         final MaybeBooleanArray v = new MaybeBooleanArray();
+        final boolean[][] scratch = new boolean[1][];
         return () -> {
             if (v.setPresent(!p.isMissing())) {
                 final int len = (int) p.values().dimension(0);
-                final boolean[] array = new boolean[len];
+                boolean[] array = scratch[0];
+                if (array == null || array.length != len) {
+                    array = new boolean[len];
+                    scratch[0] = array;
+                }
                 for (int i = 0; i < len; i++)
                     array[i] = p.getAt(i).get();
                 v.set(array);
@@ -384,10 +412,15 @@ public class Suppliers {
     public static Supplier<MaybeFloatArray> asMaybeFloatArraySupplier(final GeffProperty<?> property) {
         final GeffProperty<FloatType> p = Cast.unchecked(property);
         final MaybeFloatArray v = new MaybeFloatArray();
+        final float[][] scratch = new float[1][];
         return () -> {
             if (v.setPresent(!p.isMissing())) {
                 final int len = (int) p.values().dimension(0);
-                final float[] array = new float[len];
+                float[] array = scratch[0];
+                if (array == null || array.length != len) {
+                    array = new float[len];
+                    scratch[0] = array;
+                }
                 for (int i = 0; i < len; i++)
                     array[i] = p.getAt(i).get();
                 v.set(array);
@@ -399,10 +432,15 @@ public class Suppliers {
     public static Supplier<MaybeDoubleArray> asMaybeDoubleArraySupplier(final GeffProperty<?> property) {
         final GeffProperty<DoubleType> p = Cast.unchecked(property);
         final MaybeDoubleArray v = new MaybeDoubleArray();
+        final double[][] scratch = new double[1][];
         return () -> {
             if (v.setPresent(!p.isMissing())) {
                 final int len = (int) p.values().dimension(0);
-                final double[] array = new double[len];
+                double[] array = scratch[0];
+                if (array == null || array.length != len) {
+                    array = new double[len];
+                    scratch[0] = array;
+                }
                 for (int i = 0; i < len; i++)
                     array[i] = p.getAt(i).get();
                 v.set(array);
