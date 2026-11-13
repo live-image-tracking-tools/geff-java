@@ -39,6 +39,7 @@ import net.imglib2.type.numeric.IntegerType;
 import net.imglib2.type.numeric.integer.UnsignedByteType;
 import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.util.Cast;
+import net.imglib2.util.Intervals;
 import net.imglib2.util.Util;
 
 /**
@@ -847,6 +848,18 @@ public class IoUtils
 				true,
 				"0" );
 		n5.createDataset( dataset, attributes );
+		/*
+		 * N5Utils.saveRegion() determines the element type of the interval by
+		 * probing its first element (IterableRealInterval#firstElement()),
+		 * which dereferences a RandomAccess even when the interval is empty.
+		 * For a var-length property whose values are all zero-length (e.g. a
+		 * string property where every element is the empty string), the
+		 * backing store has no chunks and that probe crashes with an
+		 * IndexOutOfBoundsException. Skip writing data for empty intervals:
+		 * the dataset created above already encodes the zero size.
+		 */
+		if ( Intervals.numElements( dimensions ) == 0 )
+			return;
 		N5Utils.saveRegion( data, n5, dataset, attributes );
 	}
 

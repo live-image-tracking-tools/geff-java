@@ -56,9 +56,9 @@ import org.litt.geff.props.FunctionTypes.ToShortArrayFunction;
 import org.litt.geff.props.FunctionTypes.ToShortFunction;
 import org.litt.geff.props.FunctionTypes.ToStringFunction;
 
+import net.imglib2.FinalInterval;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.img.array.ArrayImgFactory;
-import net.imglib2.img.array.ArrayImgs;
 import net.imglib2.type.NativeType;
 import net.imglib2.type.Type;
 import net.imglib2.type.logic.BitType;
@@ -74,6 +74,7 @@ import net.imglib2.type.numeric.integer.UnsignedShortType;
 import net.imglib2.type.numeric.real.DoubleType;
 import net.imglib2.type.numeric.real.FloatType;
 import net.imglib2.util.Cast;
+import net.imglib2.view.Views;
 
 
 /**
@@ -443,7 +444,7 @@ public class GeffPropertyWriter<O> {
             final int n = propertyType.numDimensions();
             final RandomAccessibleInterval<BitType> propertyMissing = propertyType.isOptional() ? arrayImg(BitType.class, numElements) : null;
             if (propertyType.isVarLength()) {
-                final RandomAccessibleInterval<UnsignedLongType> propertyValues = ArrayImgs.unsignedLongs(n + 1, numElements);
+                final RandomAccessibleInterval<UnsignedLongType> propertyValues = arrayImg(UnsignedLongType.class, n + 1, numElements);
                 final VarLengthData<T> propertyData = varLengthData(propertyType.type());
                 return new VarLengthWriteProperty<>(identifier, propertyValues, propertyData, propertyMissing, sharedElementIndex);
             } else {
@@ -455,7 +456,27 @@ public class GeffPropertyWriter<O> {
         }
 
         private static <T, N extends NativeType<N>> RandomAccessibleInterval<T> arrayImg(final Class<?> type, final long... dimensions) {
-            return Cast.unchecked(new ArrayImgFactory<>(WritableProperties.<N>instance(type)).create(dimensions));
+            /*
+             * imglib2 does not allow zero-length dimensions, but zero-length
+             * properties are valid: a geff file may contain no nodes or edges
+             * at all (the reference python implementation writes "nodes/ids"
+             * with shape [0] for an empty graph). Allocate a backing image
+             * with the zero dimensions clamped to 1, and expose a zero-length
+             * view of it. No element is ever accessed on a zero-length
+             * property: harvesting iterates the (empty) object collection, and
+             * the write path creates the zero-length dataset without writing
+             * data to it.
+             */
+            final long[] backing = dimensions.clone();
+            boolean clamped = false;
+            for (int i = 0; i < backing.length; i++) {
+                if (backing[i] == 0) {
+                    backing[i] = 1;
+                    clamped = true;
+                }
+            }
+            final RandomAccessibleInterval<T> img = Cast.unchecked(new ArrayImgFactory<>(WritableProperties.<N>instance(type)).create(backing));
+            return clamped ? Views.interval(img, new FinalInterval(dimensions)) : img;
         }
 
         private static <T, N extends NativeType<N>> VarLengthData<T> varLengthData(final Class<?> type) {
