@@ -840,6 +840,14 @@ public class IoUtils
 		final int[] blockSize = Util.long2int( dimensions );
 		if ( chunkSize > 0 )
 			blockSize[ blockSize.length - 1 ] = chunkSize;
+		/*
+		 * Zarr chunk sizes must be strictly positive, even for zero-length
+		 * datasets (e.g. a var-length property whose values are all empty).
+		 * A zero-length dimension with chunk size 1 simply yields zero chunks.
+		 */
+		for ( int d = 0; d < blockSize.length; d++ )
+			if ( blockSize[ d ] < 1 )
+				blockSize[ d ] = 1;
 		final ZarrDatasetAttributes attributes = new ZarrDatasetAttributes(
 				dimensions,
 				blockSize,
