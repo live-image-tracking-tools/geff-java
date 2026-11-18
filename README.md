@@ -1,7 +1,5 @@
 [![Build Status](https://github.com/live-image-tracking-tools/geff-java/actions/workflows/build.yml/badge.svg)](https://github.com/live-image-tracking-tools/geff-java/actions/workflows/build.yml)
 [![License](https://img.shields.io/badge/License-BSD%202--Clause-orange.svg)](https://opensource.org/licenses/BSD-2-Clause)
-[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=live-image-tracking-tools_geff-java&metric=coverage)](https://sonarcloud.io/summary/overall?id=live-image-tracking-tools_geff-java)
-[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=live-image-tracking-tools_geff-java&metric=ncloc)](https://sonarcloud.io/summary/overall?id=live-image-tracking-tools_geff-java)
 
 # GEFF Java
 
@@ -263,8 +261,7 @@ dataset.zarr/
 
 ### Contribute Code or Provide Feedback
 
-* You are welcome to submit Pull Requests to this repository. This repository runs code analyses on
-  every Pull Request using [SonarCloud](https://sonarcloud.io/dashboard?id=live-image-tracking-tools_geff-java).
+* You are welcome to submit Pull Requests to this repository.
 * Please read the [general advice](https://github.com/live-image-tracking-tools/) for contributing to Live Image Tracking Tools and its projects.
 
 ### Contribute Documentation
