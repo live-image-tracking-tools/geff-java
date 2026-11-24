@@ -73,7 +73,7 @@ public class RoundTrip
 			System.out.println( "  Directed: " + metadata.isDirected() );
 
 			// Read nodes and edges as generic GeffProperties.
-			final N5Reader n5 = new N5ZarrReader( inputPath );
+			final N5Reader n5 = IoUtils.openZarrReader( inputPath );
 			System.out.println( "Reading nodes..." );
 			final GeffProperties nodes = IoUtils.loadProperties( n5, ElementType.NODE );
 			System.out.println( "  Read " + nodes.numElements() + " nodes" );

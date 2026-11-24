@@ -1,5 +1,9 @@
 package org.litt.geff.io;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumMap;
@@ -8,12 +12,17 @@ import java.util.Map;
 
 import org.janelia.saalfeldlab.n5.Compression;
 import org.janelia.saalfeldlab.n5.DataType;
+import org.janelia.saalfeldlab.n5.DatasetAttributes;
+import org.janelia.saalfeldlab.n5.FileSystemKeyValueAccess;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.RawCompression;
 import org.janelia.saalfeldlab.n5.imglib2.N5Utils;
 import org.janelia.saalfeldlab.n5.zarr.DType;
+import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
 import org.janelia.saalfeldlab.n5.zarr.ZarrDatasetAttributes;
+import org.janelia.saalfeldlab.n5.zarr.v3.ZarrV3KeyValueReader;
+import org.janelia.saalfeldlab.n5.zarr.v3.ZarrV3DatasetAttributes;
 import org.litt.geff.GeffException;
 import org.litt.geff.PropMetadata;
 import org.litt.geff.props.ElementIndex;
@@ -95,8 +104,8 @@ public class IoUtils
 
 		final String group = normalizeGroupPath( geffGroup );
 		final String idValuesDataset = group + elementType.elementGroup() + "/ids";
-		final ZarrDatasetAttributes attrIds = attrs( n5, idValuesDataset );
-		final DType idDType = attrIds.getDType();
+		final DatasetAttributes attrIds = attrs( n5, idValuesDataset );
+		final DType idDType = dType( attrIds );
 		final GeffPropertySpec id = new GeffPropertySpec( "id", elementType, false, false, idDType, new FinalDimensions() );
 		if ( !( N5Utils.type( id.dType().getDataType() ) instanceof IntegerType ) )
 			throw new IllegalArgumentException( idValuesDataset + " must be an integer type" );
@@ -151,14 +160,14 @@ public class IoUtils
 		// The spec default for the optional varlength flag is false.
 		final boolean isVarLength = Boolean.TRUE.equals( metadata.getVarlength() );
 
-		final ZarrDatasetAttributes attrValues = attrs( n5, propsGroup + "/values" );
+		final DatasetAttributes attrValues = attrs( n5, propsGroup + "/values" );
 		if ( attrValues == null )
 			throw new GeffException( "The metadata defines a property " + propsGroup + " but the corresponding \"values\" dataset is missing." );
 
-		final ZarrDatasetAttributes attrMissing = attrs( n5, propsGroup + "/missing" );
-		final ZarrDatasetAttributes attrData = isVarLength ? attrs( n5, propsGroup + "/data" ) : null;
+		final DatasetAttributes attrMissing = attrs( n5, propsGroup + "/missing" );
+		final DatasetAttributes attrData = isVarLength ? attrs( n5, propsGroup + "/data" ) : null;
 
-		final DType dType = isVarLength ? attrData.getDType() : attrValues.getDType();
+		final DType dType = isVarLength ? dType( attrData ) : dType( attrValues );
 		final boolean isOptional = attrMissing != null;
 
 		final Dimensions dimensions;
@@ -819,12 +828,109 @@ public class IoUtils
 	}
 
 	/**
-	 * Get the {@link ZarrDatasetAttributes} of the given {@code Dataset}.
-	 * (Assumes, that the given {@code n5} reads from a Zarr dataset.)
+	 * Open an {@link N5Reader} on a Zarr container, detecting the Zarr
+	 * specification version: a container root holding a {@code zarr.json}
+	 * file is read as Zarr v3, otherwise as Zarr v2 (the legacy {@code
+	 * .zgroup} / {@code .zarray} / {@code .zattrs} layout).
+	 *
+	 * @param basePath
+	 *            path to the Zarr container root
+	 * @return an {@link N5Reader} for the container
 	 */
-	private static ZarrDatasetAttributes attrs( final N5Reader n5, final String dataset )
+	public static N5Reader openZarrReader( final String basePath )
 	{
-		return ( ZarrDatasetAttributes ) n5.getDatasetAttributes( dataset );
+		if ( isZarrV3( basePath ) )
+		{
+			installZarrV3BoolAdapter();
+			return new ZarrV3KeyValueReader( new FileSystemKeyValueAccess(), basePath, new com.google.gson.GsonBuilder(), true );
+		}
+		return new N5ZarrReader( basePath, true );
+	}
+
+	/**
+	 * n5-zarr 2.0.1 does not know the Zarr v3 {@code bool} data type (its
+	 * {@link org.janelia.saalfeldlab.n5.zarr.v3.ZarrV3DataType} enum lacks
+	 * it), so v3 arrays with {@code "data_type": "bool"} are not registered
+	 * and cannot be read. GEFF uses bool arrays exactly once: the optional
+	 * {@code missing} array of a property, which GEFF reads as uint8 and
+	 * converts to a boolean imglib2 type anyway (see {@link #loadProperty}).
+	 * <p>
+	 * This method wraps n5-zarr's {@code ZarrV3DatasetAttributes.jsonAdapter}
+	 * (a public, replaceable static) with a delegate that rewrites {@code
+	 * "data_type": "bool"} metadata to {@code uint8} (same 1-byte layout,
+	 * {@code fill_value} {@code false} → {@code 0}) before parsing. Callers
+	 * that already hold a v3 reader are unaffected: the wrapper is installed
+	 * before the reader is constructed and adapters are captured by
+	 * reference at construction time.
+	 */
+	private static void installZarrV3BoolAdapter()
+	{
+		if ( boolAdapterInstalled )
+			return;
+		boolAdapterInstalled = true;
+		final org.janelia.saalfeldlab.n5.zarr.v3.ZarrV3DatasetAttributes.JsonAdapter original =
+				org.janelia.saalfeldlab.n5.zarr.v3.ZarrV3DatasetAttributes.jsonAdapter;
+		org.janelia.saalfeldlab.n5.zarr.v3.ZarrV3DatasetAttributes.jsonAdapter =
+				new org.janelia.saalfeldlab.n5.zarr.v3.ZarrV3DatasetAttributes.JsonAdapter()
+				{
+					@Override
+					public ZarrV3DatasetAttributes deserialize(
+							final com.google.gson.JsonElement json,
+							final java.lang.reflect.Type typeOfT,
+							final com.google.gson.JsonDeserializationContext context )
+					{
+						if ( json.isJsonObject() )
+						{
+							com.google.gson.JsonObject obj = json.getAsJsonObject();
+							final com.google.gson.JsonElement dataType = obj.get( "data_type" );
+							if ( dataType != null && dataType.isJsonPrimitive() && "bool".equals( dataType.getAsString() ) )
+							{
+								obj = obj.deepCopy();
+								obj.addProperty( "data_type", "uint8" );
+								final com.google.gson.JsonElement fillValue = obj.get( "fill_value" );
+								if ( fillValue != null && fillValue.isJsonPrimitive() )
+									obj.addProperty( "fill_value", fillValue.getAsBoolean() ? 1 : 0 );
+							}
+							return original.deserialize( obj, typeOfT, context );
+						}
+						return original.deserialize( json, typeOfT, context );
+					}
+				};
+	}
+
+	private static volatile boolean boolAdapterInstalled = false;
+
+	/**
+	 * Returns true if the container root at the given path holds a {@code
+	 * zarr.json} file, i.e. is a Zarr v3 container.
+	 */
+	public static boolean isZarrV3( final String basePath )
+	{
+		return Files.exists( Paths.get( basePath ).resolve( "zarr.json" ) );
+	}
+
+	/**
+	 * Get the {@link DatasetAttributes} of the given {@code Dataset}.
+	 * (Assumes, that the given {@code n5} reads from a Zarr dataset.)
+	 * <p>
+	 * Works for both Zarr v2 ({@link ZarrDatasetAttributes}) and Zarr v3
+	 * ({@link ZarrV3DatasetAttributes}).
+	 */
+	private static DatasetAttributes attrs( final N5Reader n5, final String dataset )
+	{
+		return n5.getDatasetAttributes( dataset );
+	}
+
+	/**
+	 * Get the {@link DType} of a Zarr dataset, for both Zarr v2 (the {@code
+	 * DType} carries the type string directly) and Zarr v3 (a {@link
+	 * ZarrV3DataType} that is mapped back to a little-endian type string).
+	 */
+	private static DType dType( final DatasetAttributes attributes )
+	{
+		if ( attributes instanceof ZarrV3DatasetAttributes )
+			return new DType( typestrs.get( ( ( ZarrV3DatasetAttributes ) attributes ).getDType().getDataType() ), null );
+		return ( ( ZarrDatasetAttributes ) attributes ).getDType();
 	}
 
 	static < T extends NativeType< T > > void writeDataset(

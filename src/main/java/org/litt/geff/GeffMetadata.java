@@ -40,8 +40,8 @@ import java.util.regex.Pattern;
 
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
-import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrWriter;
+import org.litt.geff.io.IoUtils;
 import org.scijava.util.VersionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -707,7 +707,7 @@ public class GeffMetadata
 	 */
 	public static GeffMetadata readFromZarr( final String zarrPath )
 	{
-		try (final N5ZarrReader reader = new N5ZarrReader( zarrPath, true ))
+		try (final N5Reader reader = IoUtils.openZarrReader( zarrPath ))
 		{
 			return readFromN5( reader, "/" );
 		}
