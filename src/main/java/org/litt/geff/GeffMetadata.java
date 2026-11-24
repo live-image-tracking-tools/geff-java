@@ -40,7 +40,6 @@ import java.util.regex.Pattern;
 
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
-import org.janelia.saalfeldlab.n5.zarr.N5ZarrWriter;
 import org.litt.geff.io.IoUtils;
 import org.scijava.util.VersionUtils;
 import org.slf4j.Logger;
@@ -849,7 +848,7 @@ public class GeffMetadata
 	 */
 	public static void writeToZarr( final GeffMetadata metadata, final String zarrPath ) throws IOException
 	{
-		try (final N5ZarrWriter writer = new N5ZarrWriter( zarrPath, new GsonBuilder().setPrettyPrinting(), true ))
+		try (final N5Writer writer = IoUtils.createZarrWriter( zarrPath ))
 		{
 			metadata.writeToN5( writer, "/" );
 		}

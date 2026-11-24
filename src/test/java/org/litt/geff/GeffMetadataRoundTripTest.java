@@ -45,6 +45,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.google.gson.Gson;
 
 /**
@@ -55,14 +57,37 @@ public class GeffMetadataRoundTripTest
 {
 
 	/**
-	 * Read the .zattrs of a group and parse it into a map, so that assertions
-	 * can be made on the raw JSON content.
+	 * Read the user attributes of a group (the {@code attributes} member of
+	 * its Zarr v3 {@code zarr.json}) and parse it into a map, so that
+	 * assertions can be made on the raw JSON content.
 	 */
 	@SuppressWarnings( "unchecked" )
 	private static Map< String, Object > readZattrs( final String groupPath ) throws IOException
 	{
-		final String json = new String( Files.readAllBytes( Path.of( groupPath, ".zattrs" ) ) );
-		return new Gson().fromJson( json, Map.class );
+		final JsonObject root = JsonParser.parseString( Files.readString( Path.of( groupPath, "zarr.json" ) ) ).getAsJsonObject();
+		return new Gson().fromJson( root.get( "attributes" ), Map.class );
+	}
+
+	/**
+	 * Read the raw JSON text of the {@code attributes} member of the group's
+	 * {@code zarr.json}, for hand-edited round-trip tests.
+	 */
+	private static String readZattrsJson( final String groupPath ) throws IOException
+	{
+		final JsonObject root = JsonParser.parseString( Files.readString( Path.of( groupPath, "zarr.json" ) ) ).getAsJsonObject();
+		return root.get( "attributes" ).toString();
+	}
+
+	/**
+	 * Replace the {@code attributes} member of the group's {@code zarr.json}
+	 * with the given JSON text.
+	 */
+	private static void writeZattrsJson( final String groupPath, final String attributesJson ) throws IOException
+	{
+		final Path zarrJson = Path.of( groupPath, "zarr.json" );
+		final JsonObject root = JsonParser.parseString( Files.readString( zarrJson ) ).getAsJsonObject();
+		root.add( "attributes", JsonParser.parseString( attributesJson ) );
+		Files.writeString( zarrJson, root.toString() );
 	}
 
 	@Test
@@ -135,10 +160,8 @@ public class GeffMetadataRoundTripTest
 		GeffMetadata.writeToZarr( new GeffMetadata( "1.3", false ), path );
 
 		// Hand-write a related_objects entry using the deprecated key.
-		final Path zattrs = Path.of( path, ".zattrs" );
-		final String json = new String( Files.readAllBytes( zattrs ) );
-		final String withLegacy = json.replace( "}}", "},\"related_objects\":[{\"type\":\"labels\",\"path\":\"../seg/\",\"label_prop\":\"cell_id\"}]}" );
-		Files.write( zattrs, withLegacy.getBytes() );
+		writeZattrsJson( path, readZattrsJson( path ).replace( "}}",
+				"},\"related_objects\":[{\"type\":\"labels\",\"path\":\"../seg/\",\"label_prop\":\"cell_id\"}]}" ) );
 
 		final GeffMetadata read = GeffMetadata.readFromZarr( path );
 		assertNotNull( read.getRelatedObjects() );
@@ -166,11 +189,11 @@ public class GeffMetadataRoundTripTest
 
 		// Hand-write an attribute that this version of the library does not
 		// know about, as a future version of the spec would.
-		final Path zattrs = Path.of( path, ".zattrs" );
-		final String json = new String( Files.readAllBytes( zattrs ) );
+		final String json = readZattrsJson( path );
 		final String withUnknown = json.replace( "}}",
 				"},\"future_thing\":{\"a\":[1,2,3],\"b\":\"yes\"},\"another\":42}" );
-		Files.write( zattrs, withUnknown.getBytes() );
+		assertTrue( !withUnknown.equals( json ), "the hand-edited attributes must differ from the written ones" );
+		writeZattrsJson( path, withUnknown );
 
 		final GeffMetadata read = GeffMetadata.readFromZarr( path );
 		assertEquals( 2, read.getUnknownAttributes().size() );
@@ -195,10 +218,7 @@ public class GeffMetadataRoundTripTest
 
 		// Hand-write explicit nulls, as the Python implementation does for
 		// optional fields it leaves unset.
-		final Path zattrs = Path.of( path, ".zattrs" );
-		final String json = new String( Files.readAllBytes( zattrs ) );
-		final String withNulls = json.replace( "}}", "},\"axes\":null,\"sphere\":null}" );
-		Files.write( zattrs, withNulls.getBytes() );
+		writeZattrsJson( path, readZattrsJson( path ).replace( "}}", "},\"axes\":null,\"sphere\":null}" ) );
 
 		final GeffMetadata read = GeffMetadata.readFromZarr( path );
 		assertNull( read.getGeffAxes() );
@@ -216,12 +236,11 @@ public class GeffMetadataRoundTripTest
 
 		// Hand-write an extra key inside a property metadata dict, as a
 		// future version of the spec would, and omit the optional varlength.
-		final Path zattrs = Path.of( path, ".zattrs" );
-		final String json = new String( Files.readAllBytes( zattrs ) );
+		final String json = readZattrsJson( path );
 		final String withUnknown = json.replace( "{\"identifier\":\"x\",\"dtype\":\"float64\",\"unit\":\"micrometer\"}",
 				"{\"identifier\":\"x\",\"dtype\":\"float64\",\"unit\":\"micrometer\",\"future_thing\":{\"a\":1},\"smoothing\":true}" );
-		assertTrue( !withUnknown.equals( json ), "the hand-edited .zattrs must differ from the written one" );
-		Files.write( zattrs, withUnknown.getBytes() );
+		assertTrue( !withUnknown.equals( json ), "the hand-edited attributes must differ from the written ones" );
+		writeZattrsJson( path, withUnknown );
 
 		final GeffMetadata read = GeffMetadata.readFromZarr( path );
 		final PropMetadata xProp = read.getNodePropsMetadata().get( "x" );
@@ -251,10 +270,7 @@ public class GeffMetadataRoundTripTest
 
 		// Hand-write a props metadata entry that does not carry its
 		// identifier, as the identifier is redundant with the map key.
-		final Path zattrs = Path.of( path, ".zattrs" );
-		final String json = new String( Files.readAllBytes( zattrs ) );
-		final String withProp = json.replace( "}}", "},\"node_props_metadata\":{\"trackmate_spot_id\":{\"dtype\":\"uint64\"}}}" );
-		Files.write( zattrs, withProp.getBytes() );
+		writeZattrsJson( path, readZattrsJson( path ).replace( "}}", "},\"node_props_metadata\":{\"trackmate_spot_id\":{\"dtype\":\"uint64\"}}}" ) );
 
 		final GeffMetadata read = GeffMetadata.readFromZarr( path );
 		final PropMetadata prop = read.getNodePropsMetadata().get( "trackmate_spot_id" );
@@ -283,10 +299,7 @@ public class GeffMetadataRoundTripTest
 				GeffAxis.createSpaceAxis( "y", GeffAxis.UNIT_MICROMETER ) ) );
 		GeffMetadata.writeToZarr( metadata, path );
 
-		final Path zattrs = Path.of( path, ".zattrs" );
-		final String json = new String( Files.readAllBytes( zattrs ) );
-		final String withHints = json.replace( "}}", "},\"display_hints\":{\"display_horizontal\":\"nope\",\"display_vertical\":\"nada\"}}" );
-		Files.write( zattrs, withHints.getBytes() );
+		writeZattrsJson( path, readZattrsJson( path ).replace( "}}", "},\"display_hints\":{\"display_horizontal\":\"nope\",\"display_vertical\":\"nada\"}}" ) );
 
 		assertThrows( IllegalArgumentException.class, () -> GeffMetadata.readFromZarr( path ),
 				"display hints naming undeclared axes must be rejected" );

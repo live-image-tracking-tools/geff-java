@@ -31,8 +31,7 @@ package org.litt.geff.io;
 import java.io.IOException;
 
 import org.janelia.saalfeldlab.n5.N5Reader;
-import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
-import org.janelia.saalfeldlab.n5.zarr.N5ZarrWriter;
+import org.janelia.saalfeldlab.n5.N5Writer;
 import org.litt.geff.GeffMetadata;
 import org.litt.geff.props.ElementType;
 import org.litt.geff.props.GeffProperties;
@@ -92,7 +91,7 @@ public class RoundTrip
 
 			// Write properties first, metadata last so that all data is in
 			// place when the metadata is written.
-			try (final N5ZarrWriter out = new N5ZarrWriter( outputPath ))
+			try (final N5Writer out = IoUtils.createZarrWriter( outputPath ))
 			{
 				System.out.println( "Writing nodes..." );
 				IoUtils.writeProperties( out, nodes, null, 0, null );

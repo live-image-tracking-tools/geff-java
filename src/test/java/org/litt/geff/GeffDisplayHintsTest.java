@@ -44,6 +44,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
 /**
  * Test class for resolving axis names from display_hints and axes.
  */
@@ -56,12 +59,14 @@ public class GeffDisplayHintsTest
 	}
 
 	/**
-	 * Read the .zattrs of a group with all whitespace removed, so that
+	 * Read the user attributes of a group (the {@code attributes} member of
+	 * its Zarr v3 {@code zarr.json}) with all whitespace removed, so that
 	 * assertions on the JSON do not depend on formatting.
 	 */
 	private static String readZattrs( final String groupPath ) throws IOException
 	{
-		return new String( Files.readAllBytes( Paths.get( groupPath, ".zattrs" ) ) ).replaceAll( "\\s", "" );
+		final JsonObject root = JsonParser.parseString( Files.readString( Paths.get( groupPath, "zarr.json" ) ) ).getAsJsonObject();
+		return root.get( "attributes" ).toString().replaceAll( "\\s", "" );
 	}
 
 	@Test

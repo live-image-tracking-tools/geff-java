@@ -9,7 +9,6 @@ import java.util.List;
 import java.util.function.Supplier;
 
 import org.janelia.saalfeldlab.n5.N5Writer;
-import org.janelia.saalfeldlab.n5.zarr.N5ZarrWriter;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -40,7 +39,7 @@ public class GeffPropertyWriterEmptyVarLengthTest
 				.createGeffProperties();
 
 		final String geffPath = tempDir.resolve( "empty_names.geff" ).toString();
-		try (final N5Writer n5 = new N5ZarrWriter( geffPath ))
+		try (final N5Writer n5 = IoUtils.createZarrWriter( geffPath ))
 		{
 			assertDoesNotThrow( () -> IoUtils.writeProperties( n5, props, null, 0, null ) );
 		}
@@ -57,7 +56,7 @@ public class GeffPropertyWriterEmptyVarLengthTest
 		assertEquals( "1.3", read.getGeffVersion() );
 
 		// The values must round-trip as empty strings.
-		final GeffProperties readProps = IoUtils.loadProperties( new org.janelia.saalfeldlab.n5.zarr.N5ZarrReader( geffPath, true ), ElementType.NODE );
+		final GeffProperties readProps = IoUtils.loadProperties( IoUtils.openZarrReader( geffPath ), ElementType.NODE );
 		final Supplier< MaybeString > supplier = Suppliers.asMaybeStringSupplier( readProps.property( "name" ) );
 		for ( int i = 0; i < names.size(); i++ )
 		{

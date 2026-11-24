@@ -14,9 +14,7 @@ import java.util.function.ToLongFunction;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.imglib2.N5Utils;
-import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
-import org.janelia.saalfeldlab.n5.zarr.N5ZarrWriter;
-import org.janelia.saalfeldlab.n5.zarr.ZarrDatasetAttributes;
+import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -61,7 +59,7 @@ public class VarLengthNdTest
 	void testWriteLayout( @TempDir final Path dir ) throws IOException
 	{
 		final String path = dir.resolve( "layout.geff" ).toString();
-		try (final N5Writer n5 = new N5ZarrWriter( path ))
+		try (final N5Writer n5 = IoUtils.createZarrWriter( path ))
 		{
 			new GeffPropertyWriter<>( nodes(), ElementType.NODE )
 					.id( id, "<u8" )
@@ -69,7 +67,7 @@ public class VarLengthNdTest
 					.write( n5, null, 0 );
 		}
 
-		final N5Reader n5 = new N5ZarrReader( path );
+		final N5Reader n5 = IoUtils.openZarrReader( path );
 		// N5 dims are zarr dims reversed: zarr (N, 3) -> N5 (3, N).
 		final RandomAccessibleInterval< UnsignedLongType > values = N5Utils.open( n5, "nodes/props/polygon/values" );
 		assertEquals( 2, values.numDimensions() );
@@ -116,7 +114,7 @@ public class VarLengthNdTest
 		final String path = dir.resolve( "read.geff" ).toString();
 		write( path, nodes() );
 
-		final N5Reader n5 = new N5ZarrReader( path );
+		final N5Reader n5 = IoUtils.openZarrReader( path );
 		final ElementIndex index = new ElementIndex();
 		final GeffProperty< DoubleType > polygon = IoUtils.loadVarLengthProperty( n5, "polygon", index,
 				"nodes/props/polygon/values", null, "nodes/props/polygon/data" );
@@ -135,7 +133,7 @@ public class VarLengthNdTest
 		final String path = dir.resolve( "missing.geff" ).toString();
 		write( path, List.of( new Node( 0, POLY[ 0 ], false ), new Node( 1, POLY[ 2 ], true ), new Node( 2, POLY[ 1 ], false ) ) );
 
-		final N5Reader n5 = new N5ZarrReader( path );
+		final N5Reader n5 = IoUtils.openZarrReader( path );
 		final ElementIndex index = new ElementIndex();
 		final GeffProperty< DoubleType > polygon = IoUtils.loadVarLengthProperty( n5, "polygon", index,
 				"nodes/props/polygon/values", "nodes/props/polygon/missing", "nodes/props/polygon/data" );
@@ -160,9 +158,9 @@ public class VarLengthNdTest
 		final String path = dir.resolve( "empty.geff" ).toString();
 		assertDoesNotThrow( () -> write( path, List.of() ) );
 
-		try (final N5Reader n5 = new N5ZarrReader( path ))
+		try (final N5Reader n5 = IoUtils.openZarrReader( path ))
 		{
-			final ZarrDatasetAttributes attrs = ( ZarrDatasetAttributes ) n5.getDatasetAttributes( "nodes/props/polygon/values" );
+			final DatasetAttributes attrs = n5.getDatasetAttributes( "nodes/props/polygon/values" );
 			assertEquals( 2, attrs.getDimensions().length );
 			assertEquals( 0, Intervals.numElements( attrs.getDimensions() ) );
 		}
@@ -187,7 +185,7 @@ public class VarLengthNdTest
 				.id( id, "<u8" )
 				.add( "polygon", poly, 2, dims )
 				.createGeffProperties();
-		try (final N5Writer n5 = new N5ZarrWriter( path ))
+		try (final N5Writer n5 = IoUtils.createZarrWriter( path ))
 		{
 			IoUtils.writeProperties( n5, props, null, 0, null );
 		}

@@ -1,6 +1,7 @@
 package org.litt.geff.io;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -14,14 +15,18 @@ import org.janelia.saalfeldlab.n5.Compression;
 import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.FileSystemKeyValueAccess;
+import org.janelia.saalfeldlab.n5.KeyValueAccess;
 import org.janelia.saalfeldlab.n5.N5Reader;
+import org.janelia.saalfeldlab.n5.N5URI;
 import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.RawCompression;
 import org.janelia.saalfeldlab.n5.imglib2.N5Utils;
+import org.janelia.saalfeldlab.n5.readdata.ReadData;
 import org.janelia.saalfeldlab.n5.zarr.DType;
 import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
 import org.janelia.saalfeldlab.n5.zarr.ZarrDatasetAttributes;
 import org.janelia.saalfeldlab.n5.zarr.v3.ZarrV3KeyValueReader;
+import org.janelia.saalfeldlab.n5.zarr.v3.ZarrV3KeyValueWriter;
 import org.janelia.saalfeldlab.n5.zarr.v3.ZarrV3DatasetAttributes;
 import org.litt.geff.GeffException;
 import org.litt.geff.PropMetadata;
@@ -35,8 +40,11 @@ import org.litt.geff.props.GeffPropertySpecs;
 import org.litt.geff.props.ImgBacked;
 import org.litt.geff.props.VarLengthProperty;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
 
+import net.imglib2.Cursor;
 import net.imglib2.Dimensions;
 import net.imglib2.FinalDimensions;
 import net.imglib2.RandomAccessibleInterval;
@@ -588,7 +596,16 @@ public class IoUtils
 			final RandomAccessibleInterval< UnsignedByteType > missing_uint8 = Converters.convert( imgBacked.getMissingRAI(),
 					( b, u ) -> u.set( b.get() ? 1 : 0 ),
 					new UnsignedByteType() );
-			writeDataset( n5, missingPath, uint8, compression, chunkSize, missing_uint8 );
+			if ( n5 instanceof ZarrV3KeyValueWriter )
+				/*
+				 * n5-zarr 2.0.1 cannot write Zarr v3 bool arrays (the
+				 * ZarrV3DataType enum has no bool), but the geff spec requires
+				 * the "missing" array to be boolean. Write it directly, as a
+				 * single-chunk uncompressed v3 bool array.
+				 */
+				writeV3BoolDataset( ( ZarrV3KeyValueWriter ) n5, missingPath, missing_uint8 );
+			else
+				writeDataset( n5, missingPath, uint8, compression, chunkSize, missing_uint8 );
 		}
 	}
 
@@ -910,6 +927,25 @@ public class IoUtils
 	}
 
 	/**
+	 * Create a new Zarr container at the given path, as Zarr v3. GEFF only
+	 * writes Zarr v3 containers; Zarr v2 files are read for backwards
+	 * compatibility only.
+	 *
+	 * @param basePath
+	 *            path to the Zarr container root (created if missing)
+	 * @return an {@link N5Writer} for the container
+	 */
+	public static N5Writer createZarrWriter( final String basePath )
+	{
+		installZarrV3BoolAdapter();
+		// Explicit nulls matter in geff metadata (e.g. unset optional display
+		// hints are written as null); the Zarr v2 writer enabled them via
+		// ZarrKeyValueReader.registerGson, so mirror that here.
+		return new ZarrV3KeyValueWriter( new FileSystemKeyValueAccess(), basePath,
+				new com.google.gson.GsonBuilder().serializeNulls(), true );
+	}
+
+	/**
 	 * Get the {@link DatasetAttributes} of the given {@code Dataset}.
 	 * (Assumes, that the given {@code n5} reads from a Zarr dataset.)
 	 * <p>
@@ -975,6 +1011,85 @@ public class IoUtils
 		if ( Intervals.numElements( dimensions ) == 0 )
 			return;
 		N5Utils.saveRegion( data, n5, dataset, attributes );
+	}
+
+	/**
+	 * Write a 1-dimensional Zarr v3 boolean dataset directly, bypassing
+	 * n5-zarr, which cannot write the v3 {@code bool} data type (its {@link
+	 * org.janelia.saalfeldlab.n5.zarr.v3.ZarrV3DataType} enum has no bool).
+	 * GEFF uses bool datasets only for the {@code missing} arrays of
+	 * optional properties.
+	 * <p>
+	 * The dataset is written as a single uncompressed chunk holding all
+	 * values (missing arrays are at most one element per graph node, small
+	 * enough for a single chunk), with the default {@code "/"} chunk key
+	 * encoding, so it is a compliant Zarr v3 array that zarr-python reads.
+	 *
+	 * @param n5
+	 *            the Zarr v3 writer
+	 * @param dataset
+	 *            path of the dataset relative to the container root
+	 * @param missing
+	 *            the missing flags, as a 1-dimensional imglib2 interval with
+	 *            one element per graph element (non-zero is missing)
+	 */
+	private static void writeV3BoolDataset(
+			final ZarrV3KeyValueWriter n5,
+			final String dataset,
+			final RandomAccessibleInterval< UnsignedByteType > missing )
+	{
+		final long n = missing.dimension( 0 );
+		final KeyValueAccess access = n5.getKeyValueAccess();
+		final String normalized = N5URI.normalizeGroupPath( dataset );
+
+		// Parent groups. writeProperty writes "values" (and "data") before
+		// "missing", so the parent groups normally exist already; create them
+		// defensively anyway. createGroup() creates all ancestors.
+		final int lastSlash = normalized.lastIndexOf( '/' );
+		n5.createGroup( lastSlash < 0 ? "/" : normalized.substring( 0, lastSlash ) );
+
+		final JsonObject json = new JsonObject();
+		json.addProperty( "zarr_format", 3 );
+		json.addProperty( "node_type", "array" );
+		final JsonArray shape = new JsonArray();
+		shape.add( n );
+		json.add( "shape", shape );
+		json.addProperty( "data_type", "bool" );
+		final JsonObject chunkGrid = new JsonObject();
+		chunkGrid.addProperty( "name", "regular" );
+		final JsonObject chunkGridConf = new JsonObject();
+		final JsonArray chunkShape = new JsonArray();
+		chunkShape.add( Math.max( n, 1 ) ); // chunk sizes must be strictly positive
+		chunkGridConf.add( "chunk_shape", chunkShape );
+		chunkGrid.add( "configuration", chunkGridConf );
+		json.add( "chunk_grid", chunkGrid );
+		final JsonObject chunkKeyEncoding = new JsonObject();
+		chunkKeyEncoding.addProperty( "name", "default" );
+		final JsonObject chunkKeyConf = new JsonObject();
+		chunkKeyConf.addProperty( "separator", "/" );
+		chunkKeyEncoding.add( "configuration", chunkKeyConf );
+		json.add( "chunk_key_encoding", chunkKeyEncoding );
+		json.addProperty( "fill_value", false );
+		final JsonArray codecs = new JsonArray();
+		final JsonObject bytesCodec = new JsonObject();
+		bytesCodec.addProperty( "name", "bytes" );
+		codecs.add( bytesCodec );
+		json.add( "codecs", codecs );
+		json.add( "attributes", new JsonObject() );
+
+		access.createDirectories( access.compose( n5.getURI(), normalized ) );
+		access.write( access.compose( n5.getURI(), normalized, "zarr.json" ), ReadData.from( json.toString().getBytes( StandardCharsets.UTF_8 ) ) );
+
+		if ( n == 0 )
+			return;
+
+		// One chunk with all values: "c/0".
+		final byte[] chunk = new byte[ ( int ) n ];
+		final Cursor< UnsignedByteType > cursor = missing.cursor();
+		int i = 0;
+		while ( cursor.hasNext() )
+			chunk[ i++ ] = cursor.next().get() != 0 ? ( byte ) 1 : ( byte ) 0;
+		access.write( access.compose( n5.getURI(), normalized, "c", "0" ), ReadData.from( chunk ) );
 	}
 
 	/**
