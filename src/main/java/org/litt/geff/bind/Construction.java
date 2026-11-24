@@ -255,7 +255,7 @@ public class Construction
 				}
 			}
 			if ( result == null )
-			{ throw new IllegalStateException( error ); }
+				throw new IllegalStateException( error );
 			return result;
 		}
 	}
@@ -448,7 +448,9 @@ public class Construction
 			return FloatType.class;
 		}
 		else if ( primitive == double.class )
-		{ return DoubleType.class; }
+		{
+			return DoubleType.class;
+		}
 		throw new IllegalArgumentException( "Unsupported primitive type " + primitive );
 	}
 
@@ -479,7 +481,9 @@ public class Construction
 			return FloatType.class;
 		}
 		else if ( maybe == MaybeDouble.class || maybe == OptionalDouble.class )
-		{ return DoubleType.class; }
+		{
+			return DoubleType.class;
+		}
 		throw new IllegalArgumentException( "Unsupported Maybe type " + maybe
 				+ ". Supported types are MaybeBoolean, MaybeByte, MaybeShort, MaybeInt, MaybeLong, "
 				+ "MaybeFloat, MaybeDouble, OptionalInt, OptionalLong, and OptionalDouble." );
@@ -499,7 +503,7 @@ public class Construction
 			{
 				final Type arg = pt.getActualTypeArguments()[ 0 ];
 				if ( arg instanceof Class )
-				{ return arg; }
+					return arg;
 			}
 		}
 		throw new IllegalArgumentException( "Cannot resolve the type argument of Maybe subclass " + maybe
@@ -528,7 +532,9 @@ public class Construction
 			return sourceProperty;
 		}
 		else if ( isVarLengthUInt8Vector( sourceType ) && isString( targetType ) )
-		{ return new VarLengthAsStringProperty( Cast.unchecked( sourceProperty ) ); }
+		{
+			return new VarLengthAsStringProperty( Cast.unchecked( sourceProperty ) );
+		}
 
 		if ( sourceType.isOptional() && !targetType.isOptional() )
 		{
@@ -546,7 +552,7 @@ public class Construction
 		 * in C order, so the flattening is lossless.
 		 */
 		if ( sourceType.numDimensions() != targetType.numDimensions() && !( sourceType.isVarLength() && targetType.isVarLength() ) )
-		{ throw new GeffConvertError( sourceType, targetType, "Dimensionality mismatch." ); }
+			throw new GeffConvertError( sourceType, targetType, "Dimensionality mismatch." );
 
 		if ( !targetType.isVarLength() )
 		{
@@ -616,7 +622,9 @@ public class Construction
 			return FloatType::new;
 		}
 		else if ( targetType == DoubleType.class )
-		{ return DoubleType::new; }
+		{
+			return DoubleType::new;
+		}
 		throw new IllegalArgumentException( "No imglib2 type converter for target type " + targetType );
 	}
 
