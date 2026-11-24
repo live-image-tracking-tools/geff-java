@@ -538,7 +538,14 @@ public class Construction
 			throw new GeffConvertError( sourceType, targetType, "Source type is optional but target type is not." );
 		}
 
-		if ( sourceType.numDimensions() != targetType.numDimensions() )
+		/*
+		 * Var-length to var-length binding may flatten: the source entry can
+		 * have more dimensions than the target (e.g. a polygon property
+		 * stored as (n_points, 2) entries binds to a constructor parameter of
+		 * type Optional<double[]>). Suppliers deliver values as flat arrays
+		 * in C order, so the flattening is lossless.
+		 */
+		if ( sourceType.numDimensions() != targetType.numDimensions() && !( sourceType.isVarLength() && targetType.isVarLength() ) )
 		{ throw new GeffConvertError( sourceType, targetType, "Dimensionality mismatch." ); }
 
 		if ( !targetType.isVarLength() )

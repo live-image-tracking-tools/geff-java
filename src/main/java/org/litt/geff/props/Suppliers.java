@@ -1,5 +1,7 @@
 package org.litt.geff.props;
 
+import net.imglib2.Cursor;
+import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.type.BooleanType;
 import net.imglib2.type.numeric.integer.GenericByteType;
 import net.imglib2.type.numeric.integer.GenericIntType;
@@ -9,6 +11,7 @@ import net.imglib2.type.numeric.integer.UnsignedByteType;
 import net.imglib2.type.numeric.real.DoubleType;
 import net.imglib2.type.numeric.real.FloatType;
 import net.imglib2.util.Cast;
+import net.imglib2.util.Intervals;
 
 import java.util.Optional;
 import java.util.OptionalDouble;
@@ -36,6 +39,32 @@ import org.litt.geff.props.Maybe.MaybeShortArray;
 import org.litt.geff.props.Maybe.MaybeString;
 
 public class Suppliers {
+
+    /*
+     * Array extraction helpers.
+     *
+     * Property values may be n-dimensional (e.g. a polygon entry is a
+     * (n_points, 2) array). Suppliers deliver the values as flat primitive
+     * arrays by iterating a cursor over the whole RAI. imglib2 cursors walk
+     * the last dimension fastest, which reproduces the C-order flattening
+     * used by the geff spec (e.g. X,Y-interleaved polygon points).
+     */
+
+    private static int flatSize(final RandomAccessibleInterval<?> values) {
+        return (int) Intervals.numElements(values);
+    }
+
+    @FunctionalInterface
+    private interface ElementSetter<T, A> {
+        void set(A array, int index, T type);
+    }
+
+    private static <T, A> void fill(final RandomAccessibleInterval<T> values, final A array, final ElementSetter<T, A> setter) {
+        final Cursor<T> cursor = values.cursor();
+        int i = 0;
+        while (cursor.hasNext())
+            setter.set(array, i++, cursor.next());
+    }
 
     // ------------------------------------------------------------------------
     //
@@ -86,10 +115,9 @@ public class Suppliers {
     public static <T extends GenericByteType<T>> Supplier<byte[]> asByteArraySupplier(final GeffProperty<?> property) {
         final GeffProperty<T> p = Cast.unchecked(property);
         return () -> {
-            final int len = (int) p.values().dimension(0);
-            final byte[] array = new byte[len];
-            for (int i = 0; i < len; i++)
-                array[i] = p.getAt(i).getByte();
+            final RandomAccessibleInterval<T> values = p.values();
+            final byte[] array = new byte[flatSize(values)];
+            fill(values, array, (a, i, t) -> a[i] = t.getByte());
             return array;
         };
     }
@@ -97,10 +125,9 @@ public class Suppliers {
     public static <T extends GenericShortType<T>> Supplier<short[]> asShortArraySupplier(final GeffProperty<?> property) {
         final GeffProperty<T> p = Cast.unchecked(property);
         return () -> {
-            final int len = (int) p.values().dimension(0);
-            final short[] array = new short[len];
-            for (int i = 0; i < len; i++)
-                array[i] = p.getAt(i).getShort();
+            final RandomAccessibleInterval<T> values = p.values();
+            final short[] array = new short[flatSize(values)];
+            fill(values, array, (a, i, t) -> a[i] = t.getShort());
             return array;
         };
     }
@@ -108,10 +135,9 @@ public class Suppliers {
     public static <T extends GenericIntType<T>> Supplier<int[]> asIntArraySupplier(final GeffProperty<?> property) {
         final GeffProperty<T> p = Cast.unchecked(property);
         return () -> {
-            final int len = (int) p.values().dimension(0);
-            final int[] array = new int[len];
-            for (int i = 0; i < len; i++)
-                array[i] = p.getAt(i).getInt();
+            final RandomAccessibleInterval<T> values = p.values();
+            final int[] array = new int[flatSize(values)];
+            fill(values, array, (a, i, t) -> a[i] = t.getInt());
             return array;
         };
     }
@@ -119,10 +145,9 @@ public class Suppliers {
     public static <T extends GenericLongType<T>> Supplier<long[]> asLongArraySupplier(final GeffProperty<?> property) {
         final GeffProperty<T> p = Cast.unchecked(property);
         return () -> {
-            final int len = (int) p.values().dimension(0);
-            final long[] array = new long[len];
-            for (int i = 0; i < len; i++)
-                array[i] = p.getAt(i).getLong();
+            final RandomAccessibleInterval<T> values = p.values();
+            final long[] array = new long[flatSize(values)];
+            fill(values, array, (a, i, t) -> a[i] = t.getLong());
             return array;
         };
     }
@@ -130,10 +155,9 @@ public class Suppliers {
     public static <T extends BooleanType<T>> Supplier<boolean[]> asBooleanArraySupplier(final GeffProperty<?> property) {
         final GeffProperty<T> p = Cast.unchecked(property);
         return () -> {
-            final int len = (int) p.values().dimension(0);
-            final boolean[] array = new boolean[len];
-            for (int i = 0; i < len; i++)
-                array[i] = p.getAt(i).get();
+            final RandomAccessibleInterval<T> values = p.values();
+            final boolean[] array = new boolean[flatSize(values)];
+            fill(values, array, (a, i, t) -> a[i] = t.get());
             return array;
         };
     }
@@ -141,10 +165,9 @@ public class Suppliers {
     public static Supplier<float[]> asFloatArraySupplier(final GeffProperty<?> property) {
         final GeffProperty<FloatType> p = Cast.unchecked(property);
         return () -> {
-            final int len = (int) p.values().dimension(0);
-            final float[] array = new float[len];
-            for (int i = 0; i < len; i++)
-                array[i] = p.getAt(i).get();
+            final RandomAccessibleInterval<FloatType> values = p.values();
+            final float[] array = new float[flatSize(values)];
+            fill(values, array, (a, i, t) -> a[i] = t.get());
             return array;
         };
     }
@@ -152,10 +175,9 @@ public class Suppliers {
     public static Supplier<double[]> asDoubleArraySupplier(final GeffProperty<?> property) {
         final GeffProperty<DoubleType> p = Cast.unchecked(property);
         return () -> {
-            final int len = (int) p.values().dimension(0);
-            final double[] array = new double[len];
-            for (int i = 0; i < len; i++)
-                array[i] = p.getAt(i).get();
+            final RandomAccessibleInterval<DoubleType> values = p.values();
+            final double[] array = new double[flatSize(values)];
+            fill(values, array, (a, i, t) -> a[i] = t.get());
             return array;
         };
     }
@@ -315,14 +337,14 @@ public class Suppliers {
         final byte[][] scratch = new byte[1][];
         return () -> {
             if (v.setPresent(!p.isMissing())) {
-                final int len = (int) p.values().dimension(0);
+                final RandomAccessibleInterval<T> values = p.values();
+                final int len = flatSize(values);
                 byte[] array = scratch[0];
                 if (array == null || array.length != len) {
                     array = new byte[len];
                     scratch[0] = array;
                 }
-                for (int i = 0; i < len; i++)
-                    array[i] = p.getAt(i).getByte();
+                fill(values, array, (a, i, t) -> a[i] = t.getByte());
                 v.set(array);
             }
             return v;
@@ -335,14 +357,14 @@ public class Suppliers {
         final short[][] scratch = new short[1][];
         return () -> {
             if (v.setPresent(!p.isMissing())) {
-                final int len = (int) p.values().dimension(0);
+                final RandomAccessibleInterval<T> values = p.values();
+                final int len = flatSize(values);
                 short[] array = scratch[0];
                 if (array == null || array.length != len) {
                     array = new short[len];
                     scratch[0] = array;
                 }
-                for (int i = 0; i < len; i++)
-                    array[i] = p.getAt(i).getShort();
+                fill(values, array, (a, i, t) -> a[i] = t.getShort());
                 v.set(array);
             }
             return v;
@@ -355,14 +377,14 @@ public class Suppliers {
         final int[][] scratch = new int[1][];
         return () -> {
             if (v.setPresent(!p.isMissing())) {
-                final int len = (int) p.values().dimension(0);
+                final RandomAccessibleInterval<T> values = p.values();
+                final int len = flatSize(values);
                 int[] array = scratch[0];
                 if (array == null || array.length != len) {
                     array = new int[len];
                     scratch[0] = array;
                 }
-                for (int i = 0; i < len; i++)
-                    array[i] = p.getAt(i).getInt();
+                fill(values, array, (a, i, t) -> a[i] = t.getInt());
                 v.set(array);
             }
             return v;
@@ -375,14 +397,14 @@ public class Suppliers {
         final long[][] scratch = new long[1][];
         return () -> {
             if (v.setPresent(!p.isMissing())) {
-                final int len = (int) p.values().dimension(0);
+                final RandomAccessibleInterval<T> values = p.values();
+                final int len = flatSize(values);
                 long[] array = scratch[0];
                 if (array == null || array.length != len) {
                     array = new long[len];
                     scratch[0] = array;
                 }
-                for (int i = 0; i < len; i++)
-                    array[i] = p.getAt(i).getLong();
+                fill(values, array, (a, i, t) -> a[i] = t.getLong());
                 v.set(array);
             }
             return v;
@@ -395,14 +417,14 @@ public class Suppliers {
         final boolean[][] scratch = new boolean[1][];
         return () -> {
             if (v.setPresent(!p.isMissing())) {
-                final int len = (int) p.values().dimension(0);
+                final RandomAccessibleInterval<T> values = p.values();
+                final int len = flatSize(values);
                 boolean[] array = scratch[0];
                 if (array == null || array.length != len) {
                     array = new boolean[len];
                     scratch[0] = array;
                 }
-                for (int i = 0; i < len; i++)
-                    array[i] = p.getAt(i).get();
+                fill(values, array, (a, i, t) -> a[i] = t.get());
                 v.set(array);
             }
             return v;
@@ -415,14 +437,14 @@ public class Suppliers {
         final float[][] scratch = new float[1][];
         return () -> {
             if (v.setPresent(!p.isMissing())) {
-                final int len = (int) p.values().dimension(0);
+                final RandomAccessibleInterval<FloatType> values = p.values();
+                final int len = flatSize(values);
                 float[] array = scratch[0];
                 if (array == null || array.length != len) {
                     array = new float[len];
                     scratch[0] = array;
                 }
-                for (int i = 0; i < len; i++)
-                    array[i] = p.getAt(i).get();
+                fill(values, array, (a, i, t) -> a[i] = t.get());
                 v.set(array);
             }
             return v;
@@ -435,14 +457,14 @@ public class Suppliers {
         final double[][] scratch = new double[1][];
         return () -> {
             if (v.setPresent(!p.isMissing())) {
-                final int len = (int) p.values().dimension(0);
+                final RandomAccessibleInterval<DoubleType> values = p.values();
+                final int len = flatSize(values);
                 double[] array = scratch[0];
                 if (array == null || array.length != len) {
                     array = new double[len];
                     scratch[0] = array;
                 }
-                for (int i = 0; i < len; i++)
-                    array[i] = p.getAt(i).get();
+                fill(values, array, (a, i, t) -> a[i] = t.get());
                 v.set(array);
             }
             return v;
@@ -456,10 +478,9 @@ public class Suppliers {
         return () -> {
             if (p.isMissing())
                 return Optional.empty();
-            final int len = (int) p.values().dimension(0);
-            final byte[] array = new byte[len];
-            for (int i = 0; i < len; i++)
-                array[i] = p.getAt(i).getByte();
+            final RandomAccessibleInterval<T> values = p.values();
+            final byte[] array = new byte[flatSize(values)];
+            fill(values, array, (a, i, t) -> a[i] = t.getByte());
             return Optional.of(array);
         };
     }
@@ -469,10 +490,9 @@ public class Suppliers {
         return () -> {
             if (p.isMissing())
                 return Optional.empty();
-            final int len = (int) p.values().dimension(0);
-            final short[] array = new short[len];
-            for (int i = 0; i < len; i++)
-                array[i] = p.getAt(i).getShort();
+            final RandomAccessibleInterval<T> values = p.values();
+            final short[] array = new short[flatSize(values)];
+            fill(values, array, (a, i, t) -> a[i] = t.getShort());
             return Optional.of(array);
         };
     }
@@ -482,10 +502,9 @@ public class Suppliers {
         return () -> {
             if (p.isMissing())
                 return Optional.empty();
-            final int len = (int) p.values().dimension(0);
-            final int[] array = new int[len];
-            for (int i = 0; i < len; i++)
-                array[i] = p.getAt(i).getInt();
+            final RandomAccessibleInterval<T> values = p.values();
+            final int[] array = new int[flatSize(values)];
+            fill(values, array, (a, i, t) -> a[i] = t.getInt());
             return Optional.of(array);
         };
     }
@@ -495,10 +514,9 @@ public class Suppliers {
         return () -> {
             if (p.isMissing())
                 return Optional.empty();
-            final int len = (int) p.values().dimension(0);
-            final long[] array = new long[len];
-            for (int i = 0; i < len; i++)
-                array[i] = p.getAt(i).getLong();
+            final RandomAccessibleInterval<T> values = p.values();
+            final long[] array = new long[flatSize(values)];
+            fill(values, array, (a, i, t) -> a[i] = t.getLong());
             return Optional.of(array);
         };
     }
@@ -508,10 +526,9 @@ public class Suppliers {
         return () -> {
             if (p.isMissing())
                 return Optional.empty();
-            final int len = (int) p.values().dimension(0);
-            final float[] array = new float[len];
-            for (int i = 0; i < len; i++)
-                array[i] = p.getAt(i).get();
+            final RandomAccessibleInterval<FloatType> values = p.values();
+            final float[] array = new float[flatSize(values)];
+            fill(values, array, (a, i, t) -> a[i] = t.get());
             return Optional.of(array);
         };
     }
@@ -521,10 +538,9 @@ public class Suppliers {
         return () -> {
             if (p.isMissing())
                 return Optional.empty();
-            final int len = (int) p.values().dimension(0);
-            final double[] array = new double[len];
-            for (int i = 0; i < len; i++)
-                array[i] = p.getAt(i).get();
+            final RandomAccessibleInterval<DoubleType> values = p.values();
+            final double[] array = new double[flatSize(values)];
+            fill(values, array, (a, i, t) -> a[i] = t.get());
             return Optional.of(array);
         };
     }
