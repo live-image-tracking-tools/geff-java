@@ -60,10 +60,16 @@ public class VarLengthWriteProperty< T extends Type< T > > extends VarLengthProp
 
 		final long offset = propertyData.size();
 		valuesAccess.setPositionAndGet( 0 ).set( offset );
+		/*
+		 * The shape values are stored in numpy order (slowest axis first), as
+		 * mandated by the geff spec: the imglib2 dimension i is the slowest of
+		 * the entry, and goes to values column i+1. This coincides with
+		 * imglib2 order only for 1-dimensional entries.
+		 */
 		final Dimensions dims = property.dimensions();
 		final int n = numDimensions();
 		for ( int i = 0; i < n; i++ )
-			valuesAccess.setPositionAndGet( n - i ).set( dims.dimension( i ) );
+			valuesAccess.setPositionAndGet( i + 1 ).set( dims.dimension( i ) );
 
 		updateDataOffset( true );
 

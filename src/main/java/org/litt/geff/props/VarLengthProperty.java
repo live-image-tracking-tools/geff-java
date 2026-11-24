@@ -104,9 +104,16 @@ public class VarLengthProperty<T extends Type<T>> implements GeffProperty<T>, Im
         if (previousIndex != index || forceUpdate) {
             dataOffset[0] = index;
             dataOffset[1] = valuesAccess.setPositionAndGet(0).get();
+            /*
+             * The shape values are stored in numpy order (slowest axis
+             * first), as mandated by the geff spec: values column i+1 is the
+             * size of the imglib2 dimension i (the imglib2 dimension i is
+             * the slowest of the entry). This coincides with imglib2 order
+             * only for 1-dimensional entries.
+             */
             final int n = dataDimensions.length;
             for (int i = 0; i < n; i++) {
-                dataDimensions[n - 1 - i] = valuesAccess.setPositionAndGet(i + 1).get();
+                dataDimensions[i] = valuesAccess.setPositionAndGet(i + 1).get();
             }
         }
     }

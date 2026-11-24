@@ -11,6 +11,7 @@ import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.type.numeric.integer.UnsignedShortType;
 import net.imglib2.type.numeric.real.DoubleType;
 import net.imglib2.type.numeric.real.FloatType;
+import net.imglib2.util.IntervalIndexer;
 
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -268,6 +269,67 @@ public class PropertyAdapters {
 
 
     //-------------------------------------------------------------------------
+    //  var-length nD array (flat data + per-element dimensions)
+    //-------------------------------------------------------------------------
+
+    public static <O> PropertyAdapter<O, UnsignedByteType> wrap(final String identifier, final ToByteArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims) {
+        return varLengthArray(identifier, UnsignedByteType::new, supplier, dims, numDimensions, (type, data, i) -> type.set(data[i]));
+    }
+
+    public static <O> PropertyAdapter<O, UnsignedShortType> wrap(final String identifier, final ToShortArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims) {
+        return varLengthArray(identifier, UnsignedShortType::new, supplier, dims, numDimensions, (type, data, i) -> type.set(data[i]));
+    }
+
+    public static <O> PropertyAdapter<O, UnsignedIntType> wrap(final String identifier, final ToIntArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims) {
+        return varLengthArray(identifier, UnsignedIntType::new, supplier, dims, numDimensions, (type, data, i) -> type.set(data[i]));
+    }
+
+    public static <O> PropertyAdapter<O, UnsignedLongType> wrap(final String identifier, final ToLongArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims) {
+        return varLengthArray(identifier, UnsignedLongType::new, supplier, dims, numDimensions, (type, data, i) -> type.set(data[i]));
+    }
+
+    public static <O> PropertyAdapter<O, FloatType> wrap(final String identifier, final ToFloatArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims) {
+        return varLengthArray(identifier, FloatType::new, supplier, dims, numDimensions, (type, data, i) -> type.set(data[i]));
+    }
+
+    public static <O> PropertyAdapter<O, DoubleType> wrap(final String identifier, final ToDoubleArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims) {
+        return varLengthArray(identifier, DoubleType::new, supplier, dims, numDimensions, (type, data, i) -> type.set(data[i]));
+    }
+
+    public static <O> PropertyAdapter<O, BoolType> wrap(final String identifier, final ToBooleanArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims) {
+        return varLengthArray(identifier, BoolType::new, supplier, dims, numDimensions, (type, data, i) -> type.set(data[i]));
+    }
+
+    public static <O> PropertyAdapter<O, UnsignedByteType> wrap(final String identifier, final ToMaybeByteArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims) {
+        return maybeVarLengthArray(identifier, UnsignedByteType::new, supplier, dims, numDimensions, (type, data, i) -> type.set(data[i]));
+    }
+
+    public static <O> PropertyAdapter<O, UnsignedShortType> wrap(final String identifier, final ToMaybeShortArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims) {
+        return maybeVarLengthArray(identifier, UnsignedShortType::new, supplier, dims, numDimensions, (type, data, i) -> type.set(data[i]));
+    }
+
+    public static <O> PropertyAdapter<O, UnsignedIntType> wrap(final String identifier, final ToMaybeIntArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims) {
+        return maybeVarLengthArray(identifier, UnsignedIntType::new, supplier, dims, numDimensions, (type, data, i) -> type.set(data[i]));
+    }
+
+    public static <O> PropertyAdapter<O, UnsignedLongType> wrap(final String identifier, final ToMaybeLongArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims) {
+        return maybeVarLengthArray(identifier, UnsignedLongType::new, supplier, dims, numDimensions, (type, data, i) -> type.set(data[i]));
+    }
+
+    public static <O> PropertyAdapter<O, FloatType> wrap(final String identifier, final ToMaybeFloatArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims) {
+        return maybeVarLengthArray(identifier, FloatType::new, supplier, dims, numDimensions, (type, data, i) -> type.set(data[i]));
+    }
+
+    public static <O> PropertyAdapter<O, DoubleType> wrap(final String identifier, final ToMaybeDoubleArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims) {
+        return maybeVarLengthArray(identifier, DoubleType::new, supplier, dims, numDimensions, (type, data, i) -> type.set(data[i]));
+    }
+
+    public static <O> PropertyAdapter<O, BoolType> wrap(final String identifier, final ToMaybeBooleanArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims) {
+        return maybeVarLengthArray(identifier, BoolType::new, supplier, dims, numDimensions, (type, data, i) -> type.set(data[i]));
+    }
+
+
+    //-------------------------------------------------------------------------
     //  internal
     //-------------------------------------------------------------------------
 
@@ -371,6 +433,64 @@ public class PropertyAdapters {
         });
     }
 
+    // var-length nD array. The data supplier returns the flat array of one
+    // element's entry (e.g. X,Y interleaved points of a polygon), the dims
+    // supplier returns that entry's shape (imglib2 order, last dimension
+    // fastest). The rank is fixed for all elements; only the sizes vary.
+    static <O, T, P> PropertyAdapter<O, T> varLengthArray(
+            final String identifier,
+            final Supplier<T> typeSupplier,
+            final Function<O, P> dataSupplier,
+            final ToLongArrayFunction<O> dimsSupplier,
+            final int numDimensions,
+            final VectorTypeUpdate<P, T> elementUpdate) {
+        final long[] dims = new long[checkNumDimensions(numDimensions)];
+        final T type = typeSupplier.get();
+        final ArrayRandomAccess<P, T> ra = new ArrayRandomAccess<>(type, elementUpdate, dims);
+        final PropertyRAI<T> values = new PropertyRAI<>(FinalDimensions.wrap(dims), ra);
+        return new DefaultPropertyAdapter<>(identifier, false, true, values, obj -> {
+            ra.setData(dataSupplier.apply(obj));
+            copyDims(dimsSupplier.apply(obj), dims);
+        });
+    }
+
+    // maybe var-length nD array
+    static <O, T, P> PropertyAdapter<O, T> maybeVarLengthArray(
+            final String identifier,
+            final Supplier<T> typeSupplier,
+            final Function<O, ? extends Maybe<P>> dataSupplier,
+            final ToLongArrayFunction<O> dimsSupplier,
+            final int numDimensions,
+            final VectorTypeUpdate<P, T> elementUpdate) {
+        final long[] dims = new long[checkNumDimensions(numDimensions)];
+        final T type = typeSupplier.get();
+        final ArrayRandomAccess<P, T> ra = new ArrayRandomAccess<>(type, elementUpdate, dims);
+        final PropertyRAI<T> values = new PropertyRAI<>(FinalDimensions.wrap(dims), ra);
+        final Missing missing = new Missing();
+        return new DefaultPropertyAdapter<>(identifier, true, true, values, missing, obj -> {
+            final Maybe<P> maybe = dataSupplier.apply(obj);
+            if (missing.setPresent(maybe.isPresent())) {
+                ra.setData(maybe.get());
+                copyDims(dimsSupplier.apply(obj), dims);
+            }
+        });
+    }
+
+    private static int checkNumDimensions(final int numDimensions) {
+        if (numDimensions < 1)
+            throw new IllegalArgumentException(
+                    "numDimensions must be >= 1 for n-dimensional var-length properties (got " + numDimensions + "). "
+                            + "Use the scalar or vector overloads otherwise.");
+        return numDimensions;
+    }
+
+    private static void copyDims(final long[] source, final long[] target) {
+        if (source.length != target.length)
+            throw new IllegalArgumentException(
+                    "The dimensions function returned " + source.length + " values, but the property has " + target.length + " dimensions.");
+        System.arraycopy(source, 0, target, 0, target.length);
+    }
+
     private static final class Missing {
         private boolean missing = false;
 
@@ -426,6 +546,50 @@ public class PropertyAdapters {
         @Override
         public T get() {
             vectorTypeUpdate.update(type, data, (int) position[0]);
+            return type;
+        }
+
+        @Override
+        public RandomAccess<T> copy() {
+            throw new UnsupportedOperationException();
+        }
+    }
+
+    /**
+     * A {@code RandomAccess} over the flat array of one n-dimensional entry,
+     * mapping positions to flat indices with the last dimension fastest
+     * (C order, matching the flattening the geff spec prescribes).
+     * The {@code dims} array is shared with the values {@link PropertyRAI},
+     * so the adapter's update closure and the access stay in sync.
+     */
+    private static class ArrayRandomAccess<P, T> extends Point implements RandomAccess<T> {
+        private final T type;
+        private final VectorTypeUpdate<P, T> vectorTypeUpdate;
+        private final long[] dims;
+        private P data;
+
+        ArrayRandomAccess(final T type, final VectorTypeUpdate<P, T> vectorTypeUpdate, final long[] dims) {
+            super(dims.length);
+            this.type = type;
+            this.vectorTypeUpdate = vectorTypeUpdate;
+            this.dims = dims;
+        }
+
+        void setData(final P data) {
+            this.data = data;
+        }
+
+        @Override
+        public T getType() {
+            return type;
+        }
+
+        @Override
+        public T get() {
+            final long index = (dims.length == 1)
+                    ? position[0]
+                    : IntervalIndexer.positionToIndex(position, dims);
+            vectorTypeUpdate.update(type, data, (int) index);
             return type;
         }
 

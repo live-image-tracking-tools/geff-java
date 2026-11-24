@@ -120,6 +120,12 @@ import net.imglib2.view.Views;
  *     fixed-length vector property of that length;</li>
  * <li>an array accessor <em>without</em> {@code length} yields a var-length
  *     property, whose rows may differ in length per element;</li>
+ * <li>an array accessor with a {@code numDimensions} argument and a dims
+ *     function yields an n-dimensional var-length property: each element's
+ *     entry is an array of that rank, given flattened and with per-element
+ *     dimensions (in imglib2 order, last dimension fastest) by the dims
+ *     function. E.g. a polygon is {@code numDimensions=2}, flat X,Y-interleaved
+ *     points, and a dims function returning {@code {n_points, 2}};</li>
  * <li>an accessor returning one of the {@link org.litt.geff.props.Maybe} types
  *     yields an optional property, which additionally writes a {@code missing}
  *     dataset;</li>
@@ -253,13 +259,13 @@ public class GeffPropertyWriter<O> {
     public GeffPropertyWriter<O> add(final String identifier, final ToDoubleArrayFunction<O> supplier, final String typestr)  {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
     public GeffPropertyWriter<O> add(final String identifier, final ToBooleanArrayFunction<O> supplier, final String typestr) {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
 
-    public GeffPropertyWriter<O> add(final String identifier, final ToByteArrayFunction<O> supplier, final int length)    {return add(identifier, supplier, length, null);}
-    public GeffPropertyWriter<O> add(final String identifier, final ToShortArrayFunction<O> supplier, final int length)   {return add(identifier, supplier, length, null);}
-    public GeffPropertyWriter<O> add(final String identifier, final ToIntArrayFunction<O> supplier, final int length)     {return add(identifier, supplier, length, null);}
-    public GeffPropertyWriter<O> add(final String identifier, final ToLongArrayFunction<O> supplier, final int length)    {return add(identifier, supplier, length, null);}
-    public GeffPropertyWriter<O> add(final String identifier, final ToFloatArrayFunction<O> supplier, final int length)   {return add(identifier, supplier, length, null);}
-    public GeffPropertyWriter<O> add(final String identifier, final ToDoubleArrayFunction<O> supplier, final int length)  {return add(identifier, supplier, length, null);}
-    public GeffPropertyWriter<O> add(final String identifier, final ToBooleanArrayFunction<O> supplier, final int length) {return add(identifier, supplier, length, null);}
+    public GeffPropertyWriter<O> add(final String identifier, final ToByteArrayFunction<O> supplier, final int length)    {return add(identifier, supplier, length, (String) null);}
+    public GeffPropertyWriter<O> add(final String identifier, final ToShortArrayFunction<O> supplier, final int length)   {return add(identifier, supplier, length, (String) null);}
+    public GeffPropertyWriter<O> add(final String identifier, final ToIntArrayFunction<O> supplier, final int length)     {return add(identifier, supplier, length, (String) null);}
+    public GeffPropertyWriter<O> add(final String identifier, final ToLongArrayFunction<O> supplier, final int length)    {return add(identifier, supplier, length, (String) null);}
+    public GeffPropertyWriter<O> add(final String identifier, final ToFloatArrayFunction<O> supplier, final int length)   {return add(identifier, supplier, length, (String) null);}
+    public GeffPropertyWriter<O> add(final String identifier, final ToDoubleArrayFunction<O> supplier, final int length)  {return add(identifier, supplier, length, (String) null);}
+    public GeffPropertyWriter<O> add(final String identifier, final ToBooleanArrayFunction<O> supplier, final int length) {return add(identifier, supplier, length, (String) null);}
 
     public GeffPropertyWriter<O> add(final String identifier, final ToByteArrayFunction<O> supplier, final int length, final String typestr)    {return add(PropertyAdapters.wrap(identifier, supplier, length), typestr);}
     public GeffPropertyWriter<O> add(final String identifier, final ToShortArrayFunction<O> supplier, final int length, final String typestr)   {return add(PropertyAdapters.wrap(identifier, supplier, length), typestr);}
@@ -285,13 +291,13 @@ public class GeffPropertyWriter<O> {
     public GeffPropertyWriter<O> add(final String identifier, final ToMaybeDoubleArrayFunction<O> supplier, final String typestr)  {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
     public GeffPropertyWriter<O> add(final String identifier, final ToMaybeBooleanArrayFunction<O> supplier, final String typestr) {return add(PropertyAdapters.wrap(identifier, supplier), typestr);}
 
-    public GeffPropertyWriter<O> add(final String identifier, final ToMaybeByteArrayFunction<O> supplier, final int length)    {return add(identifier, supplier, length, null);}
-    public GeffPropertyWriter<O> add(final String identifier, final ToMaybeShortArrayFunction<O> supplier, final int length)   {return add(identifier, supplier, length, null);}
-    public GeffPropertyWriter<O> add(final String identifier, final ToMaybeIntArrayFunction<O> supplier, final int length)     {return add(identifier, supplier, length, null);}
-    public GeffPropertyWriter<O> add(final String identifier, final ToMaybeLongArrayFunction<O> supplier, final int length)    {return add(identifier, supplier, length, null);}
-    public GeffPropertyWriter<O> add(final String identifier, final ToMaybeFloatArrayFunction<O> supplier, final int length)   {return add(identifier, supplier, length, null);}
-    public GeffPropertyWriter<O> add(final String identifier, final ToMaybeDoubleArrayFunction<O> supplier, final int length)  {return add(identifier, supplier, length, null);}
-    public GeffPropertyWriter<O> add(final String identifier, final ToMaybeBooleanArrayFunction<O> supplier, final int length) {return add(identifier, supplier, length, null);}
+    public GeffPropertyWriter<O> add(final String identifier, final ToMaybeByteArrayFunction<O> supplier, final int length)    {return add(identifier, supplier, length, (String) null);}
+    public GeffPropertyWriter<O> add(final String identifier, final ToMaybeShortArrayFunction<O> supplier, final int length)   {return add(identifier, supplier, length, (String) null);}
+    public GeffPropertyWriter<O> add(final String identifier, final ToMaybeIntArrayFunction<O> supplier, final int length)     {return add(identifier, supplier, length, (String) null);}
+    public GeffPropertyWriter<O> add(final String identifier, final ToMaybeLongArrayFunction<O> supplier, final int length)    {return add(identifier, supplier, length, (String) null);}
+    public GeffPropertyWriter<O> add(final String identifier, final ToMaybeFloatArrayFunction<O> supplier, final int length)   {return add(identifier, supplier, length, (String) null);}
+    public GeffPropertyWriter<O> add(final String identifier, final ToMaybeDoubleArrayFunction<O> supplier, final int length)  {return add(identifier, supplier, length, (String) null);}
+    public GeffPropertyWriter<O> add(final String identifier, final ToMaybeBooleanArrayFunction<O> supplier, final int length) {return add(identifier, supplier, length, (String) null);}
 
     public GeffPropertyWriter<O> add(final String identifier, final ToMaybeByteArrayFunction<O> supplier, final int length, final String typestr)    {return add(PropertyAdapters.wrap(identifier, supplier, length), typestr);}
     public GeffPropertyWriter<O> add(final String identifier, final ToMaybeShortArrayFunction<O> supplier, final int length, final String typestr)   {return add(PropertyAdapters.wrap(identifier, supplier, length), typestr);}
@@ -300,6 +306,40 @@ public class GeffPropertyWriter<O> {
     public GeffPropertyWriter<O> add(final String identifier, final ToMaybeFloatArrayFunction<O> supplier, final int length, final String typestr)   {return add(PropertyAdapters.wrap(identifier, supplier, length), typestr);}
     public GeffPropertyWriter<O> add(final String identifier, final ToMaybeDoubleArrayFunction<O> supplier, final int length, final String typestr)  {return add(PropertyAdapters.wrap(identifier, supplier, length), typestr);}
     public GeffPropertyWriter<O> add(final String identifier, final ToMaybeBooleanArrayFunction<O> supplier, final int length, final String typestr) {return add(PropertyAdapters.wrap(identifier, supplier, length), typestr);}
+
+    // n-dimensional var-length: flat array accessor + per-element dims function.
+
+    public GeffPropertyWriter<O> add(final String identifier, final ToByteArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims)    {return add(PropertyAdapters.wrap(identifier, supplier, numDimensions, dims));}
+    public GeffPropertyWriter<O> add(final String identifier, final ToShortArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims)   {return add(PropertyAdapters.wrap(identifier, supplier, numDimensions, dims));}
+    public GeffPropertyWriter<O> add(final String identifier, final ToIntArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims)     {return add(PropertyAdapters.wrap(identifier, supplier, numDimensions, dims));}
+    public GeffPropertyWriter<O> add(final String identifier, final ToLongArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims)    {return add(PropertyAdapters.wrap(identifier, supplier, numDimensions, dims));}
+    public GeffPropertyWriter<O> add(final String identifier, final ToFloatArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims)   {return add(PropertyAdapters.wrap(identifier, supplier, numDimensions, dims));}
+    public GeffPropertyWriter<O> add(final String identifier, final ToDoubleArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims)  {return add(PropertyAdapters.wrap(identifier, supplier, numDimensions, dims));}
+    public GeffPropertyWriter<O> add(final String identifier, final ToBooleanArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims) {return add(PropertyAdapters.wrap(identifier, supplier, numDimensions, dims));}
+
+    public GeffPropertyWriter<O> add(final String identifier, final ToByteArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims, final String typestr)    {return add(PropertyAdapters.wrap(identifier, supplier, numDimensions, dims), typestr);}
+    public GeffPropertyWriter<O> add(final String identifier, final ToShortArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims, final String typestr)   {return add(PropertyAdapters.wrap(identifier, supplier, numDimensions, dims), typestr);}
+    public GeffPropertyWriter<O> add(final String identifier, final ToIntArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims, final String typestr)     {return add(PropertyAdapters.wrap(identifier, supplier, numDimensions, dims), typestr);}
+    public GeffPropertyWriter<O> add(final String identifier, final ToLongArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims, final String typestr)    {return add(PropertyAdapters.wrap(identifier, supplier, numDimensions, dims), typestr);}
+    public GeffPropertyWriter<O> add(final String identifier, final ToFloatArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims, final String typestr)   {return add(PropertyAdapters.wrap(identifier, supplier, numDimensions, dims), typestr);}
+    public GeffPropertyWriter<O> add(final String identifier, final ToDoubleArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims, final String typestr)  {return add(PropertyAdapters.wrap(identifier, supplier, numDimensions, dims), typestr);}
+    public GeffPropertyWriter<O> add(final String identifier, final ToBooleanArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims, final String typestr) {return add(PropertyAdapters.wrap(identifier, supplier, numDimensions, dims), typestr);}
+
+    public GeffPropertyWriter<O> add(final String identifier, final ToMaybeByteArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims)    {return add(PropertyAdapters.wrap(identifier, supplier, numDimensions, dims));}
+    public GeffPropertyWriter<O> add(final String identifier, final ToMaybeShortArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims)   {return add(PropertyAdapters.wrap(identifier, supplier, numDimensions, dims));}
+    public GeffPropertyWriter<O> add(final String identifier, final ToMaybeIntArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims)     {return add(PropertyAdapters.wrap(identifier, supplier, numDimensions, dims));}
+    public GeffPropertyWriter<O> add(final String identifier, final ToMaybeLongArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims)    {return add(PropertyAdapters.wrap(identifier, supplier, numDimensions, dims));}
+    public GeffPropertyWriter<O> add(final String identifier, final ToMaybeFloatArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims)   {return add(PropertyAdapters.wrap(identifier, supplier, numDimensions, dims));}
+    public GeffPropertyWriter<O> add(final String identifier, final ToMaybeDoubleArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims)  {return add(PropertyAdapters.wrap(identifier, supplier, numDimensions, dims));}
+    public GeffPropertyWriter<O> add(final String identifier, final ToMaybeBooleanArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims) {return add(PropertyAdapters.wrap(identifier, supplier, numDimensions, dims));}
+
+    public GeffPropertyWriter<O> add(final String identifier, final ToMaybeByteArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims, final String typestr)    {return add(PropertyAdapters.wrap(identifier, supplier, numDimensions, dims), typestr);}
+    public GeffPropertyWriter<O> add(final String identifier, final ToMaybeShortArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims, final String typestr)   {return add(PropertyAdapters.wrap(identifier, supplier, numDimensions, dims), typestr);}
+    public GeffPropertyWriter<O> add(final String identifier, final ToMaybeIntArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims, final String typestr)     {return add(PropertyAdapters.wrap(identifier, supplier, numDimensions, dims), typestr);}
+    public GeffPropertyWriter<O> add(final String identifier, final ToMaybeLongArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims, final String typestr)    {return add(PropertyAdapters.wrap(identifier, supplier, numDimensions, dims), typestr);}
+    public GeffPropertyWriter<O> add(final String identifier, final ToMaybeFloatArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims, final String typestr)   {return add(PropertyAdapters.wrap(identifier, supplier, numDimensions, dims), typestr);}
+    public GeffPropertyWriter<O> add(final String identifier, final ToMaybeDoubleArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims, final String typestr)  {return add(PropertyAdapters.wrap(identifier, supplier, numDimensions, dims), typestr);}
+    public GeffPropertyWriter<O> add(final String identifier, final ToMaybeBooleanArrayFunction<O> supplier, final int numDimensions, final ToLongArrayFunction<O> dims, final String typestr) {return add(PropertyAdapters.wrap(identifier, supplier, numDimensions, dims), typestr);}
 
     /**
      * Harvest properties and return as {@code GeffProperties}.
