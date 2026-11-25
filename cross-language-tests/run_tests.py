@@ -237,14 +237,21 @@ def test_basic_2d_geff():
 
 
 def test_with_varlength():
-    """Test round-trip of GEFF with variable-length properties (expected to warn/skip)."""
+    """Test round-trip of GEFF with variable-length properties.
+
+    geff-java round-trips var-length properties fully, so the round-trip
+    must be equivalent to the original — including the content of the
+    "data" array, which check_equiv_geff does not compare on its own.
+    """
+    import numpy as np
+    import zarr
     from geff.testing.data import create_dummy_in_mem_geff
     from geff.testing._utils import check_equiv_geff
     from geff.core_io import write_arrays
 
     print("\n" + "=" * 60)
     print("TEST: GEFF with variable-length properties")
-    print("  (Expected: Java should warn and skip varlength props)")
+    print("  (Expected: Java round-trips varlength props losslessly)")
     print("=" * 60)
 
     original_path = DATA_DIR / "varlength_original.zarr"
@@ -276,19 +283,31 @@ def test_with_varlength():
         print("   STDERR:", result.stderr)
         return False
 
-    print("   Java completed (check for warnings about varlength)")
-    if result.stdout:
-        for line in result.stdout.strip().split("\n"):
-            print(f"   {line}")
+    print("   Java completed successfully")
 
-    print("\n3. Comparing (expected to differ due to skipped varlength)...")
+    print("\n3. Comparing (must be equivalent, data content included)...")
     try:
         check_equiv_geff(str(original_path), str(roundtrip_path))
-        print("   PASSED: GEFFs are equivalent!")
-        return True
     except Exception as e:
-        print(f"   PASSED: expected difference observed: {type(e).__name__}: {e}")
-        return True
+        print(f"   FAILED: {type(e).__name__}: {e}")
+        return False
+
+    # check_equiv_geff compares structure, values shape and dtype only.
+    # The var-length "data" array content must be compared explicitly.
+    orig = zarr.open(str(original_path), mode="r")["nodes/props/var_length"]
+    rt = zarr.open(str(roundtrip_path), mode="r")["nodes/props/var_length"]
+    if not np.array_equal(orig["values"][:], rt["values"][:]):
+        print("   FAILED: var_length values array differs after round-trip.")
+        return False
+    if not np.array_equal(orig["data"][:], rt["data"][:]):
+        print("   FAILED: var_length data array differs after round-trip.")
+        return False
+    if (orig["missing"][:] != rt["missing"][:]).any():
+        print("   FAILED: var_length missing array differs after round-trip.")
+        return False
+
+    print("   PASSED: GEFFs are equivalent, data content included!")
+    return True
 
 
 def test_with_missing():
