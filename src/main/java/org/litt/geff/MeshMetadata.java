@@ -1,5 +1,6 @@
 package org.litt.geff;
 
+import java.util.List;
 import java.util.Objects;
 
 import com.google.gson.annotations.SerializedName;
@@ -18,12 +19,13 @@ import com.google.gson.annotations.SerializedName;
  *     "vertices": "mesh_vertices",
  *     "triangles": "mesh_triangles",
  *     "vertex_normals": "mesh_vertex_normals",
- *     "triangle_normals": "mesh_triangle_normals"
+ *     "triangle_normals": "mesh_triangle_normals",
+ *     "vertex_axes": [ "x", "y", "z" ]
  * }
  * </pre>
  *
- * {@code vertices} and {@code triangles} are required; {@code vertex_normals}
- * and {@code triangle_normals} are optional.
+ * {@code vertices} and {@code triangles} are required; {@code vertex_normals},
+ * {@code triangle_normals} and {@code vertex_axes} are optional.
  *
  * @see <a href=
  *      "https://github.com/live-image-tracking-tools/geff/pull/449">mesh
@@ -44,6 +46,18 @@ public class MeshMetadata
 
 	@SerializedName( "triangle_normals" )
 	private String triangleNormals; // Optional - can be null
+
+	/**
+	 * Optional list of axis names specifying the order of the spatial
+	 * dimensions (columns) used in the {@code vertices} and
+	 * {@code vertex_normals} arrays, when that order differs from the
+	 * default. Names must match {@code name} values in the
+	 * {@code GeffMetadata.axes} list. If {@code null}, the default is the
+	 * order of the spatial-type axes as they appear in
+	 * {@code GeffMetadata.axes}.
+	 */
+	@SerializedName( "vertex_axes" )
+	private List< String > vertexAxes; // Optional - can be null
 
 	/**
 	 * Default constructor
@@ -112,11 +126,36 @@ public class MeshMetadata
 		this.triangleNormals = triangleNormals;
 	}
 
+	/**
+	 * Returns the optional list of axis names for the columns of the
+	 * {@code vertices} and {@code vertex_normals} arrays, or {@code null} to
+	 * use the order of the spatial-type axes as they appear in
+	 * {@code GeffMetadata.axes}.
+	 *
+	 * @return the axis names, or {@code null}.
+	 */
+	public List< String > getVertexAxes()
+	{
+		return vertexAxes;
+	}
+
+	/**
+	 * Sets the optional list of axis names for the columns of the
+	 * {@code vertices} and {@code vertex_normals} arrays.
+	 *
+	 * @param vertexAxes
+	 *            the axis names, or {@code null} to use the default.
+	 */
+	public void setVertexAxes( final List< String > vertexAxes )
+	{
+		this.vertexAxes = vertexAxes;
+	}
+
 	@Override
 	public String toString()
 	{
-		return String.format( "MeshMetadata{vertices=%s, triangles=%s, vertexNormals=%s, triangleNormals=%s}",
-				vertices, triangles, vertexNormals, triangleNormals );
+		return String.format( "MeshMetadata{vertices=%s, triangles=%s, vertexNormals=%s, triangleNormals=%s, vertexAxes=%s}",
+				vertices, triangles, vertexNormals, triangleNormals, vertexAxes );
 	}
 
 	@Override
