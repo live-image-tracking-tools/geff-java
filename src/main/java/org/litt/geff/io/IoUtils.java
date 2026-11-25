@@ -52,8 +52,14 @@ import net.imglib2.converter.Converters;
 import net.imglib2.type.NativeType;
 import net.imglib2.type.logic.BoolType;
 import net.imglib2.type.numeric.IntegerType;
+import net.imglib2.type.numeric.integer.ByteType;
+import net.imglib2.type.numeric.integer.IntType;
+import net.imglib2.type.numeric.integer.LongType;
+import net.imglib2.type.numeric.integer.ShortType;
 import net.imglib2.type.numeric.integer.UnsignedByteType;
+import net.imglib2.type.numeric.integer.UnsignedIntType;
 import net.imglib2.type.numeric.integer.UnsignedLongType;
+import net.imglib2.type.numeric.integer.UnsignedShortType;
 import net.imglib2.util.Cast;
 import net.imglib2.util.Intervals;
 import net.imglib2.util.Util;
@@ -583,11 +589,11 @@ public class IoUtils
 		if ( property.isVarlength() )
 		{
 			writeDataset( n5, valuesPath, uint64, compression, chunkSize, imgBacked.getIndexRAI() );
-			writeDataset( n5, dataPath, dType, compression, chunkSize, imgBacked.getDataRAI() );
+			writeDataset( n5, dataPath, dType, compression, chunkSize, matchDType( imgBacked.getDataRAI(), dType, type ) );
 		}
 		else
 		{
-			writeDataset( n5, valuesPath, dType, compression, chunkSize, imgBacked.getDataRAI() );
+			writeDataset( n5, valuesPath, dType, compression, chunkSize, matchDType( imgBacked.getDataRAI(), dType, type ) );
 		}
 
 		if ( property.isOptional() )
@@ -1105,6 +1111,47 @@ public class IoUtils
 	public static < T extends NativeType< T > > DType defaultDType( final T type )
 	{
 		return new DType( typestrs.get( N5Utils.dataType( type ) ), null );
+	}
+
+	/**
+	 * If the requested {@link DType} has a data type different from the
+	 * imglib2 type of the interval (e.g. writing a {@code long}-backed
+	 * property as {@code "<i8"}, as the GEFF mesh specification mandates for
+	 * the "mesh_triangles" data), returns a view of the interval converted to
+	 * the matching imglib2 type. Values are converted one by one through the
+	 * imglib2 {@link IntegerType} accessors, so writing a signed DType for
+	 * values outside the signed range wraps around. Returns the input
+	 * interval unchanged when the data types match, or when the interval is
+	 * empty (there is nothing to convert, and probing the type of an empty
+	 * interval is not possible).
+	 */
+	@SuppressWarnings( { "unchecked", "rawtypes" } )
+	static < T extends NativeType< T > > RandomAccessibleInterval< T > matchDType(
+			final RandomAccessibleInterval< T > img,
+			final DType dType,
+			final T type )
+	{
+		if ( Intervals.numElements( img ) == 0 || dType.getDataType() == N5Utils.dataType( type ) )
+			return img;
+
+		final NativeType< ? > target = switch ( dType.getDataType() )
+		{
+			case INT8 -> new ByteType();
+			case UINT8 -> new UnsignedByteType();
+			case INT16 -> new ShortType();
+			case UINT16 -> new UnsignedShortType();
+			case INT32 -> new IntType();
+			case UINT32 -> new UnsignedIntType();
+			case INT64 -> new LongType();
+			case UINT64 -> new UnsignedLongType();
+			default -> throw new IllegalArgumentException(
+					"Cannot write a property with imglib2 type " + type.getClass().getSimpleName()
+							+ " as DType " + dType + "." );
+		};
+		return ( RandomAccessibleInterval< T > ) Converters.convert(
+				img,
+				( s, t ) -> ( ( IntegerType ) t ).setInteger( ( ( IntegerType ) s ).getIntegerLong() ),
+				( T ) target );
 	}
 
 	// copied from DType, modified to use little-endian
