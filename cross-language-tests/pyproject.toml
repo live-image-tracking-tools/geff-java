@@ -10,3 +10,4 @@ dependencies = [
 
 [tool.uv]
 # This allows uv sync to work properly
+

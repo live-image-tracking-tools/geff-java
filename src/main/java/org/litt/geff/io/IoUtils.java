@@ -1,0 +1,1175 @@
+package org.litt.geff.io;
+
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
+
+import org.janelia.saalfeldlab.n5.Compression;
+import org.janelia.saalfeldlab.n5.DataType;
+import org.janelia.saalfeldlab.n5.DatasetAttributes;
+import org.janelia.saalfeldlab.n5.FileSystemKeyValueAccess;
+import org.janelia.saalfeldlab.n5.KeyValueAccess;
+import org.janelia.saalfeldlab.n5.N5Reader;
+import org.janelia.saalfeldlab.n5.N5URI;
+import org.janelia.saalfeldlab.n5.N5Writer;
+import org.janelia.saalfeldlab.n5.RawCompression;
+import org.janelia.saalfeldlab.n5.imglib2.N5Utils;
+import org.janelia.saalfeldlab.n5.readdata.ReadData;
+import org.janelia.saalfeldlab.n5.zarr.DType;
+import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader;
+import org.janelia.saalfeldlab.n5.zarr.ZarrDatasetAttributes;
+import org.janelia.saalfeldlab.n5.zarr.v3.ZarrV3DataType;
+import org.janelia.saalfeldlab.n5.zarr.v3.ZarrV3DatasetAttributes;
+import org.janelia.saalfeldlab.n5.zarr.v3.ZarrV3KeyValueReader;
+import org.janelia.saalfeldlab.n5.zarr.v3.ZarrV3KeyValueWriter;
+import org.litt.geff.GeffException;
+import org.litt.geff.PropMetadata;
+import org.litt.geff.props.ElementIndex;
+import org.litt.geff.props.ElementType;
+import org.litt.geff.props.FixedLengthProperty;
+import org.litt.geff.props.GeffProperties;
+import org.litt.geff.props.GeffProperty;
+import org.litt.geff.props.GeffPropertySpec;
+import org.litt.geff.props.GeffPropertySpecs;
+import org.litt.geff.props.ImgBacked;
+import org.litt.geff.props.VarLengthProperty;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.reflect.TypeToken;
+
+import net.imglib2.Cursor;
+import net.imglib2.Dimensions;
+import net.imglib2.FinalDimensions;
+import net.imglib2.RandomAccessibleInterval;
+import net.imglib2.cache.img.CachedCellImg;
+import net.imglib2.converter.Converters;
+import net.imglib2.type.NativeType;
+import net.imglib2.type.logic.BoolType;
+import net.imglib2.type.numeric.IntegerType;
+import net.imglib2.type.numeric.integer.ByteType;
+import net.imglib2.type.numeric.integer.IntType;
+import net.imglib2.type.numeric.integer.LongType;
+import net.imglib2.type.numeric.integer.ShortType;
+import net.imglib2.type.numeric.integer.UnsignedByteType;
+import net.imglib2.type.numeric.integer.UnsignedIntType;
+import net.imglib2.type.numeric.integer.UnsignedLongType;
+import net.imglib2.type.numeric.integer.UnsignedShortType;
+import net.imglib2.util.Cast;
+import net.imglib2.util.Intervals;
+import net.imglib2.util.Util;
+
+/**
+ * Reading/writing from/to Zarr
+ */
+public class IoUtils
+{
+
+	// ------------------------------------------------------------------------
+	// READ
+	// ------------------------------------------------------------------------
+
+	/**
+	 * Read all {@link GeffPropertySpecs} for edges or nodes of a geff hierarchy
+	 * at the root of {@code n5}.
+	 *
+	 * @param n5
+	 *            the {@code N5Reader}
+	 * @param elementType
+	 *            for which type of element ({@code NODE} or {@code EDGE}) to
+	 *            read the specs
+	 * @return the {@code GeffPropertySpecs} for the given {@code ElementType}
+	 * @throws GeffException
+	 *             if a group is defined in the metadata but missing from the
+	 *             data.
+	 */
+	public static GeffPropertySpecs loadPropertySpecs( final N5Reader n5, final ElementType elementType ) throws GeffException
+	{
+		return loadPropertySpecs( n5, elementType, null );
+	}
+
+	/**
+	 * Read all {@link GeffPropertySpecs} for edges or nodes of a geff
+	 * hierarchy.
+	 *
+	 * @param n5
+	 *            the {@code N5Reader}
+	 * @param elementType
+	 *            for which type of element ({@code NODE} or {@code EDGE}) to
+	 *            read the specs
+	 * @param geffGroup
+	 *            path to the geff hierarchy (relative to container root)
+	 * @return the {@code GeffPropertySpecs} for the given {@code ElementType}
+	 * @throws GeffException
+	 *             if a group is defined in the metadata but missing from the
+	 *             data.
+	 */
+	public static GeffPropertySpecs loadPropertySpecs(
+			final N5Reader n5,
+			final ElementType elementType,
+			final String geffGroup ) throws GeffException
+	{
+
+		final String group = normalizeGroupPath( geffGroup );
+		final String idValuesDataset = group + elementType.elementGroup() + "/ids";
+		final DatasetAttributes attrIds = attrs( n5, idValuesDataset );
+		final DType idDType = dType( attrIds );
+		final GeffPropertySpec id = new GeffPropertySpec( "id", elementType, false, false, idDType, new FinalDimensions() );
+		if ( !( N5Utils.type( id.dType().getDataType() ) instanceof IntegerType ) )
+			throw new IllegalArgumentException( idValuesDataset + " must be an integer type" );
+
+		final List< GeffPropertySpec > properties = new ArrayList<>();
+		final Map< String, Object > propsMetadata = n5.getAttribute( group,
+				elementType.propMetadataAttribute(),
+				new TypeToken< Map< String, Object > >()
+				{}.getType() );
+
+		if ( propsMetadata != null )
+			for ( final Map.Entry< String, Object > entry : propsMetadata.entrySet() )
+			{
+				@SuppressWarnings( "unchecked" )
+				final Map< String, Object > propMap = entry.getValue() instanceof Map
+						? ( Map< String, Object > ) entry.getValue()
+						: null;
+				final PropMetadata metadata = PropMetadata.fromMap( propMap, entry.getKey() );
+				final GeffPropertySpec spec = loadPropertySpec( n5, group, elementType, metadata );
+				properties.add( spec );
+			}
+		return new GeffPropertySpecs( elementType, id, properties );
+	}
+
+	/**
+	 * Read the {@code GeffPropertySpec} for the property with the given
+	 * {@code metadata}.
+	 *
+	 * @param n5
+	 *            the {@code N5Reader}
+	 * @param group
+	 *            path to the geff hierarchy (relative to container root,
+	 *            already {@link #normalizeGroupPath normalized})
+	 * @param elementType
+	 *            which type of element ({@code NODE} or {@code EDGE}) the
+	 *            property refers to
+	 * @param metadata
+	 *            the property metadata (identifier, etc.)
+	 * @return the {@code GeffPropertySpec} for the given property
+	 * @throws GeffException
+	 *             if a group is defined in the metadata but missing from the
+	 *             data.
+	 */
+	private static GeffPropertySpec loadPropertySpec(
+			final N5Reader n5,
+			final String group, // must be either "" or have a trailing slash
+			final ElementType elementType,
+			final PropMetadata metadata ) throws GeffException
+	{
+
+		final String propsGroup = group + elementType.elementGroup() + "/props/" + metadata.getIdentifier();
+		// The spec default for the optional varlength flag is false.
+		final boolean isVarLength = Boolean.TRUE.equals( metadata.getVarlength() );
+
+		final DatasetAttributes attrValues = attrs( n5, propsGroup + "/values" );
+		if ( attrValues == null )
+			throw new GeffException( "The metadata defines a property " + propsGroup + " but the corresponding \"values\" dataset is missing." );
+
+		final DatasetAttributes attrMissing = attrs( n5, propsGroup + "/missing" );
+		final DatasetAttributes attrData = isVarLength ? attrs( n5, propsGroup + "/data" ) : null;
+
+		final DType dType = isVarLength ? dType( attrData ) : dType( attrValues );
+		final boolean isOptional = attrMissing != null;
+
+		final Dimensions dimensions;
+		if ( isVarLength )
+		{
+			final long[] valuesDim = attrValues.getDimensions();
+			final int numDimensions = ( int ) ( valuesDim[ 0 ] - 1 );
+			dimensions = FinalDimensions.wrap( new long[ numDimensions ] );
+		}
+		else
+		{
+			final long[] valuesDim = attrValues.getDimensions();
+			final long[] propertyDim = Arrays.copyOf( valuesDim, valuesDim.length - 1 );
+			dimensions = FinalDimensions.wrap( propertyDim );
+		}
+
+		return new GeffPropertySpec( metadata.getIdentifier(), elementType, isVarLength, isOptional, dType, dimensions );
+	}
+
+	/**
+	 * Read all {@link GeffProperties} for edges or nodes of a geff hierarchy at
+	 * the root of {@code n5}.
+	 *
+	 * @param n5
+	 *            the {@code N5Reader}
+	 * @param elementType
+	 *            for which type of element ({@code NODE} or {@code EDGE}) to
+	 *            read the properties
+	 * @return the {@code GeffProperties} for the given {@code ElementType}
+	 * @throws GeffException
+	 *             if a group is defined in the metadata but missing from the
+	 *             data.
+	 */
+	public static GeffProperties loadProperties( final N5Reader n5, final ElementType elementType ) throws GeffException
+	{
+		return loadProperties( n5, elementType, null );
+	}
+
+	/**
+	 * Read all {@link GeffProperties} for edges or nodes of a geff hierarchy.
+	 *
+	 * @param n5
+	 *            the {@code N5Reader}
+	 * @param elementType
+	 *            for which type of element ({@code NODE} or {@code EDGE}) to
+	 *            read the properties
+	 * @param geffGroup
+	 *            path to the geff hierarchy (relative to container root)
+	 * @return the {@code GeffProperties} for the given {@code ElementType}
+	 * @throws GeffException
+	 *             if a group is defined in the metadata but missing from the
+	 *             data.
+	 *
+	 */
+	public static GeffProperties loadProperties(
+			final N5Reader n5,
+			final ElementType elementType,
+			final String geffGroup ) throws GeffException
+	{
+		return loadProperties( n5, loadPropertySpecs( n5, elementType, geffGroup ), geffGroup );
+	}
+
+	/**
+	 * Read all {@link GeffProperties} for edges or nodes of a geff hierarchy at
+	 * the root of {@code n5}.
+	 *
+	 * @param n5
+	 *            the {@code N5Reader}
+	 * @param specs
+	 *            specs for all properties to read
+	 * @return the {@code GeffProperties} for the given specs
+	 */
+	public static GeffProperties loadProperties( final N5Reader n5, final GeffPropertySpecs specs )
+	{
+		return loadProperties( n5, specs, null );
+	}
+
+	/**
+	 * Read all {@link GeffProperties} for edges or nodes of a geff hierarchy.
+	 *
+	 * @param n5
+	 *            the {@code N5Reader}
+	 * @param specs
+	 *            specs for all properties to read
+	 * @param geffGroup
+	 *            path to the geff hierarchy (relative to container root)
+	 * @return the {@code GeffProperties} for the given specs
+	 */
+	public static GeffProperties loadProperties(
+			final N5Reader n5,
+			final GeffPropertySpecs specs,
+			final String geffGroup )
+	{
+
+		final String group = normalizeGroupPath( geffGroup );
+		final ElementType elementType = specs.elementType();
+		final String idValuesDataset = group + elementType.elementGroup() + "/ids";
+		final ElementIndex index = new ElementIndex();
+		final GeffProperty< ? extends IntegerType< ? > > id = loadFixedLengthProperty( n5, "id", index, idValuesDataset, null );
+
+		final List< GeffProperty< ? > > properties = new ArrayList<>();
+		specs.properties().forEach( ( identifier, spec ) -> {
+			final String propsGroup = group + elementType.elementGroup() + "/props/" + identifier;
+			final GeffProperty< ? > property;
+			if ( spec.isVarLength() )
+			{
+				property = loadVarLengthProperty( n5, identifier, index,
+						propsGroup + "/values",
+						spec.isOptional() ? propsGroup + "/missing" : null,
+						propsGroup + "/data" );
+			}
+			else
+			{
+				property = loadFixedLengthProperty( n5, identifier, index,
+						propsGroup + "/values",
+						spec.isOptional() ? propsGroup + "/missing" : null );
+			}
+			properties.add( property );
+		} );
+
+		return new GeffProperties( elementType, id, properties );
+	}
+
+	/**
+	 * Create a fixed-length {@code GeffProperty} tied to the datasets at {@code
+	 * valuesPath} and (optionally) {@code missingPath}.
+	 * <p>
+	 * The last dimension of the values dataset is the element (node/edge)
+	 * index, the remaining dimensions are property dimensions. That is, a
+	 * scalar property has a 1D values dataset, a vector property has a 2D
+	 * values dataset, and so on.
+	 *
+	 * @param n5
+	 *            the {@code N5Reader}
+	 * @param identifier
+	 *            the identifier of the property (e.g. "x")
+	 * @param sharedElementIndex
+	 *            the shared {@code ElementIndex} of the property, specifying
+	 *            for which element the property values are currently exposed.
+	 * @param valuesPath
+	 *            path to the dataset containing the property values (relative
+	 *            to the container root, e.g. "nodes/props/x/values")
+	 * @param missingPath
+	 *            path to the dataset containing the properties missing
+	 *            information (for optional properties, or {@code null} if
+	 *            property values must be present for all elements
+	 * @return a {@code GeffProperty}
+	 * @param <T>
+	 *            the imglib2 type of the property values
+	 */
+	public static < T extends NativeType< T > > GeffProperty< T > loadFixedLengthProperty(
+			final N5Reader n5,
+			final String identifier,
+			final ElementIndex sharedElementIndex,
+			final String valuesPath,
+			final String missingPath )
+	{
+
+		final RandomAccessibleInterval< T > values = N5Utils.open( n5, valuesPath );
+		final RandomAccessibleInterval< BoolType > missing;
+		if ( missingPath != null )
+		{
+			final CachedCellImg< UnsignedByteType, ? > missing_uint8 = N5Utils.open( n5, missingPath );
+			missing = Converters.convert( missing_uint8, ( u, b ) -> b.set( u.get() != 0 ), new BoolType() );
+		}
+		else
+		{
+			missing = null;
+		}
+		return new FixedLengthProperty<>( identifier, values, missing, sharedElementIndex );
+	}
+
+	/**
+	 * Create a var-length {@code GeffProperty} tied to the datasets at {@code
+	 * valuesPath}, (optionally) {@code missingPath}, and {@code dataPath}.
+	 * <p>
+	 * The last dimension of the values dataset is the element (node/edge)
+	 * index, the first dimensions specifies the offset and shape of the
+	 * property for any given element (the length the first dimension {@code -1}
+	 * is the number property dimensions}.
+	 *
+	 * @param n5
+	 *            the {@code N5Reader}
+	 * @param identifier
+	 *            the identifier of the property (e.g. "var_length")
+	 * @param sharedElementIndex
+	 *            the shared {@code ElementIndex} of the property, specifying
+	 *            for which element the property values are currently exposed.
+	 * @param valuesPath
+	 *            path to the dataset containing the property offset and shape
+	 *            values (relative to the container root, e.g.
+	 *            "nodes/props/var_length/values")
+	 * @param missingPath
+	 *            path to the dataset containing the properties missing
+	 *            information (for optional properties, or {@code null} if
+	 *            property values must be present for all elements
+	 * @param dataPath
+	 *            path to the dataset containing the property data (what offset
+	 *            and shape point to)
+	 * @return a {@code GeffProperty}
+	 * @param <T>
+	 *            the imglib2 type of the property values
+	 */
+	public static < T extends NativeType< T > > GeffProperty< T > loadVarLengthProperty(
+			final N5Reader n5,
+			final String identifier,
+			final ElementIndex sharedElementIndex,
+			final String valuesPath,
+			final String missingPath,
+			final String dataPath )
+	{
+
+		final RandomAccessibleInterval< UnsignedLongType > values = N5Utils.open( n5, valuesPath );
+		final RandomAccessibleInterval< BoolType > missing;
+		if ( missingPath != null )
+		{
+			final CachedCellImg< UnsignedByteType, ? > missing_uint8 = N5Utils.open( n5, missingPath );
+			missing = Converters.convert( missing_uint8, ( u, b ) -> b.set( u.get() != 0 ), new BoolType() );
+		}
+		else
+		{
+			missing = null;
+		}
+		final RandomAccessibleInterval< T > data = N5Utils.open( n5, dataPath );
+		return new VarLengthProperty<>( identifier, values, data, missing, sharedElementIndex );
+	}
+
+	/**
+	 * Create a {@code GeffProperty} tied to the datasets at {@code valuesPath},
+	 * and (optionally) {@code missingPath}and {@code dataPath}.
+	 * <p>
+	 * If {@code missingPath != null} the property is
+	 * {@link GeffProperty#isOptional() optional} (otherwise must be present for
+	 * every element).
+	 * <p>
+	 * If {@code dataPath != null} the property is
+	 * {@link GeffProperty#isVarlength() var-length} (otherwise fixed-length).
+	 * <p>
+	 * For fixed-length properties: The last dimension of the values dataset is
+	 * the element (node/edge) index, the remaining dimensions are property
+	 * dimensions. That is, a scalar property has a 1D values dataset, a vector
+	 * property has a 2D values dataset, and so on.
+	 * <p>
+	 * For var-length propeties: The last dimension of the values dataset is the
+	 * element (node/edge) index, the first dimensions specifies the offset and
+	 * shape of the property for any given element (the length the first
+	 * dimension {@code -1} is the number property dimensions}.
+	 *
+	 * @param n5
+	 *            the {@code N5Reader}
+	 * @param identifier
+	 *            the identifier of the property (e.g. "var_length")
+	 * @param sharedElementIndex
+	 *            the shared {@code ElementIndex} of the property, specifying
+	 *            for which element the property values are currently exposed.
+	 * @param valuesPath
+	 *            path to the dataset containing the property data for
+	 *            fixed-length properties, or the offset and shape values for
+	 *            var-length properties (relative to the container root, e.g.
+	 *            "nodes/props/var_length/values")
+	 * @param missingPath
+	 *            path to the dataset containing the properties missing
+	 *            information (for optional properties, or {@code null} if
+	 *            property values must be present for all elements
+	 * @param dataPath
+	 *            path to the dataset containing the property data for
+	 *            var-length (what offset and shape point to), or {@code null}
+	 *            for fixed-length properties
+	 * @param <T>
+	 *            the imglib2 type of the property values
+	 * @return a {@code GeffProperty}
+	 */
+	public static < T extends NativeType< T > > GeffProperty< T > loadProperty(
+			final N5Reader n5,
+			final String identifier,
+			final ElementIndex sharedElementIndex,
+			final String valuesPath,
+			final String missingPath,
+			final String dataPath )
+	{
+
+		final RandomAccessibleInterval< BoolType > missing;
+		if ( missingPath != null )
+		{
+			final CachedCellImg< UnsignedByteType, ? > missing_uint8 = N5Utils.open( n5, missingPath );
+			missing = Converters.convert( missing_uint8, ( u, b ) -> b.set( u.get() != 0 ), new BoolType() );
+		}
+		else
+		{
+			missing = null;
+		}
+
+		if ( dataPath == null )
+		{
+			// fixed-length
+			final RandomAccessibleInterval< T > values = N5Utils.open( n5, valuesPath );
+			return new FixedLengthProperty<>( identifier, values, missing, sharedElementIndex );
+		}
+		else
+		{
+			// var-length
+			final RandomAccessibleInterval< UnsignedLongType > values = N5Utils.open( n5, valuesPath );
+			final RandomAccessibleInterval< T > data = N5Utils.open( n5, dataPath );
+			return new VarLengthProperty<>( identifier, values, data, missing, sharedElementIndex );
+		}
+	}
+
+	// ------------------------------------------------------------------------
+	// WRITE
+	// ------------------------------------------------------------------------
+
+	/**
+	 * Write a {@code ImgBacked} {@code GeffProperty} into a geff hierarchy.
+	 * <p>
+	 * This will write the {@code "values"} dataset, the {@code "missing"}
+	 * dataset if the property is {@link GeffProperty#isOptional() optional},
+	 * and the {@code "data"} dataset if the property is
+	 * {@link GeffProperty#isVarlength() var-length}.
+	 * <p>
+	 * The {@code optionalDType} allows to specify the endianness for the
+	 * "values" dataset (or the "data" dataset for var-length properties). It
+	 * must correspond to the imglib2 type {@code T} of the property. If ({@code
+	 * optionalDType==null}), the default DType for {@code T} is used.
+	 * <p>
+	 * The "values" dataset for var-length properties is always written as
+	 * {@code "<u8"}. The "missing" dataset is always written as {@code "|b1"}.
+	 *
+	 * @param n5
+	 *            the {@code N5Writer}
+	 * @param property
+	 *            the property to write
+	 * @param valuesPath
+	 *            path to the dataset containing the property data for
+	 *            fixed-length properties, or the offset and shape values for
+	 *            var-length properties (relative to the container root, e.g.
+	 *            "nodes/props/var_length/values")
+	 * @param missingPath
+	 *            path to the dataset containing the properties missing
+	 *            information (for optional properties, or {@code null} if
+	 *            property values must be present for all elements
+	 * @param dataPath
+	 *            path to the dataset containing the property data for
+	 *            var-length (what offset and shape point to), or {@code null}
+	 *            for fixed-length properties
+	 * @param optionalDType
+	 *            the exact {@link DType} (corresponding to {@code T}) to write,
+	 *            or {@code null}
+	 * @param optionalCompression
+	 *            compression to use (or {@code null} for no compression)
+	 * @param chunkSize
+	 *            if {@code >0}, the chunk size in the slowest-moving dimension
+	 *            (last dimension in imglib2 convention, first dimension in
+	 *            numpy convention)
+	 * @param <T>
+	 *            the imglib2 type of the property values
+	 */
+	public static < T extends NativeType< T > > void writeProperty(
+			final N5Writer n5,
+			final GeffProperty< T > property,
+			final String valuesPath,
+			final String missingPath,
+			final String dataPath,
+			final DType optionalDType, // optional, will use default DType
+										// corresponding to type()
+			final Compression optionalCompression,
+			final int chunkSize )
+	{
+
+		if ( valuesPath == null )
+			throw new NullPointerException( "valuesPath is null" );
+
+		// Check that property.isOptional() iff missingPath != null
+		if ( property.isOptional() && missingPath == null )
+			throw new IllegalArgumentException( "Property to be written is optional, but no path for the \"missing\" dataset was given" );
+		if ( !property.isOptional() && missingPath != null )
+			throw new IllegalArgumentException( "Property to be written is not optional, but a path for the \"missing\" dataset was given" );
+
+		// Check that property.isVarLength() iff dataPath != null
+		if ( property.isVarlength() && dataPath == null )
+			throw new IllegalArgumentException( "Property to be written is var-length, but no path for the \"data\" dataset was given" );
+		if ( !property.isVarlength() && dataPath != null )
+			throw new IllegalArgumentException( "Property to be written is not var-length, but a path for the \"data\" dataset was given" );
+
+		// Check that property.type() can be written through N5
+		final T type = property.type();
+		if ( !( type instanceof NativeType ) )
+			throw new IllegalArgumentException( "Only NativeType supported for writing. (" + type.getClass().getSimpleName() + ")" );
+
+		// Check that the property is instanceof either FixedLengthProperty or
+		// VarLengthProperty so that we can extract the underlying
+		// RandomAccessibleIntervals
+		if ( !( property instanceof ImgBacked ) )
+			throw new IllegalArgumentException( "Only ImgBacked properties supported for writing." );
+
+		final ImgBacked< T > imgBacked = Cast.unchecked( property );
+
+		final DType uint8 = new DType( "|b1", null );
+		final DType uint64 = new DType( "<u8", null );
+		final DType dType = optionalDType != null
+				? optionalDType
+				: defaultDType( Cast.unchecked( type ) );
+		final Compression compression = optionalCompression != null
+				? optionalCompression
+				: new RawCompression();
+
+		if ( property.isVarlength() )
+		{
+			writeDataset( n5, valuesPath, uint64, compression, chunkSize, imgBacked.getIndexRAI() );
+			writeDataset( n5, dataPath, dType, compression, chunkSize, matchDType( imgBacked.getDataRAI(), dType, type ) );
+		}
+		else
+		{
+			writeDataset( n5, valuesPath, dType, compression, chunkSize, matchDType( imgBacked.getDataRAI(), dType, type ) );
+		}
+
+		if ( property.isOptional() )
+		{
+			final RandomAccessibleInterval< UnsignedByteType > missing_uint8 = Converters.convert( imgBacked.getMissingRAI(),
+					( b, u ) -> u.set( b.get() ? 1 : 0 ),
+					new UnsignedByteType() );
+			if ( n5 instanceof ZarrV3KeyValueWriter )
+				/*
+				 * n5-zarr 2.0.1 cannot write Zarr v3 bool arrays (the
+				 * ZarrV3DataType enum has no bool), but the geff spec requires
+				 * the "missing" array to be boolean. Write it directly, as a
+				 * single-chunk uncompressed v3 bool array.
+				 */
+				writeV3BoolDataset( ( ZarrV3KeyValueWriter ) n5, missingPath, missing_uint8 );
+			else
+				writeDataset( n5, missingPath, uint8, compression, chunkSize, missing_uint8 );
+		}
+	}
+
+	/**
+	 * Write a {@code ImgBacked} {@code GeffProperty} into a geff hierarchy.
+	 * <p>
+	 * This will write the {@code "values"} dataset, the {@code "missing"}
+	 * dataset if the property is {@link GeffProperty#isOptional() optional},
+	 * and the {@code "data"} dataset if the property is
+	 * {@link GeffProperty#isVarlength() var-length}.
+	 * <p>
+	 * The {@code optionalDType} allows to specify the endianness for the
+	 * "values" dataset (or the "data" dataset for var-length properties). It
+	 * must correspond to the imglib2 type {@code T} of the property. If ({@code
+	 * optionalDType==null}), the default DType for {@code T} is used.
+	 * <p>
+	 * The "values" dataset for var-length properties is always written as
+	 * {@code "<u8"}. The "missing" dataset is always written as {@code "|b1"}.
+	 *
+	 * @param n5
+	 *            the {@code N5Writer}
+	 * @param property
+	 *            the property to write
+	 * @param paths
+	 *            path to the "values", "missing", and "data" datasets (See
+	 *            {@link #writeProperty(N5Writer, GeffProperty, String, String, String, DType, Compression, int)})
+	 * @param optionalDType
+	 *            the exact {@link DType} (corresponding to {@code T}) to write,
+	 *            or {@code null}
+	 * @param optionalCompression
+	 *            compression to use (or {@code null} for no compression)
+	 * @param chunkSize
+	 *            if {@code >0}, the chunk size in the slowest-moving dimension
+	 *            (last dimension in imglib2 convention, first dimension in
+	 *            numpy convention)
+	 * @param <T>
+	 *            the imglib2 type of the property values
+	 */
+	public static < T extends NativeType< T > > void writeProperty(
+			final N5Writer n5,
+			final GeffProperty< T > property,
+			final DatasetPaths paths,
+			final DType optionalDType, // optional, will use default DType
+										// corresponding to type() if null
+			final Compression optionalCompression, // optional, will use
+													// RawCompression if null
+			final int chunkSize )
+	{
+		writeProperty( n5, property, paths.valuesPath(), paths.missingPath(), paths.dataPath(), optionalDType, optionalCompression, chunkSize );
+	}
+
+	/**
+	 * Write a {@code GeffProperties} into a geff hierarchy.
+	 * <p>
+	 * This will call
+	 * {@link #writeProperty(N5Writer, GeffProperty, DatasetPaths, DType, Compression, int)
+	 * writeProperty()} for every contained property using the default dataset
+	 * paths and Zarr data types. If you need more control, call
+	 * {@link #writeProperty(N5Writer, GeffProperty, String, String, String, DType, Compression, int)}
+	 * for individual properties.
+	 * <p>
+	 * Note that all properties must be {@code ImgBacked}!
+	 *
+	 * @param n5
+	 *            the {@code N5Writer}
+	 * @param properties
+	 *            the properties to write
+	 * @param optionalCompression
+	 *            compression to use (or {@code null} for no compression)
+	 * @param chunkSize
+	 *            if {@code >0}, the chunk size in the slowest-moving dimension
+	 *            (last dimension in imglib2 convention, first dimension in
+	 *            numpy convention)
+	 * @param geffGroup
+	 *            path to the geff hierarchy (relative to container root)
+	 */
+	public static void writeProperties(
+			final N5Writer n5,
+			final GeffProperties properties,
+			final Compression optionalCompression, // optional, will use
+													// RawCompression if null
+			final int chunkSize,
+			final String geffGroup )
+	{
+		final String group = normalizeGroupPath( geffGroup );
+		// The GEFF v1 spec requires the "props" group of a graph group to
+		// exist, even when there are no properties. The group is otherwise
+		// created implicitly as a parent when writing the first property.
+		final String propsGroup = group + properties.elementType().elementGroup() + "/props";
+		if ( !n5.exists( propsGroup ) )
+			n5.createGroup( propsGroup );
+
+		final ElementType elementType = properties.elementType();
+		final Compression compression = optionalCompression != null
+				? optionalCompression
+				: new RawCompression();
+		if ( properties.id() != null )
+			IoUtils.writeProperty( n5, Cast.unchecked( properties.id() ), DatasetPaths.ofId( elementType, geffGroup ), null, compression, chunkSize );
+		for ( final GeffProperty< ? > property : properties.properties().values() )
+			IoUtils.writeProperty( n5, Cast.unchecked( property ), DatasetPaths.ofProperty( property, elementType, geffGroup ), null, compression, chunkSize );
+	}
+
+	public record DatasetPaths( String valuesPath, String missingPath, String dataPath )
+	{
+
+		/**
+		 * Default paths for the given property (relative to container root):
+		 * <ul>
+		 * <li>{@code "[<geffGroup>/]<elementType>/props/<identifier>/values"},</li>
+		 * <li>{@code "[<geffGroup>/]<elementType>/props/<identifier>/missing"}
+		 * (if property is optional), and</li>
+		 * <li>{@code "[<geffGroup>/]<elementType>/props/<identifier>/data"} (if
+		 * property is var-length).</li>
+		 * </ul>
+		 *
+		 * @param property
+		 *            the property to write
+		 * @param elementType
+		 *            which type of element ({@code NODE} or {@code EDGE}) the
+		 *            property refers to
+		 * @param geffGroup
+		 *            path to the geff hierarchy (relative to container root)
+		 */
+		static DatasetPaths ofProperty(
+				final GeffProperty< ? > property,
+				final ElementType elementType,
+				final String geffGroup )
+		{
+			final String group = normalizeGroupPath( geffGroup );
+			final String propsGroup = group + elementType.elementGroup() + "/props/" + property.identifier();
+			return new DatasetPaths( propsGroup + "/values",
+					property.isOptional() ? propsGroup + "/missing" : null,
+					property.isVarlength() ? propsGroup + "/data" : null );
+		}
+
+		/**
+		 * Default paths for the given property (relative to container root):
+		 * <ul>
+		 * <li>{@code "<elementType>/props/<identifier>/values"},</li>
+		 * <li>{@code "<elementType>/props/<identifier>/missing"} (if property
+		 * is optional), and</li>
+		 * <li>{@code "<elementType>/props/<identifier>/data"} (if property is
+		 * var-length).</li>
+		 * </ul>
+		 *
+		 * @param property
+		 *            the property to write
+		 * @param elementType
+		 *            which type of element ({@code NODE} or {@code EDGE}) the
+		 *            property refers to
+		 */
+		static DatasetPaths ofProperty(
+				final GeffProperty< ? > property,
+				final ElementType elementType )
+		{
+			return ofProperty( property, elementType, null );
+		}
+
+		/**
+		 * Default paths for the id property (relative to container root):
+		 * <ul>
+		 * <li>{@code "[<geffGroup>/]<elementType>/ids/values"},</li>
+		 * <li>{@code null},</li>
+		 * <li>{@code null}.</li>
+		 * </ul>
+		 *
+		 * @param elementType
+		 *            which type of element ({@code NODE} or {@code EDGE}) the
+		 *            property refers to
+		 * @param geffGroup
+		 *            path to the geff hierarchy (relative to container root)
+		 */
+		static DatasetPaths ofId(
+				final ElementType elementType,
+				final String geffGroup )
+		{
+			final String group = normalizeGroupPath( geffGroup );
+			final String idsGroup = group + elementType.elementGroup() + "/ids";
+			return new DatasetPaths( idsGroup, null, null );
+		}
+
+		/**
+		 * Default paths for the id property (relative to container root):
+		 * <ul>
+		 * <li>{@code "<elementType>/ids/values"},</li>
+		 * <li>{@code null},</li>
+		 * <li>{@code null}.</li>
+		 * </ul>
+		 *
+		 * @param elementType
+		 *            which type of element ({@code NODE} or {@code EDGE}) the
+		 *            property refers to
+		 */
+		static DatasetPaths ofId( final ElementType elementType )
+		{
+			return ofId( elementType, null );
+		}
+	}
+
+	// ------------------------------------------------------------------------
+	// UTILITIES
+	// ------------------------------------------------------------------------
+
+	/**
+	 * Normalize {@code geffGroup} path such that it can be prepended to a
+	 * dataset path within the geff.
+	 * <p>
+	 * The {@code geffGroup} may be null or {@code ""} (meaning the geff
+	 * hierarchy is located in the container root. In this case, {@code ""} is
+	 * returned.
+	 * <p>
+	 * Otherwise (the geff hierarchy is nested in a subgroup), {@code geffGroup}
+	 * should end in a trailing slash. If there is no trailing slash, we append
+	 * one. Leading slashes, empty components ({@code "//"}) and {@code "."}
+	 * components are dropped; a {@code ".."} component is rejected.
+	 */
+	// package-private for testing; internal API
+	static String normalizeGroupPath( final String geffGroup )
+	{
+		if ( geffGroup == null || geffGroup.isEmpty() )
+			return "";
+
+		// Rebuild from components, rejecting parent references and dropping
+		// empty and current-directory components. This also removes leading
+		// slashes and collapses duplicated slashes.
+		final StringBuilder sb = new StringBuilder();
+		for ( final String component : geffGroup.split( "/" ) )
+		{
+			if ( component.isEmpty() || component.equals( "." ) )
+				continue;
+			if ( component.equals( ".." ) )
+				throw new IllegalArgumentException(
+						"The geff group path \"" + geffGroup + "\" must not contain \"..\" components." );
+			sb.append( component ).append( "/" );
+		}
+		return sb.toString();
+	}
+
+	/**
+	 * Open an {@link N5Reader} on a Zarr container, detecting the Zarr
+	 * specification version: a container root holding a {@code zarr.json}
+	 * file is read as Zarr v3, otherwise as Zarr v2 (the legacy {@code
+	 * .zgroup} / {@code .zarray} / {@code .zattrs} layout).
+	 *
+	 * @param basePath
+	 *            path to the Zarr container root
+	 * @return an {@link N5Reader} for the container
+	 */
+	public static N5Reader openZarrReader( final String basePath )
+	{
+		if ( isZarrV3( basePath ) )
+		{
+			installZarrV3BoolAdapter();
+			return new ZarrV3KeyValueReader( new FileSystemKeyValueAccess(), basePath, new com.google.gson.GsonBuilder(), true );
+		}
+		return new N5ZarrReader( basePath, true );
+	}
+
+	/**
+	 * n5-zarr 2.0.1 does not know the Zarr v3 {@code bool} data type (its
+	 * {@link org.janelia.saalfeldlab.n5.zarr.v3.ZarrV3DataType} enum lacks
+	 * it), so v3 arrays with {@code "data_type": "bool"} are not registered
+	 * and cannot be read. GEFF uses bool arrays exactly once: the optional
+	 * {@code missing} array of a property, which GEFF reads as uint8 and
+	 * converts to a boolean imglib2 type anyway (see {@link #loadProperty}).
+	 * <p>
+	 * This method wraps n5-zarr's {@code ZarrV3DatasetAttributes.jsonAdapter}
+	 * (a public, replaceable static) with a delegate that rewrites {@code
+	 * "data_type": "bool"} metadata to {@code uint8} (same 1-byte layout,
+	 * {@code fill_value} {@code false} → {@code 0}) before parsing. Callers
+	 * that already hold a v3 reader are unaffected: the wrapper is installed
+	 * before the reader is constructed and adapters are captured by
+	 * reference at construction time.
+	 */
+	private static void installZarrV3BoolAdapter()
+	{
+		if ( boolAdapterInstalled )
+			return;
+		boolAdapterInstalled = true;
+		final org.janelia.saalfeldlab.n5.zarr.v3.ZarrV3DatasetAttributes.JsonAdapter original =
+				org.janelia.saalfeldlab.n5.zarr.v3.ZarrV3DatasetAttributes.jsonAdapter;
+		org.janelia.saalfeldlab.n5.zarr.v3.ZarrV3DatasetAttributes.jsonAdapter =
+				new org.janelia.saalfeldlab.n5.zarr.v3.ZarrV3DatasetAttributes.JsonAdapter()
+				{
+					@Override
+					public ZarrV3DatasetAttributes deserialize(
+							final com.google.gson.JsonElement json,
+							final java.lang.reflect.Type typeOfT,
+							final com.google.gson.JsonDeserializationContext context )
+					{
+						if ( json.isJsonObject() )
+						{
+							com.google.gson.JsonObject obj = json.getAsJsonObject();
+							final com.google.gson.JsonElement dataType = obj.get( "data_type" );
+							if ( dataType != null && dataType.isJsonPrimitive() && "bool".equals( dataType.getAsString() ) )
+							{
+								obj = obj.deepCopy();
+								obj.addProperty( "data_type", "uint8" );
+								final com.google.gson.JsonElement fillValue = obj.get( "fill_value" );
+								if ( fillValue != null && fillValue.isJsonPrimitive() )
+									obj.addProperty( "fill_value", fillValue.getAsBoolean() ? 1 : 0 );
+							}
+							return original.deserialize( obj, typeOfT, context );
+						}
+						return original.deserialize( json, typeOfT, context );
+					}
+				};
+	}
+
+	private static volatile boolean boolAdapterInstalled = false;
+
+	/**
+	 * Returns true if the container root at the given path holds a {@code
+	 * zarr.json} file, i.e. is a Zarr v3 container.
+	 */
+	public static boolean isZarrV3( final String basePath )
+	{
+		return Files.exists( Paths.get( basePath ).resolve( "zarr.json" ) );
+	}
+
+	/**
+	 * Create a new Zarr container at the given path, as Zarr v3. GEFF only
+	 * writes Zarr v3 containers; Zarr v2 files are read for backwards
+	 * compatibility only.
+	 *
+	 * @param basePath
+	 *            path to the Zarr container root (created if missing)
+	 * @return an {@link N5Writer} for the container
+	 */
+	public static N5Writer createZarrWriter( final String basePath )
+	{
+		installZarrV3BoolAdapter();
+		// Explicit nulls matter in geff metadata (e.g. unset optional display
+		// hints are written as null); the Zarr v2 writer enabled them via
+		// ZarrKeyValueReader.registerGson, so mirror that here.
+		return new ZarrV3KeyValueWriter( new FileSystemKeyValueAccess(), basePath,
+				new com.google.gson.GsonBuilder().serializeNulls(), true );
+	}
+
+	/**
+	 * Get the {@link DatasetAttributes} of the given {@code Dataset}.
+	 * (Assumes, that the given {@code n5} reads from a Zarr dataset.)
+	 * <p>
+	 * Works for both Zarr v2 ({@link ZarrDatasetAttributes}) and Zarr v3
+	 * ({@link ZarrV3DatasetAttributes}).
+	 */
+	private static DatasetAttributes attrs( final N5Reader n5, final String dataset )
+	{
+		return n5.getDatasetAttributes( dataset );
+	}
+
+	/**
+	 * Get the {@link DType} of a Zarr dataset, for both Zarr v2 (the {@code
+	 * DType} carries the type string directly) and Zarr v3 (a {@link
+	 * ZarrV3DataType} that is mapped back to a little-endian type string).
+	 */
+	private static DType dType( final DatasetAttributes attributes )
+	{
+		if ( attributes instanceof ZarrV3DatasetAttributes )
+			return new DType( typestrs.get( ( ( ZarrV3DatasetAttributes ) attributes ).getDType().getDataType() ), null );
+		return ( ( ZarrDatasetAttributes ) attributes ).getDType();
+	}
+
+	static < T extends NativeType< T > > void writeDataset(
+			final N5Writer n5,
+			final String dataset,
+			final DType dType,
+			final Compression compression,
+			final int chunkSize, // optional (if <= 0, write everything into a
+									// single block)
+			final RandomAccessibleInterval< T > data )
+	{
+		final long[] dimensions = data.dimensionsAsLongArray();
+		final int[] blockSize = Util.long2int( dimensions );
+		if ( chunkSize > 0 )
+			blockSize[ blockSize.length - 1 ] = chunkSize;
+		/*
+		 * Zarr chunk sizes must be strictly positive, even for zero-length
+		 * datasets (e.g. a var-length property whose values are all empty).
+		 * A zero-length dimension with chunk size 1 simply yields zero chunks.
+		 */
+		for ( int d = 0; d < blockSize.length; d++ )
+			if ( blockSize[ d ] < 1 )
+				blockSize[ d ] = 1;
+		final ZarrDatasetAttributes attributes = new ZarrDatasetAttributes(
+				dimensions,
+				blockSize,
+				dType,
+				compression,
+				true,
+				"0" );
+		n5.createDataset( dataset, attributes );
+		/*
+		 * N5Utils.saveRegion() determines the element type of the interval by
+		 * probing its first element (IterableRealInterval#firstElement()),
+		 * which dereferences a RandomAccess even when the interval is empty.
+		 * For a var-length property whose values are all zero-length (e.g. a
+		 * string property where every element is the empty string), the
+		 * backing store has no chunks and that probe crashes with an
+		 * IndexOutOfBoundsException. Skip writing data for empty intervals:
+		 * the dataset created above already encodes the zero size.
+		 */
+		if ( Intervals.numElements( dimensions ) == 0 )
+			return;
+		N5Utils.saveRegion( data, n5, dataset, attributes );
+	}
+
+	/**
+	 * Write a 1-dimensional Zarr v3 boolean dataset directly, bypassing
+	 * n5-zarr, which cannot write the v3 {@code bool} data type (its {@link
+	 * org.janelia.saalfeldlab.n5.zarr.v3.ZarrV3DataType} enum has no bool).
+	 * GEFF uses bool datasets only for the {@code missing} arrays of
+	 * optional properties.
+	 * <p>
+	 * The dataset is written as a single uncompressed chunk holding all
+	 * values (missing arrays are at most one element per graph node, small
+	 * enough for a single chunk), with the default {@code "/"} chunk key
+	 * encoding, so it is a compliant Zarr v3 array that zarr-python reads.
+	 *
+	 * @param n5
+	 *            the Zarr v3 writer
+	 * @param dataset
+	 *            path of the dataset relative to the container root
+	 * @param missing
+	 *            the missing flags, as a 1-dimensional imglib2 interval with
+	 *            one element per graph element (non-zero is missing)
+	 */
+	private static void writeV3BoolDataset(
+			final ZarrV3KeyValueWriter n5,
+			final String dataset,
+			final RandomAccessibleInterval< UnsignedByteType > missing )
+	{
+		final long n = missing.dimension( 0 );
+		final KeyValueAccess access = n5.getKeyValueAccess();
+		final String normalized = N5URI.normalizeGroupPath( dataset );
+
+		// Parent groups. writeProperty writes "values" (and "data") before
+		// "missing", so the parent groups normally exist already; create them
+		// defensively anyway. createGroup() creates all ancestors.
+		final int lastSlash = normalized.lastIndexOf( '/' );
+		n5.createGroup( lastSlash < 0 ? "/" : normalized.substring( 0, lastSlash ) );
+
+		final JsonObject json = new JsonObject();
+		json.addProperty( "zarr_format", 3 );
+		json.addProperty( "node_type", "array" );
+		final JsonArray shape = new JsonArray();
+		shape.add( n );
+		json.add( "shape", shape );
+		json.addProperty( "data_type", "bool" );
+		final JsonObject chunkGrid = new JsonObject();
+		chunkGrid.addProperty( "name", "regular" );
+		final JsonObject chunkGridConf = new JsonObject();
+		final JsonArray chunkShape = new JsonArray();
+		chunkShape.add( Math.max( n, 1 ) ); // chunk sizes must be strictly positive
+		chunkGridConf.add( "chunk_shape", chunkShape );
+		chunkGrid.add( "configuration", chunkGridConf );
+		json.add( "chunk_grid", chunkGrid );
+		final JsonObject chunkKeyEncoding = new JsonObject();
+		chunkKeyEncoding.addProperty( "name", "default" );
+		final JsonObject chunkKeyConf = new JsonObject();
+		chunkKeyConf.addProperty( "separator", "/" );
+		chunkKeyEncoding.add( "configuration", chunkKeyConf );
+		json.add( "chunk_key_encoding", chunkKeyEncoding );
+		json.addProperty( "fill_value", false );
+		final JsonArray codecs = new JsonArray();
+		final JsonObject bytesCodec = new JsonObject();
+		bytesCodec.addProperty( "name", "bytes" );
+		codecs.add( bytesCodec );
+		json.add( "codecs", codecs );
+		json.add( "attributes", new JsonObject() );
+
+		access.createDirectories( access.compose( n5.getURI(), normalized ) );
+		access.write( access.compose( n5.getURI(), normalized, "zarr.json" ), ReadData.from( json.toString().getBytes( StandardCharsets.UTF_8 ) ) );
+
+		if ( n == 0 )
+			return;
+
+		// One chunk with all values: "c/0".
+		final byte[] chunk = new byte[ ( int ) n ];
+		final Cursor< UnsignedByteType > cursor = missing.cursor();
+		int i = 0;
+		while ( cursor.hasNext() )
+			chunk[ i++ ] = cursor.next().get() != 0 ? ( byte ) 1 : ( byte ) 0;
+		access.write( access.compose( n5.getURI(), normalized, "c", "0" ), ReadData.from( chunk ) );
+	}
+
+	/**
+	 * Get the default Zarr {@code DType} to use for writing datasets of the
+	 * given ImgLib2 {@code type}.
+	 * <p>
+	 * For compatibility with python geff the default Zarr DTypes are
+	 * little-endian (in contrast to n5-zarr which uses big-endian by default).
+	 *
+	 * @param type
+	 *            ImgLib2 type
+	 * @return corresponding default DType
+	 */
+	public static < T extends NativeType< T > > DType defaultDType( final T type )
+	{
+		return new DType( typestrs.get( N5Utils.dataType( type ) ), null );
+	}
+
+	/**
+	 * If the requested {@link DType} has a data type different from the
+	 * imglib2 type of the interval (e.g. writing a {@code long}-backed
+	 * property as {@code "<i8"}, as the GEFF mesh specification mandates for
+	 * the "mesh_triangles" data), returns a view of the interval converted to
+	 * the matching imglib2 type. Values are converted one by one through the
+	 * imglib2 {@link IntegerType} accessors, so writing a signed DType for
+	 * values outside the signed range wraps around. Returns the input
+	 * interval unchanged when the data types match, or when the interval is
+	 * empty (there is nothing to convert, and probing the type of an empty
+	 * interval is not possible).
+	 */
+	@SuppressWarnings( { "unchecked", "rawtypes" } )
+	static < T extends NativeType< T > > RandomAccessibleInterval< T > matchDType(
+			final RandomAccessibleInterval< T > img,
+			final DType dType,
+			final T type )
+	{
+		if ( Intervals.numElements( img ) == 0 || dType.getDataType() == N5Utils.dataType( type ) )
+			return img;
+
+		final NativeType< ? > target = switch ( dType.getDataType() )
+		{
+			case INT8 -> new ByteType();
+			case UINT8 -> new UnsignedByteType();
+			case INT16 -> new ShortType();
+			case UINT16 -> new UnsignedShortType();
+			case INT32 -> new IntType();
+			case UINT32 -> new UnsignedIntType();
+			case INT64 -> new LongType();
+			case UINT64 -> new UnsignedLongType();
+			default -> throw new IllegalArgumentException(
+					"Cannot write a property with imglib2 type " + type.getClass().getSimpleName()
+							+ " as DType " + dType + "." );
+		};
+		return ( RandomAccessibleInterval< T > ) Converters.convert(
+				img,
+				( s, t ) -> ( ( IntegerType ) t ).setInteger( ( ( IntegerType ) s ).getIntegerLong() ),
+				( T ) target );
+	}
+
+	// copied from DType, modified to use little-endian
+	private static final EnumMap< DataType, String > typestrs = new EnumMap<>( DataType.class );
+
+	static
+	{
+		typestrs.put( DataType.INT8, "|i1" );
+		typestrs.put( DataType.UINT8, "|u1" );
+		typestrs.put( DataType.INT16, "<i2" );
+		typestrs.put( DataType.UINT16, "<u2" );
+		typestrs.put( DataType.INT32, "<i4" );
+		typestrs.put( DataType.UINT32, "<u4" );
+		typestrs.put( DataType.INT64, "<i8" );
+		typestrs.put( DataType.UINT64, "<u8" );
+		typestrs.put( DataType.FLOAT32, "<f4" );
+		typestrs.put( DataType.FLOAT64, "<f8" );
+		typestrs.put( DataType.STRING, "|O" );
+		typestrs.put( DataType.OBJECT, "|O" );
+	}
+}
