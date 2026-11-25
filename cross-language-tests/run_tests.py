@@ -431,6 +431,146 @@ def test_with_string_props():
     return True
 
 
+def test_with_polygon():
+    """Round-trip of a GEFF file with a 2D polygon property.
+
+    The polygon property is a 2D var-length property: the "values" rows
+    are [offset, n_points, 2] (numpy order) and "data" is the flat
+    interleaved XY. geff-python writes the fixture; geff-java must
+    round-trip it losslessly (check_equiv_geff does not compare data
+    content), and the geff polygon validator must accept the
+    Java-written output.
+
+    The fixture is validator-clean: every present entry has >= 3 points
+    (the polygon validator rejects less), and the degenerate 0-point
+    case is covered by the Java-side VarLengthNdTest.
+    """
+    import numpy as np
+    import zarr
+    from geff.testing.data import create_dummy_in_mem_geff
+    from geff.testing._utils import check_equiv_geff
+    from geff.core_io import write_arrays, read_to_memory
+    from geff.validate.data import validate_data, ValidationConfig
+
+    print("\n" + "=" * 60)
+    print("TEST: GEFF with a 2D polygon property")
+    print("  (Expected: Java round-trips the polygon losslessly and the")
+    print("   geff polygon validator accepts the Java-written output)")
+    print("=" * 60)
+
+    num_nodes = 6
+    original_path = DATA_DIR / "polygon_original.zarr"
+    roundtrip_path = DATA_DIR / "polygon_roundtrip.zarr"
+
+    if original_path.exists():
+        shutil.rmtree(original_path)
+    if roundtrip_path.exists():
+        shutil.rmtree(roundtrip_path)
+
+    print("\n1. Creating mock GEFF with Python...")
+    memory_geff = create_dummy_in_mem_geff(
+        node_id_dtype="uint",
+        node_axis_dtypes={"position": "float64", "time": "float64"},
+        directed=False,
+        num_nodes=num_nodes,
+        num_edges=5,
+        include_z=False,  # 2D graph: the polygon must match the space axes
+    )
+    write_arrays(str(original_path), **memory_geff)
+
+    # Manually add the polygon property, as a client would. Entries with
+    # 3 to 5 points; the first node is missing.
+    rng = np.random.default_rng(7)
+    n_points = [3, 5, 4, 3, 3, 3]
+    missing = np.zeros(num_nodes, dtype=np.bool_)
+    missing[0] = True
+
+    encoded, flat, offset = [], [], 0
+    for i in range(num_nodes):
+        entry = rng.random((n_points[i], 2)).astype(np.float64)
+        encoded.append((offset, *entry.shape))
+        flat.append(entry.ravel())
+        offset += entry.size
+    values = np.asarray(encoded, dtype=np.uint64)
+    data = np.concatenate(flat)
+
+    store = zarr.open(str(original_path), mode="a")
+    store["nodes/props/polygon/values"] = values
+    store["nodes/props/polygon/data"] = data
+    store["nodes/props/polygon/missing"] = missing
+    attrs = store.attrs["geff"]
+    attrs["node_props_metadata"]["polygon"] = {
+        "identifier": "polygon",
+        "dtype": "float64",
+        "varlength": True,
+        "unit": None,
+        "name": None,
+        "description": None,
+    }
+    attrs["polygon"] = "polygon"
+    store.attrs["geff"] = attrs
+    print(f"   Added polygon: {values.shape} values, {data.size} data values, 1 missing node")
+
+    # Sanity check: the geff-python-written fixture itself must validate.
+    memory = read_to_memory(str(original_path))
+    validate_data(memory, ValidationConfig(graph=True, metadata=True, polygon=True))
+    print("   Fixture validates (sanity check).")
+
+    print("\n2. Running Java round-trip...")
+    result = run_java_roundtrip(original_path, roundtrip_path)
+
+    if result.returncode != 0:
+        print(f"\n   JAVA FAILED (exit code {result.returncode})")
+        print("   STDOUT:", result.stdout)
+        print("   STDERR:", result.stderr)
+        return False
+
+    print("   Java completed successfully")
+
+    print("\n3. Comparing original vs round-tripped...")
+    try:
+        check_equiv_geff(str(original_path), str(roundtrip_path))
+    except Exception as e:
+        print(f"   FAILED: {type(e).__name__}: {e}")
+        return False
+
+    # check_equiv_geff compares structure, values shape and dtype only.
+    # The polygon content must be compared explicitly. Note: for a
+    # missing entry the dummy "values" row differs between the two
+    # implementations (geff-python writes [offset, 0, ndim], geff-java
+    # writes an all-zero row), so present rows are compared individually.
+    orig = zarr.open(str(original_path), mode="r")["nodes/props/polygon"]
+    rt = zarr.open(str(roundtrip_path), mode="r")["nodes/props/polygon"]
+
+    ov, rv = orig["values"][:], rt["values"][:]
+    if ov.shape != rv.shape:
+        print(f"   FAILED: values shape differs: {ov.shape} vs {rv.shape}")
+        return False
+    for i in range(num_nodes):
+        if missing[i]:
+            continue
+        if not np.array_equal(ov[i], rv[i]):
+            print(f"   FAILED: values row {i} differs: {ov[i]} vs {rv[i]}")
+            return False
+    if not np.array_equal(orig["data"][:], rt["data"][:]):
+        print("   FAILED: polygon data array differs after round-trip.")
+        return False
+    if not np.array_equal(orig["missing"][:], rt["missing"][:]):
+        print("   FAILED: polygon missing array differs after round-trip.")
+        return False
+    print("   PASSED: values, data and missing arrays are identical.")
+
+    print("\n4. Validating the Java-written output with the polygon validator...")
+    rt_memory = read_to_memory(str(roundtrip_path))
+    if rt_memory["metadata"].polygon != "polygon":
+        print("   FAILED: the geff/polygon metadata attribute was not preserved.")
+        return False
+    validate_data(rt_memory, ValidationConfig(graph=True, metadata=True, polygon=True))
+    print("   PASSED: the Java-written output passes the geff polygon validation!")
+
+    return True
+
+
 def test_with_covariance():
     """Test round-trip of GEFF with covariance2d and covariance3d node properties."""
     import numpy as np
@@ -552,7 +692,17 @@ def main():
     # Skip missing test - has a bug in geff test data generator (edge prop length mismatch)
     # results["missing"] = test_with_missing()
     results["string_props"] = test_with_string_props()
-    results["covariance"] = test_with_covariance()
+    results["polygon"] = test_with_polygon()
+    try:
+        results["covariance"] = test_with_covariance()
+    except Exception as e:
+        # Known issue, owned elsewhere: the test hand-edits the root
+        # .zattrs file, which does not exist in Zarr v3 containers.
+        print(
+            f"\n  ERROR in covariance test (known issue, owned elsewhere):"
+            f" {type(e).__name__}: {e}"
+        )
+        results["covariance"] = False
 
     # Summary
     print("\n" + "=" * 60)
@@ -570,7 +720,7 @@ def main():
 
     # Return non-zero if any critical tests failed
     # Non-critical cases are allowed to differ in known unsupported areas.
-    critical_tests = ["basic_3d", "basic_2d", "covariance"]
+    critical_tests = ["basic_3d", "basic_2d", "polygon", "covariance"]
     critical_passed = all(results.get(t, False) for t in critical_tests)
 
     sys.exit(0 if critical_passed else 1)
